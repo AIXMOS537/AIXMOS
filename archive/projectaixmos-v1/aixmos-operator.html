@@ -1,0 +1,1074 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="AIXMOS operator network — 50/50 partnership, independent, and referral tracks. We manage the spine; you show up where clients need humans." />
+  <title>AIXMOS — Operator Network</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --blue: #1440C4;
+      --bg: #050816;
+      --bg-soft: #0b1024;
+      --surface: rgba(255, 255, 255, 0.06);
+      --surface-strong: rgba(255, 255, 255, 0.1);
+      --border: rgba(255, 255, 255, 0.12);
+      --text: #f4f6ff;
+      --muted: #9aa3c7;
+      --accent: var(--blue);
+      --accent-soft: rgba(20, 64, 196, 0.35);
+      --glow: 0 0 80px rgba(20, 64, 196, 0.35);
+      --radius: 16px;
+      --radius-sm: 12px;
+      --container: min(1120px, 100% - 48px);
+      --nav-h: 72px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+    }
+
+    body {
+      margin: 0;
+      font-family: "DM Sans", system-ui, -apple-system, sans-serif;
+      background: radial-gradient(1200px 600px at 10% -10%, rgba(20, 64, 196, 0.35), transparent 55%),
+        radial-gradient(900px 500px at 90% 0%, rgba(120, 80, 255, 0.18), transparent 50%),
+        var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: inherit; text-decoration: none; }
+
+    .skip-link {
+      position: absolute;
+      left: -9999px;
+      top: auto;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+    }
+    .skip-link:focus {
+      left: 16px;
+      top: 16px;
+      width: auto;
+      height: auto;
+      padding: 10px 14px;
+      background: #fff;
+      color: #000;
+      border-radius: 8px;
+      z-index: 10000;
+    }
+
+    .container {
+      width: var(--container);
+      margin-inline: auto;
+    }
+
+    .site-header {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      backdrop-filter: blur(14px);
+      background: rgba(5, 8, 22, 0.72);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-inner {
+      height: var(--nav-h);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      font-size: 1.05rem;
+    }
+
+    .brand-mark {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--accent), #6b8cff);
+      box-shadow: var(--glow);
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      font-size: 0.95rem;
+      color: var(--muted);
+    }
+
+    .nav-links a:hover { color: var(--text); }
+
+    .nav-ctas {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+      padding: 0 18px;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .btn { transition: none; }
+    }
+
+    .btn-ghost {
+      background: transparent;
+      border-color: var(--border);
+      color: var(--text);
+    }
+    .btn-ghost:hover { border-color: rgba(255, 255, 255, 0.35); }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), #3d6dff);
+      color: #fff;
+      box-shadow: 0 8px 28px rgba(20, 64, 196, 0.45);
+    }
+    .btn-primary:hover { transform: translateY(-1px); }
+    @media (prefers-reduced-motion: reduce) {
+      .btn-primary:hover { transform: none; }
+    }
+
+    .nav-hamburger {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+    }
+
+    .nav-hamburger-lines {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .nav-hamburger-lines span {
+      display: block;
+      width: 20px;
+      height: 2px;
+      background: currentColor;
+      border-radius: 2px;
+    }
+
+    .nav-drawer-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.62);
+      z-index: 90;
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity 0.28s ease, visibility 0.28s ease;
+    }
+
+    .nav-drawer {
+      position: fixed;
+      top: 0;
+      right: 0;
+      height: 100dvh;
+      width: min(88vw, 320px);
+      z-index: 100;
+      background: #ffffff;
+      color: #0a1628;
+      box-shadow: -12px 0 40px rgba(0, 0, 0, 0.22);
+      transform: translateX(100%);
+      transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.32s;
+      visibility: hidden;
+      display: flex;
+      flex-direction: column;
+      padding: calc(var(--nav-h) - 12px) 20px 24px;
+      overflow-y: auto;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .nav-drawer-backdrop,
+      .nav-drawer {
+        transition: none;
+      }
+    }
+
+    body.drawer-open .nav-drawer-backdrop {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+    }
+
+    body.drawer-open .nav-drawer {
+      transform: translateX(0);
+      visibility: visible;
+    }
+
+    .nav-drawer-head {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      margin-bottom: 8px;
+      flex-shrink: 0;
+    }
+
+    .nav-drawer-close {
+      min-width: 44px;
+      min-height: 44px;
+      border-radius: 12px;
+      border: 1px solid rgba(20, 64, 196, 0.25);
+      background: #fff;
+      color: var(--blue);
+      cursor: pointer;
+      font-size: 1.35rem;
+      line-height: 1;
+    }
+    .nav-drawer-close:hover {
+      background: rgba(20, 64, 196, 0.06);
+    }
+
+    .nav-drawer-links {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .nav-drawer-links a {
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      border-radius: 10px;
+      font-weight: 500;
+      color: #0a1628;
+    }
+    .nav-drawer-links a:hover,
+    .nav-drawer-links a:focus-visible {
+      background: rgba(20, 64, 196, 0.08);
+      color: var(--blue);
+      outline: none;
+    }
+
+    .nav-drawer-ctas {
+      margin-top: auto;
+      padding-top: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .nav-drawer-ctas .btn {
+      width: 100%;
+      min-height: 48px;
+    }
+
+    .nav-drawer-ctas .btn-primary {
+      color: #fff;
+      background: var(--blue);
+      border-color: var(--blue);
+      box-shadow: 0 8px 24px rgba(20, 64, 196, 0.35);
+    }
+
+    /* Hero */
+    .hero {
+      padding: clamp(48px, 8vw, 88px) 0 clamp(40px, 8vw, 88px);
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--muted);
+      margin-bottom: 16px;
+    }
+    .eyebrow-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 12px var(--accent);
+    }
+
+    .hero h1 {
+      font-family: "Instrument Serif", Georgia, serif;
+      font-weight: 400;
+      font-size: clamp(2.2rem, 4vw + 1rem, 3.4rem);
+      line-height: 1.08;
+      margin: 0 0 20px;
+      max-width: 18ch;
+    }
+
+    .hero-lead {
+      color: var(--muted);
+      font-size: 1.1rem;
+      max-width: 52ch;
+      margin: 0 0 28px;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    /* Sections */
+    section {
+      padding: clamp(56px, 9vw, 104px) 0;
+    }
+
+    .section-head {
+      max-width: 640px;
+      margin-bottom: 32px;
+    }
+    .section-head h2 {
+      font-family: "Instrument Serif", Georgia, serif;
+      font-weight: 400;
+      font-size: clamp(1.85rem, 2vw + 1.35rem, 2.55rem);
+      margin: 0 0 12px;
+    }
+    .section-head p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 1.05rem;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 14px;
+    }
+
+    .split-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      align-items: start;
+    }
+
+    .card {
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: linear-gradient(160deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+      padding: 28px;
+    }
+
+    .card h3 {
+      margin: 0 0 10px;
+      font-size: 1.1rem;
+    }
+    .card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.96rem;
+    }
+    .card p + p {
+      margin-top: 14px;
+    }
+
+    .track-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+
+    .track-card {
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--bg-soft);
+      padding: 24px;
+    }
+    .track-card.highlight {
+      border-color: rgba(20, 64, 196, 0.55);
+      background: linear-gradient(180deg, rgba(20, 64, 196, 0.2), rgba(5, 8, 22, 0.92));
+      box-shadow: var(--glow);
+    }
+    .track-card h3 { margin: 0 0 8px; font-size: 1.05rem; }
+    .track-card p { margin: 0; color: var(--muted); font-size: 0.94rem; }
+    .track-stat {
+      display: block;
+      margin-top: 14px;
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.02em;
+    }
+    .track-stat span {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--muted);
+      letter-spacing: 0;
+      margin-top: 4px;
+    }
+
+    .table-wrap {
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--surface);
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.92rem;
+      min-width: 640px;
+    }
+
+    caption {
+      padding: 20px 20px 12px;
+      text-align: left;
+      font-weight: 600;
+      color: var(--text);
+      font-size: 1rem;
+    }
+
+    thead th {
+      text-align: left;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      white-space: nowrap;
+    }
+
+    tbody td {
+      padding: 14px 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      color: var(--text);
+    }
+
+    tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    td.num {
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .req-list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .req-list li {
+      position: relative;
+      padding-left: 28px;
+      margin-bottom: 14px;
+      color: var(--muted);
+    }
+    .req-list li::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0.55em;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--blue);
+    }
+
+    .form-card {
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      padding: clamp(24px, 4vw, 36px);
+      background: linear-gradient(145deg, rgba(20, 64, 196, 0.12), var(--surface));
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px 20px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .field-full {
+      grid-column: 1 / -1;
+    }
+
+    label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .hint {
+      font-size: 0.8rem;
+      color: var(--muted);
+      font-weight: 400;
+    }
+
+    input[type="text"],
+    input[type="tel"],
+    input[type="email"],
+    textarea,
+    select {
+      width: 100%;
+      min-height: 48px;
+      padding: 12px 14px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: rgba(5, 8, 22, 0.65);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.95rem;
+    }
+
+    textarea {
+      min-height: 140px;
+      resize: vertical;
+    }
+
+    input:focus-visible,
+    textarea:focus-visible,
+    select:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+      border-color: rgba(20, 64, 196, 0.5);
+    }
+
+    fieldset.track-fieldset {
+      margin: 0;
+      padding: 0;
+      border: 0;
+      grid-column: 1 / -1;
+    }
+
+    fieldset.track-fieldset legend {
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-bottom: 12px;
+      padding: 0;
+    }
+
+    .radio-row {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .radio-label {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 14px 16px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: rgba(5, 8, 22, 0.45);
+      cursor: pointer;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .radio-label input {
+      margin-top: 4px;
+      accent-color: var(--blue);
+    }
+
+    .radio-label small {
+      display: block;
+      font-weight: 400;
+      color: var(--muted);
+      margin-top: 4px;
+      font-size: 0.88rem;
+    }
+
+    .form-actions {
+      margin-top: 24px;
+      grid-column: 1 / -1;
+    }
+
+    .form-actions .btn-primary {
+      width: 100%;
+      min-height: 52px;
+      font-size: 1rem;
+      border: 0;
+    }
+
+    .form-note {
+      margin-top: 14px;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    /* Footer */
+    .site-footer {
+      padding: 40px 0 48px;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    .footer-inner {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .footer-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+    .footer-links a:hover { color: var(--text); }
+
+    @media (max-width: 768px) {
+      :root {
+        --container: min(1120px, 100% - 32px);
+      }
+
+      .nav-links,
+      .nav-ctas { display: none; }
+
+      .nav-hamburger { display: inline-flex; }
+
+      .split-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .track-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .container {
+        width: 100%;
+        max-width: none;
+        margin-inline: 0;
+        padding-inline: 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <div
+    id="nav-drawer-backdrop"
+    class="nav-drawer-backdrop"
+    aria-hidden="true"
+    hidden
+  ></div>
+
+  <div
+    id="nav-drawer"
+    class="nav-drawer"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Mobile navigation"
+    aria-hidden="true"
+    inert
+  >
+    <div class="nav-drawer-head">
+      <button type="button" class="nav-drawer-close" id="nav-drawer-close" aria-label="Close menu">×</button>
+    </div>
+    <nav class="nav-drawer-links" aria-label="Mobile">
+      <a href="index.html">Home</a>
+      <a href="#partnership">50/50</a>
+      <a href="#tracks">Tracks</a>
+      <a href="#commission">Commissions</a>
+      <a href="#requirements">Requirements</a>
+      <a href="#apply">Apply</a>
+    </nav>
+    <div class="nav-drawer-ctas">
+      <a class="btn btn-primary" href="#apply">Start application</a>
+    </div>
+  </div>
+
+  <header class="site-header">
+    <div class="container nav-inner">
+      <a class="brand" href="index.html" aria-label="AIXMOS home">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span>AIXMOS</span>
+      </a>
+
+      <nav class="nav-links" aria-label="Primary">
+        <a href="index.html">Home</a>
+        <a href="#partnership">50/50</a>
+        <a href="#tracks">Tracks</a>
+        <a href="#commission">Commissions</a>
+        <a href="#requirements">Requirements</a>
+        <a href="#apply">Apply</a>
+      </nav>
+
+      <div class="nav-ctas">
+        <a class="btn btn-ghost" href="index.html">Back to landing</a>
+        <a class="btn btn-primary" href="#apply">Apply</a>
+      </div>
+
+      <button
+        type="button"
+        class="nav-hamburger"
+        id="nav-toggle"
+        aria-expanded="false"
+        aria-controls="nav-drawer"
+        aria-label="Open menu"
+      >
+        <span class="nav-hamburger-lines" aria-hidden="true">
+          <span></span><span></span><span></span>
+        </span>
+      </button>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero" aria-labelledby="hero-heading">
+      <div class="container">
+        <p class="eyebrow"><span class="eyebrow-dot" aria-hidden="true"></span> Operator network</p>
+        <h1 id="hero-heading">Join the Network. We Manage. You Execute.</h1>
+        <p class="hero-lead">
+          Plug into an operator-backed spine: AIXMOS runs management, coordination, and the playbook layer — you bring presence, accountability, and the human moments clients remember.
+        </p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="#apply">Apply to operate</a>
+          <a class="btn btn-ghost" href="#commission">See earnings table</a>
+        </div>
+      </div>
+    </section>
+
+    <section id="partnership" aria-labelledby="partnership-heading">
+      <div class="container">
+        <div class="section-head">
+          <span class="pill">50/50 partnership</span>
+          <h2 id="partnership-heading">Aligned incentives, split down the middle.</h2>
+          <p>
+            Built for collaborators who want leverage without reinventing fulfillment — co-sell implementation sprints, share margins on base builds, and keep clients on AIXMOS’s operator-backed spine. We own management: intake, routing, playbook hygiene, and the rhythms that keep deals moving. You own execution: showing up prepared, closing loops with clients, and delivering the human layer where judgment matters.
+          </p>
+        </div>
+        <div class="split-grid">
+          <article class="card">
+            <h3>We manage</h3>
+            <p>
+              Routing, documentation, playbook updates, client comms rhythms, escalation design, and the operational glue that turns a scoped build into something that survives real traffic — same philosophy as scaling behind a consultancy on a supported spine.
+            </p>
+          </article>
+          <article class="card">
+            <h3>You execute</h3>
+            <p>
+              You show up: sessions, on-site judgment, nuanced conversations, QA where models shouldn’t roam alone, and dependable follow-through. When the playbook says human, we hand you clean context — you close the loop.
+            </p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="tracks" aria-labelledby="tracks-heading">
+      <div class="container">
+        <div class="section-head">
+          <span class="pill">Choose your lane</span>
+          <h2 id="tracks-heading">Independent operator vs. referrals.</h2>
+          <p>
+            Operators can prioritize hands-on fulfillment or introductions. Both paths ladder into the same product catalog merchants see on the main site — membership access, LLC kit, white-glove base, and bespoke uplifts when demand calls for them.
+          </p>
+        </div>
+        <div class="track-grid">
+          <article class="track-card highlight">
+            <h3>50/50 partnership</h3>
+            <p>Co-deliver fulfillment with shared responsibility. Margin on eligible offers splits evenly after agreed pass-through costs — AIXMOS carries management overhead.</p>
+            <span class="track-stat">50% <span>of qualifying sale proceeds (typical)</span></span>
+          </article>
+          <article class="track-card">
+            <h3>Independent operator track</h3>
+            <p>
+              For operators who originate and run their own lane under program standards: you keep <strong style="color: var(--text);">100% of earnings</strong> on qualifying scoped work (per your agreement) — AIXMOS supplies rails, governance, and templates instead of taking a revenue split on that lane.
+            </p>
+            <span class="track-stat">100% <span>of eligible earnings on the independent lane</span></span>
+          </article>
+          <article class="track-card">
+            <h3>Referral track</h3>
+            <p>Introduce qualified teams that close on AIXMOS offers. Lightweight involvement after handoff earns a straightforward percentage on attributable revenue.</p>
+            <span class="track-stat">10% <span>commission on referred closures (program terms)</span></span>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="commission" aria-labelledby="commission-heading">
+      <div class="container">
+        <div class="section-head">
+          <span class="pill">Earnings overview</span>
+          <h2 id="commission-heading">What operators earn per list-price tier.</h2>
+          <p>
+            Figures below are illustrative for the standard catalog tiers (matching landing anchors). Formal agreements supersede examples; recurring deals may follow first-cycle or amortized payout rules.
+          </p>
+        </div>
+        <div class="table-wrap">
+          <!-- Values = list price × (50%, 100%, 10%); membership row uses sticker price as reference unit. -->
+          <table>
+            <caption>Illustrative operator earnings by catalog offer list price.</caption>
+            <thead>
+              <tr>
+                <th scope="col">Offer</th>
+                <th scope="col">List price</th>
+                <th scope="col">50/50 partnership (your&nbsp;share)</th>
+                <th scope="col">Independent (your&nbsp;share)</th>
+                <th scope="col">Referral (commission)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Operator access / Launch lane (monthly)</td>
+                <td class="num">$97</td>
+                <td class="num">$48.50</td>
+                <td class="num">$97.00</td>
+                <td class="num">$9.70</td>
+              </tr>
+              <tr>
+                <td>LLC kit</td>
+                <td class="num">$397</td>
+                <td class="num">$198.50</td>
+                <td class="num">$397.00</td>
+                <td class="num">$39.70</td>
+              </tr>
+              <tr>
+                <td>White-glove base build</td>
+                <td class="num">$3,750</td>
+                <td class="num">$1,875</td>
+                <td class="num">$3,750</td>
+                <td class="num">$375</td>
+              </tr>
+              <tr>
+                <td>Accelerated base + integration bundle</td>
+                <td class="num">$9,997</td>
+                <td class="num">$4,998.50</td>
+                <td class="num">$9,997</td>
+                <td class="num">$999.70</td>
+              </tr>
+              <tr>
+                <td>Portfolio operator retainer — quarter</td>
+                <td class="num">$14,997</td>
+                <td class="num">$7,498.50</td>
+                <td class="num">$14,997</td>
+                <td class="num">$1,499.70</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="requirements" aria-labelledby="requirements-heading">
+      <div class="container">
+        <div class="section-head">
+          <span class="pill">Requirements</span>
+          <h2 id="requirements-heading">What makes a standout AIXMOS operator?</h2>
+          <p>We optimize for dependable humans who amplify the playbook — judgment, pacing, and follow-through beat heroics.</p>
+        </div>
+        <div class="card" style="max-width: 720px;">
+          <ul class="req-list">
+            <li><strong style="color: var(--text);">Presence:</strong> You can hold live blocks, onsite or remote, without ghosting timelines.</li>
+            <li><strong style="color: var(--text);">Reliability:</strong> SLA windows and escalation paths matter — we track commitments, not intentions.</li>
+            <li><strong style="color: var(--text);">Communication:</strong> Structured updates beat chaos; terse, honest status is a feature.</li>
+            <li><strong style="color: var(--text);">Operational literacy:</strong> Comfortable with ticketing, CRMs, and annotated handoffs clients can replay.</li>
+            <li><strong style="color: var(--text);">Integrity under ambiguity:</strong> When the model is uncertain, you surface risk instead of smoothing it away.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="apply" aria-labelledby="apply-heading">
+      <div class="container">
+        <div class="section-head">
+          <span class="pill">Application</span>
+          <h2 id="apply-heading">Tell us how you operate.</h2>
+          <p>No backend wired here yet — submissions stay on this device until you connect automation or inbox routing.</p>
+        </div>
+        <!-- Form: GET + action="#" with JS preventDefault so the page does not append query strings to the URL. Swap action for mailto:? or an API endpoint later. -->
+        <form id="operator-form" class="form-card form-grid" action="#" method="get" novalidate>
+          <div class="field">
+            <label for="name">Name</label>
+            <input id="name" name="name" type="text" autocomplete="name" required />
+          </div>
+          <div class="field">
+            <label for="phone">Phone</label>
+            <input id="phone" name="phone" type="tel" autocomplete="tel" required />
+          </div>
+          <div class="field">
+            <label for="email">Email</label>
+            <input id="email" name="email" type="email" autocomplete="email" required />
+          </div>
+          <div class="field">
+            <label for="location">City / State</label>
+            <input id="location" name="city_state" type="text" autocomplete="address-level2" placeholder="e.g. Austin, TX" required />
+          </div>
+          <div class="field field-full">
+            <label for="why">Why do you want to be an operator?</label>
+            <textarea id="why" name="why_operator" rows="5" required placeholder="Brief context on your strengths, geography, domains, availability."></textarea>
+          </div>
+          <fieldset class="track-fieldset field-full">
+            <legend>Which track interests you?</legend>
+            <p id="track-legend-helper" class="hint" style="margin: 0 0 12px;">Select the path that fits how you intend to collaborate.</p>
+            <div class="radio-row">
+              <label class="radio-label">
+                <input type="radio" name="track" value="5050" required />
+                <span>50/50 Partnership <small>Share delivery and margin aligned with spine management.</small></span>
+              </label>
+              <label class="radio-label">
+                <input type="radio" name="track" value="independent" />
+                <span>Independent <small>Higher autonomy; you carry eligible earnings per contract.</small></span>
+              </label>
+              <label class="radio-label">
+                <input type="radio" name="track" value="referral" />
+                <span>Referral <small>Introduce teams; earn 10% on qualifying closures.</small></span>
+              </label>
+            </div>
+          </fieldset>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Submit application</button>
+            <p class="form-note">This demo form does not transmit data. Wire it to your CRM, form handler, or <code style="color: var(--muted);">mailto:</code> when ready.</p>
+          </div>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p>© 2026 AIXMOS. All rights reserved.</p>
+      <nav class="footer-links" aria-label="Footer">
+        <a href="index.html">Home</a>
+        <a href="index.html#services">Plans</a>
+        <a href="index.html#apply">Contact</a>
+        <a href="#apply">Operator application</a>
+      </nav>
+    </div>
+  </footer>
+
+  <script>
+    document.getElementById("operator-form")?.addEventListener("submit", function (e) {
+      e.preventDefault();
+    });
+
+    (function initDrawer() {
+      const body = document.body;
+      const toggle = document.getElementById("nav-toggle");
+      const drawer = document.getElementById("nav-drawer");
+      const backdrop = document.getElementById("nav-drawer-backdrop");
+      const closeBtn = document.getElementById("nav-drawer-close");
+
+      if (!toggle || !drawer || !backdrop) return;
+
+      let lastFocus = null;
+      const focusableSelector =
+        'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])';
+
+      function getFocusables() {
+        return Array.from(drawer.querySelectorAll(focusableSelector)).filter(
+          (el) => el.offsetParent !== null || el === closeBtn
+        );
+      }
+
+      function setOpen(open) {
+        body.classList.toggle("drawer-open", open);
+        toggle.setAttribute("aria-expanded", open ? "true" : "false");
+        toggle.setAttribute("aria-label", open ? "Close menu" : "Open menu");
+        drawer.setAttribute("aria-hidden", open ? "false" : "true");
+        backdrop.setAttribute("aria-hidden", open ? "false" : "true");
+        if (open) {
+          backdrop.hidden = false;
+          drawer.removeAttribute("inert");
+        } else {
+          backdrop.hidden = true;
+          drawer.setAttribute("inert", "");
+        }
+
+        if (open) {
+          lastFocus = document.activeElement;
+          const firstNav = drawer.querySelector(".nav-drawer-links a");
+          const toFocus = firstNav || getFocusables()[0];
+          if (toFocus) toFocus.focus({ preventScroll: true });
+        } else if (lastFocus && typeof lastFocus.focus === "function") {
+          lastFocus.focus({ preventScroll: true });
+        } else {
+          toggle.focus({ preventScroll: true });
+        }
+      }
+
+      function closeDrawer() {
+        setOpen(false);
+      }
+
+      toggle.addEventListener("click", () => {
+        setOpen(!body.classList.contains("drawer-open"));
+      });
+
+      backdrop.addEventListener("click", closeDrawer);
+      if (closeBtn) closeBtn.addEventListener("click", closeDrawer);
+
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && body.classList.contains("drawer-open")) {
+          e.preventDefault();
+          closeDrawer();
+        }
+      });
+
+      drawer.querySelectorAll("a").forEach((link) => {
+        link.addEventListener("click", closeDrawer);
+      });
+
+      drawer.addEventListener("keydown", (e) => {
+        if (e.key !== "Tab" || !body.classList.contains("drawer-open")) return;
+        const focusables = getFocusables();
+        if (!focusables.length) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

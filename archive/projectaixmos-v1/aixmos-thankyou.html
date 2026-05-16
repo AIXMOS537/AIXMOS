@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Thank you — your AIXMOS application was received. Next steps and timeline." />
+  <title>Application received — AIXMOS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --blue: #1440c4;
+      --bg: #050816;
+      --bg-soft: #0b1024;
+      --surface: rgba(255, 255, 255, 0.06);
+      --surface-strong: rgba(255, 255, 255, 0.1);
+      --border: rgba(255, 255, 255, 0.12);
+      --text: #f4f6ff;
+      --muted: #9aa3c7;
+      --accent: var(--blue);
+      --accent-soft: rgba(20, 64, 196, 0.35);
+      --glow: 0 0 80px rgba(20, 64, 196, 0.35);
+      --radius: 16px;
+      --radius-sm: 12px;
+      --container: min(1120px, 100% - 48px);
+      --nav-h: 72px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+    }
+
+    body {
+      margin: 0;
+      font-family: "DM Sans", system-ui, -apple-system, sans-serif;
+      background: radial-gradient(1200px 600px at 10% -10%, rgba(20, 64, 196, 0.35), transparent 55%),
+        radial-gradient(900px 500px at 90% 0%, rgba(120, 80, 255, 0.18), transparent 50%),
+        var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: inherit; text-decoration: none; }
+    a:hover { text-decoration: none; }
+
+    .skip-link {
+      position: absolute;
+      left: -9999px;
+      top: auto;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+    }
+    .skip-link:focus {
+      left: 16px;
+      top: 16px;
+      width: auto;
+      height: auto;
+      padding: 10px 14px;
+      background: #fff;
+      color: #000;
+      border-radius: 8px;
+      z-index: 10000;
+    }
+
+    .container {
+      width: var(--container);
+      margin-inline: auto;
+    }
+
+    .site-header {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      backdrop-filter: blur(14px);
+      background: rgba(5, 8, 22, 0.72);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-inner {
+      height: var(--nav-h);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      font-size: 1.05rem;
+    }
+
+    .brand-mark {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--accent), #6b8cff);
+      box-shadow: var(--glow);
+    }
+
+    .thank-hero {
+      padding: clamp(48px, 8vw, 96px) 0 clamp(40px, 6vw, 72px);
+    }
+
+    .thank-hero h1 {
+      font-family: "Instrument Serif", Georgia, serif;
+      font-weight: 400;
+      font-size: clamp(2.4rem, 4vw + 1rem, 3.6rem);
+      line-height: 1.08;
+      margin: 0 0 20px;
+    }
+
+    .thank-lead {
+      color: var(--muted);
+      font-size: clamp(1rem, 1vw + 0.95rem, 1.15rem);
+      max-width: 52ch;
+      margin: 0;
+    }
+
+    section {
+      padding: clamp(48px, 8vw, 88px) 0;
+    }
+
+    section:not(:first-of-type) {
+      border-top: 1px solid var(--border);
+    }
+
+    .section-head {
+      max-width: 640px;
+      margin-bottom: 36px;
+    }
+
+    .section-head h2 {
+      font-family: "Instrument Serif", Georgia, serif;
+      font-weight: 400;
+      font-size: clamp(1.85rem, 2vw + 1.2rem, 2.5rem);
+      margin: 0 0 10px;
+    }
+
+    .section-head p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 1.02rem;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 14px;
+    }
+
+    .timeline {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: clamp(12px, 2vw, 24px);
+      align-items: stretch;
+    }
+
+    .timeline-step {
+      position: relative;
+      padding: 24px 18px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--surface);
+      text-align: center;
+    }
+
+    .timeline-step::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      right: calc(-1 * clamp(12px, 2vw, 24px) / 2);
+      width: clamp(12px, 2vw, 24px);
+      height: 2px;
+      background: linear-gradient(90deg, var(--border), transparent);
+      transform: translateY(-50%);
+      pointer-events: none;
+    }
+
+    .timeline-step:last-child::after {
+      display: none;
+    }
+
+    .timeline-badge {
+      width: 44px;
+      height: 44px;
+      margin: 0 auto 14px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 1rem;
+      background: linear-gradient(135deg, rgba(20, 64, 196, 0.35), rgba(20, 64, 196, 0.12));
+      border: 1px solid rgba(20, 64, 196, 0.45);
+      color: #dbe4ff;
+    }
+
+    .timeline-when {
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+
+    .timeline-step p {
+      margin: 0;
+      font-size: 0.95rem;
+      color: var(--text);
+    }
+
+    .wait-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      align-items: stretch;
+    }
+
+    .wait-card {
+      padding: 24px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--bg-soft);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .wait-card h3 {
+      margin: 0;
+      font-size: 1.05rem;
+    }
+
+    .wait-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+      flex: 1;
+    }
+
+    .wait-card a {
+      margin-top: 4px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: var(--accent);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      text-decoration-color: rgba(20, 64, 196, 0.5);
+    }
+
+    .wait-card a:hover {
+      color: #8aa6ff;
+      text-decoration-color: rgba(138, 166, 255, 0.8);
+    }
+
+    .wait-card a:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+      border-radius: 4px;
+    }
+
+    .site-footer {
+      padding: 40px 0 48px;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .footer-inner {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .footer-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+
+    .footer-links a:hover {
+      color: var(--text);
+    }
+
+    @media (max-width: 900px) {
+      .timeline {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .timeline-step::after {
+        display: none;
+      }
+    }
+
+    @media (max-width: 768px) {
+      :root {
+        --container: min(1120px, 100% - 32px);
+      }
+
+      .wait-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .timeline {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .container {
+        width: 100%;
+        max-width: none;
+        margin-inline: 0;
+        padding-inline: 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="container nav-inner">
+      <a class="brand" href="./index.html" aria-label="AIXMOS home">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span>AIXMOS</span>
+      </a>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="container thank-hero">
+      <h1>Application Received.</h1>
+      <p class="thank-lead">
+        <strong>CHUMMO has your intake. An operator will reach out within 24 hours.</strong>
+      </p>
+    </div>
+
+    <section class="timeline-section" aria-labelledby="timeline-heading">
+      <div class="container">
+        <div class="section-head">
+          <span class="pill">Timeline</span>
+          <h2 id="timeline-heading">What happens next</h2>
+          <p>A simple sequence so you know when to expect each milestone.</p>
+        </div>
+        <div class="timeline" role="list">
+          <article class="timeline-step" role="listitem">
+            <div class="timeline-badge" aria-hidden="true">1</div>
+            <p class="timeline-when">24hrs</p>
+            <p>Operator assigned</p>
+          </article>
+          <article class="timeline-step" role="listitem">
+            <div class="timeline-badge" aria-hidden="true">2</div>
+            <p class="timeline-when">48hrs</p>
+            <p>Pathway built</p>
+          </article>
+          <article class="timeline-step" role="listitem">
+            <div class="timeline-badge" aria-hidden="true">3</div>
+            <p class="timeline-when">Day 7</p>
+            <p>First check-in</p>
+          </article>
+          <article class="timeline-step" role="listitem">
+            <div class="timeline-badge" aria-hidden="true">4</div>
+            <p class="timeline-when">Day 90</p>
+            <p>$10K/month target</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="wait-section" aria-labelledby="wait-heading">
+      <div class="container">
+        <div class="section-head">
+          <span class="pill">While you wait</span>
+          <h2 id="wait-heading">Stay close to the lane</h2>
+          <p>Explore the community and surface area while we pair you with an operator.</p>
+        </div>
+        <div class="wait-grid">
+          <article class="wait-card">
+            <h3>Join our community</h3>
+            <p>Connect with other operators and builders shipping on the same spine.</p>
+            <a href="#">Join our community</a>
+          </article>
+          <article class="wait-card">
+            <h3>Follow us on Instagram</h3>
+            <p>See launches, workflow clips, and behind-the-scenes from the lab.</p>
+            <a href="#">Follow us on Instagram</a>
+          </article>
+          <article class="wait-card">
+            <h3>Learn about your operator</h3>
+            <p>How assignment works and what to prepare before your first call.</p>
+            <a href="#">Learn about your operator</a>
+          </article>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p>© 2026 AIXMOS. All rights reserved.</p>
+      <nav class="footer-links" aria-label="Footer">
+        <a href="./index.html#services">Plans</a>
+        <a href="./index.html#apply">Contact</a>
+        <a href="./index.html#partner">Operator application</a>
+      </nav>
+    </div>
+  </footer>
+</body>
+</html>
