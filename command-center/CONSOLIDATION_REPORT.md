@@ -27,9 +27,16 @@ Desktop symlinks: `~/Desktop/TMMT MANAGEMENT` → command center, `~/Desktop/AIX
 - No `.env` / `.env.local` (secret scan clean)
 - Clone tools: `prepare-three-drives.sh`, `clone-to-flash.sh`
 
+## Merged after 2026-05-16
+
+| Item | Path |
+|------|------|
+| Credit / corporate build pack | `credit_business_corporate_system/` |
+| CHUMMO flash stack | `ops/chummo-stack/` (excludes `node_modules`) |
+
 ## Not merged (personal / media — stay in BROTHER I)
 
-AIRBNB, Photos, PICTURES, VIDEOS, CHUMMOCLAUDEOS, Dispute Letters, nested Desktop/Downloads duplicates, etc.
+AIRBNB, Photos, PICTURES, VIDEOS, Dispute Letters, nested Desktop/Downloads duplicates, etc.
 
 ## Lexar
 
