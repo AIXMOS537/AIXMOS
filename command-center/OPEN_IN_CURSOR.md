@@ -29,7 +29,10 @@
 | `TMMT MANAGEMENT/` | AI_BRAIN, AUTOMATIONS, tmmt-os |
 | `docs/INVESTOR_ONE_PAGER.md` | Investor narrative + unit economics placeholders |
 | `agents/` | Agent instruction markdown files |
-| `ops/moose-stack/` | CHUMMO/MOOSE Node stack (`start-moose-mac.sh`) |
+| `ops/moose-stack/` | MOOSE multi-agent brain (`start-moose-mac.sh`) |
+| `ops/chummo-stack/` | CHUMMO messaging + local portal (`serve.js`) |
+| `credit_business_corporate_system/` | Cursor build pack + Milestone 1 status |
+| `all_in_one_platform/` | Milestone 1 static OS shells (`npm run dev`) |
 | `docs/LOCAL_AI_FLEET_FAST_TRACK_CLAUDE_READY.md` | Multi-machine + Ollama fleet setup |
 
 ## Ollama

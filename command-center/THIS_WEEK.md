@@ -2,6 +2,7 @@
 
 **Week of:** May 16–22, 2026  
 **Workspace:** `~/Desktop/AIX_Command_Center`  
+**Today:** **Sunday, May 17** — see [`STATUS_UPDATE.md`](./STATUS_UPDATE.md)  
 **Rule:** Check boxes as you complete. Regenerate brief each morning (see Daily).
 
 ---
@@ -15,7 +16,8 @@
 | Bookings | [customer] + [customer] + rental pipeline doc | 🟡 Started |
 | Investors | Deck slides 9–11 + model S0 + 1–2 calls | 🟡 Started |
 
-**Live brief:** [`DAILY_BRIEF_2026-05-16.md`](./TMMT%20MANAGEMENT/OPERATIONS/DAILY_BRIEF_2026-05-16.md) (Supabase snapshot restored)  
+**Today's brief:** [`DAILY_BRIEF_2026-05-17.md`](./TMMT%20MANAGEMENT/OPERATIONS/DAILY_BRIEF_2026-05-17.md) (tasks only)  
+**Live ops data:** [`DAILY_BRIEF_2026-05-16.md`](./TMMT%20MANAGEMENT/OPERATIONS/DAILY_BRIEF_2026-05-16.md) (19 overdue — until Supabase reconnects)  
 **Today’s queue:** [`TODAY_COLLECTIONS.md`](./TMMT%20MANAGEMENT/OPERATIONS/TODAY_COLLECTIONS.md) · [`COMMAND_CENTER.md`](./TMMT%20MANAGEMENT/OPERATIONS/COMMAND_CENTER.md)
 
 ---
@@ -25,8 +27,8 @@
 - [x] Brief restored from live Supabase snapshot (2026-05-16)
 - [x] `COMMAND_CENTER.md` + `TODAY_COLLECTIONS.md` ready
 - [ ] Run [`OWNER_DAILY_COMMAND.md`](./OWNER_DAILY_COMMAND.md)
-- [ ] Regenerate brief: `cd "TMMT MANAGEMENT" && python3 AUTOMATIONS/SCRIPTS/daily_command_center.py`  
-  *(If empty data: use restored brief until Supabase connects)*
+- [x] Regenerate brief (2026-05-17 — Supabase still offline; use 05-16 for overdue/leads)
+- [ ] Run [`OWNER_DAILY_COMMAND.md`](./OWNER_DAILY_COMMAND.md) **today**
 - [ ] Complete **≥1** collection call/text ([`TODAY_COLLECTIONS.md`](./TMMT%20MANAGEMENT/OPERATIONS/TODAY_COLLECTIONS.md))
 - [ ] EOD: update **COMMAND_CENTER** → Wins / Problems / Carryover
 
@@ -98,8 +100,8 @@
 
 | Day | Focus |
 |-----|--------|
-| **Sat 16** | Owner daily + collections #1–2 + [customer] lead |
-| **Sun 17** | Collections #3–4 + brief regen |
+| **Sat 16** | Owner daily + collections #1–2 + [customer] lead *(carryover if not done)* |
+| **Sun 17** ← **TODAY** | Collections #3–4 + [customer] if open + [customer]/[customer] |
 | **Mon 18** | Collection #5 + 2 oil changes + [customer] JV |
 | **Tue 19** | GHL overdue workflow + 2 oil changes + financial model |
 | **Wed 20** | SOP owners + rental pipeline doc + deck slides 9–11 |
@@ -117,4 +119,4 @@
 - [x] `RENTAL_GHL_PIPELINE.md` + `LEAD_FOLLOWUPS_THIS_WEEK.md` + `MAINTENANCE_WEEK_SCHEDULE.md`
 - [x] Supabase brief restored to `OPERATIONS/DAILY_BRIEF_2026-05-16.md`
 
-*Last updated: 2026-05-16*
+*Last updated: 2026-05-17 — see `STATUS_UPDATE.md`*
