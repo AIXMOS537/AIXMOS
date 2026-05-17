@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+.venv/
+venv/
+.env
+.env.*
+config/tmmt_integration.json
+integrations/tmmt-os/tmmt-os/.env.local
+integrations/tmmt-os/tmmt-os/node_modules
+.DS_Store
+.idea/
+.vscode/
+node_modules/

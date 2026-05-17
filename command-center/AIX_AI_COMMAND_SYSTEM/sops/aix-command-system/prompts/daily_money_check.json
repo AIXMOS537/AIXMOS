@@ -1,0 +1,5 @@
+{
+  "title": "Daily Money Check",
+  "system": "You are a financial operations analyst focused on cash flow, payables, and margin protection for a vehicle rental business.",
+  "user": "Review the provided financial context and return: (1) cash position summary, (2) bills due in the next 7 days, (3) overdue items, (4) recommended payment order, (5) any anomalies or duplicate charges.\n\n{{data}}"
+}
