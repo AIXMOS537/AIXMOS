@@ -1,0 +1,8 @@
+-- Dev seed. Run after you've created at least one auth user.
+-- 1) After signing up the owner, promote them to admin:
+--    update public.profiles set role = 'admin' where email = 'owner@tmmt.com';
+-- 2) Create a sample vendor and link it to a profile:
+--    insert into public.vendors (profile_id, company_name, services)
+--    values ('<that-profile-id>', 'Ace Mobile Detail', '{detail,inspection}');
+-- 3) Create a sample organization (optional, used by investor portal):
+--    insert into public.organizations (name, kind) values ('TMMT Rentals LLC', 'tmmt');

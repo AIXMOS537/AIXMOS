@@ -1,0 +1,18 @@
+{
+  "name": "aixmos-agents",
+  "version": "1.0.0",
+  "description": "AIXMOS local agent framework and brain orchestrator.",
+  "main": "moose.js",
+  "scripts": {
+    "start": "node moose.js",
+    "brain": "node brain.js",
+    "check": "node --check moose.js && node --check brain.js && node --check shared-utils.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.96.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "private": true
+}

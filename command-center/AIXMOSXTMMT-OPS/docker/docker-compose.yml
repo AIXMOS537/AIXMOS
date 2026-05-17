@@ -1,0 +1,18 @@
+services:
+  n8n:
+    image: n8nio/n8n:latest
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    env_file:
+      - ../.env
+    environment:
+      - N8N_HOST=localhost
+      - N8N_PROTOCOL=http
+      - WEBHOOK_URL=http://localhost:5678/
+      - GENERIC_TIMEZONE=${GENERIC_TIMEZONE:-America/Chicago}
+    volumes:
+      - ${ROOT}/data/n8n:/home/node/.n8n
+      - ${ROOT}/config/autonomy.yaml:/ai/agents/policy/autonomy.yaml:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

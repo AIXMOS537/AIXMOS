@@ -1,0 +1,54 @@
+level: A
+version: 1
+
+green:
+  clickup:
+    - update_task_status
+    - add_internal_comment
+    - set_priority
+    - assign_to_self
+    - create_subtask
+  supabase:
+    - insert_update_all_tables
+  airtable:
+    - insert_update_records
+  nas:
+    - read_write_under_ai_root
+    - move_file
+    - create_folder
+  calendar:
+    - provider: google
+      actions: [create_event, update_event, delete_event]
+      constraints: { guests_allowed: false, attendees_max: 0 }
+    - provider: microsoft
+      actions: [create_event, update_event, delete_event]
+      constraints: { guests_allowed: false, attendees_max: 0 }
+
+yellow:
+  - ghl_send_sms
+  - ghl_send_email
+  - ghl_move_opportunity_stage_external
+  - gmail_send
+  - outlook_send
+  - clickup_comment_with_mention
+  - calendar_invite_with_guests
+
+red:
+  - ghl_broadcast
+  - payment_or_refund
+  - contract_signature
+  - delete_production_data
+  - pricing_policy_change
+
+yellow_approvers:
+  - operator
+
+va_cannot:
+  - approve_queue
+  - ghl_send
+  - email_send
+  - n8n_edit
+  - supabase_admin
+
+routing:
+  primary_calendar: google
