@@ -1,0 +1,60 @@
+{
+  "name": "cron_overdue_to_tmmt",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "cronExpression", "expression": "0 7 * * *" }]
+        }
+      },
+      "id": "schedule",
+      "name": "Daily 7am",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "command": "python3 AUTOMATIONS/SCRIPTS/push_overdue_to_ghl.py",
+        "cwd": "/path/to/TMMT MANAGEMENT"
+      },
+      "id": "note",
+      "name": "Run push script (configure path)",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [280, -120]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.TMMT_OPS_URL }}/api/webhooks/ghl/overdue",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-GHL-Secret", "value": "={{ $env.GHL_WEBHOOK_SECRET }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}"
+      },
+      "id": "http",
+      "name": "POST overdue (per item)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [280, 0],
+      "disabled": true
+    }
+  ],
+  "connections": {
+    "Daily 7am": {
+      "main": [[]]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "meta": {
+    "template": "Wire to push_overdue_to_ghl.py on host, or loop HTTP with ghl_overdue_payment.example.json payloads"
+  }
+}
