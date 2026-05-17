@@ -17,7 +17,7 @@ See `README.md` for install. Claude Code: execute phases **P0 → P5** in order.
 ## P2 — Clock app
 
 - [ ] `npm run clock:dev`
-- [ ] Run `sql/002_rls_clock.sql`
+- [ ] Run `sql/002_rls_clock.sql` then `sql/004_team_wall_select.sql` (team wall read)
 - [ ] Seed `team_members` rows
 
 ## P3 — Core agents
