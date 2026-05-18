@@ -12,6 +12,7 @@
 
 | Path | Use |
 |------|-----|
+| **`TMMT MANAGEMENT/INTEGRATIONS/GHL_AGENCY_SETUP_TODAY.md`** | **Agency: pipeline + WF-07 + WF-00 today** |
 | **`WEEK_1_GHL_WHATSAPP.md`** | **Week 1: connect WhatsApp + pipeline + overdue workflow** |
 | **`CHANNEL_STACK_GHL_WHATSAPP_SLACK.md`** | **Your stack: WhatsApp rentals · GHL hub · Slack credit** |
 | **`CHANNEL_SETUP_GUIDE.md`** | **All channels + Telegram/iMessage optional** |
