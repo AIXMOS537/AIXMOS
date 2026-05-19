@@ -34,7 +34,7 @@ One app is built and deployed: **TMMT Rentals**.
 
 - Deployment steps and required environment variables: see `DEPLOY.md` in the
   `AIXMOS537/TMMT` repo.
-- Vercel project URL: _add here once the project is connected._
+- Vercel project: **`tmmt-c919`** (already connected; pushes auto-deploy).
 - The older `tmmt-os` prototype was retired — see
   [`archive/TMMT_OS_ARCHIVE_NOTE.md`](./archive/TMMT_OS_ARCHIVE_NOTE.md).
 
