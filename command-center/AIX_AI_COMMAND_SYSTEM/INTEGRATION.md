@@ -13,7 +13,7 @@ Connect the command system to **your existing TMMT Airtable base**, **Supabase p
 
 Airtable’s API accepts **table IDs** (like `tbl4gndUYeiOUWYRR`) or table names. After you add `AIRTABLE_API_KEY`, run `./scripts/aix integrate discover-airtable` to see human-readable names and fix `config/tmmt_integration.json` if any guessed names are wrong.
 
-See also `config/AIRTABLE_BASE.md` and **`integrations/TMMT_OS.md`** (your Next.js app from `tmmt-os.zip`).
+See also `config/AIRTABLE_BASE.md`. The TMMT Rentals app is the private repo `AIXMOS537/TMMT` (deployed on Vercel).
 
 ## Your Supabase project (configured)
 

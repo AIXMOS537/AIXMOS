@@ -112,6 +112,6 @@ Paste morning output into AI → act on top 3 only. See [`ONE_PAGE_START.md`](./
 | [`PRIORITY_PLAN_ALL_PILLARS.md`](./PRIORITY_PLAN_ALL_PILLARS.md) | 90-day all-pillar plan |
 | [`MONEY_COMMAND_CENTER.md`](./AIX_AI_COMMAND_SYSTEM/MONEY_COMMAND_CENTER.md) | Bills, cards, leaks, weekly CFO review |
 | [`TMMT MANAGEMENT/OPERATIONS/COMMAND_CENTER.md`](./TMMT%20MANAGEMENT/OPERATIONS/COMMAND_CENTER.md) | Tasks, follow-ups, decisions, EOD notes |
-| [`OPEN_IN_CURSOR.md`](./OPEN_IN_CURSOR.md) | Folder path + first files |
+| [`OPEN_IN_CURSOR.md`](./guides/OPEN_IN_CURSOR.md) | Folder path + first files |
 
 *Established operator: maintain cash and fleet daily; build investor and dealer proof in parallel—no waiting period.*
