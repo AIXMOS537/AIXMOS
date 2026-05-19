@@ -49,4 +49,4 @@ After updating TMMT OS, redeploy to Vercel so `/api/status` is live.
 
 ---
 
-**More:** `INTEGRATION.md` · `integrations/TMMT_OS.md` · `START_HERE.md`
+**More:** `INTEGRATION.md` · `START_HERE.md`

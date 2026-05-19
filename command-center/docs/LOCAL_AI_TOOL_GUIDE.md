@@ -149,7 +149,7 @@ From `<USB>` after `install.sh` / `install.bat`:
 | Web UI | `node CHUMMOCLAUDEOS/serve.js` → http://localhost:3000 |
 | Menu | `node CHUMMOCLAUDEOS/drive-agent.js` |
 
-See root **`INSTALL.md`** for paths and FAT32 notes.
+See **`guides/INSTALL.md`** for paths and FAT32 notes.
 
 ---
 
@@ -189,7 +189,7 @@ Need OpenAI-specific toolchain?
 
 | File | Purpose |
 |------|---------|
-| `INSTALL.md` | Node setup, launchers, FAT32 |
+| `guides/INSTALL.md` | Node setup, launchers, FAT32 |
 | `you-have-the-right-hardware-for/LOCAL_AI_FLEET_FAST_TRACK_CLAUDE_READY.md` | Multi-machine fleet runbook |
 | `you-have-the-right-hardware-for/USB_README_START_HERE.md` | Hardware/USB orientation |
 
