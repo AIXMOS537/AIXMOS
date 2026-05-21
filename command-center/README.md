@@ -4,7 +4,7 @@ Owner's work command center: agents, tools, configs.
 
 ## Quick links
 
-- **Operating guide:** [`OPERATING_GUIDE.md`](OPERATING_GUIDE.md)
+- **Operating guide:** `OPERATING_GUIDE.md` — written in Task 11 of the v1 build
 - **v1 spec (brain-dump → ClickUp):** see `~/Documents/TMMT/docs/superpowers/specs/2026-05-21-brain-dump-clickup-agent-design.md`
 - **v1 plan:** see `~/Documents/TMMT/docs/superpowers/plans/2026-05-21-brain-dump-clickup-agent.md`
 
