@@ -1,10 +1,19 @@
 """Pure logic for the brain-dump → ClickUp tool. Open WebUI imports from this."""
 import json
+import re
 from pathlib import Path
 
 import requests
 
 CLICKUP_API_BASE = "https://api.clickup.com/api/v2"
+
+_TOKEN_PATTERN = re.compile(r"pk_[A-Za-z0-9_-]+")
+
+
+def _safe_error_excerpt(text: str) -> str:
+    """Truncate to 80 chars and redact anything that looks like a ClickUp token."""
+    excerpt = text[:80]
+    return _TOKEN_PATTERN.sub("pk_REDACTED", excerpt)
 
 
 def load_ventures(ventures_path: Path) -> list[dict]:
@@ -53,7 +62,7 @@ def create_task_for_venture(
     )
     if response.status_code >= 300:
         raise RuntimeError(
-            f"ClickUp API returned {response.status_code}: {response.text[:200]}"
+            f"ClickUp API returned {response.status_code}: {_safe_error_excerpt(response.text)}"
         )
 
     payload = response.json()
