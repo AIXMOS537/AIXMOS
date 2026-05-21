@@ -1,15 +1,16 @@
+# Secrets
 .env
 .env.local
-.env.production
-!.env.example
-!.env.*.example
 
-node_modules/
-.venv/
+# Python
 __pycache__/
 *.pyc
+.venv/
+.pytest_cache/
+
+# macOS
 .DS_Store
 ._*
 
-outputs/
-*.log
+# Local notes
+*.local.md
