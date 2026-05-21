@@ -95,3 +95,51 @@ def test_create_task_for_venture_omits_due_date_when_not_provided(mocker):
 
     body = mock_post.call_args.kwargs["json"]
     assert "due_date" not in body
+
+
+import pytest
+
+
+def test_create_task_raises_on_unknown_venture(mocker):
+    mock_post = mocker.patch("clickup_client.requests.post")
+    with pytest.raises(ValueError, match="Unknown venture slug"):
+        create_task_for_venture(
+            token="pk_test",
+            ventures_path=FIXTURE_PATH,
+            venture_slug="does-not-exist",
+            title="t",
+            description="d",
+            assignee_id=1,
+        )
+    mock_post.assert_not_called()
+
+
+def test_create_task_raises_on_clickup_api_error(mocker):
+    mock_post = mocker.patch("clickup_client.requests.post")
+    mock_post.return_value.status_code = 401
+    mock_post.return_value.text = "Unauthorized"
+
+    with pytest.raises(RuntimeError, match="ClickUp API returned 401"):
+        create_task_for_venture(
+            token="pk_bad",
+            ventures_path=FIXTURE_PATH,
+            venture_slug="tmmt-rentals",
+            title="t",
+            description="d",
+            assignee_id=1,
+        )
+
+
+def test_create_task_raises_on_archived_venture(mocker):
+    """Archived ventures are filtered out by load_ventures, so lookup should fail."""
+    mock_post = mocker.patch("clickup_client.requests.post")
+    with pytest.raises(ValueError, match="Unknown venture slug: 'archived-thing'"):
+        create_task_for_venture(
+            token="pk_test",
+            ventures_path=FIXTURE_PATH,
+            venture_slug="archived-thing",
+            title="t",
+            description="d",
+            assignee_id=1,
+        )
+    mock_post.assert_not_called()
