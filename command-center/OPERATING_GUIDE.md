@@ -55,6 +55,8 @@ When you launch business #2 (or any future venture):
 | Agent reply contains `{"error": "ClickUp API returned 401"}` | The token is wrong or expired. Re-generate via ClickUp → Settings → Apps → API Token. |
 | Agent reply contains `{"error": "ClickUp API returned 429"}` | Rate-limited. Wait 60 seconds and re-paste the brain-dump. |
 | URLs work but no tasks appear in ClickUp | You're looking at the wrong list. The list ID in `ventures.json` may not be the TMMT Rentals list — re-check Task 1 Step 3 of the v1 plan. |
+| Agent reply contains `FileNotFoundError: ...ventures.json` | Open WebUI is running in Docker and can't find `ventures.json` at the default `~/AIX-Command-Center/config/ventures.json` path inside the container. Fix: open the tool in Open WebUI → Workspace → Tools → TMMT Command Center → Valves → set `VENTURES_PATH` to the absolute path **inside the container** (e.g. `/app/backend/aix_command_center/config/ventures.json`). Make sure the docker-compose mount actually includes `config/` — extend the volume in the home PC's `docker-compose.yml` to `${HOME}/AIX-Command-Center:/app/backend/aix_command_center:ro` if needed. |
+| Agent reply contains `{"error": "Network error: ..."}` | Open WebUI couldn't reach `api.clickup.com` — DNS, firewall, or proxy issue on the home PC. Confirm with `docker exec -it open-webui curl -I https://api.clickup.com`. |
 | Open WebUI URL won't load | Tailscale isn't connected, OR Open WebUI isn't running on the home PC. SSH in and run `docker compose ps`. |
 
 ## What's coming next (per the v1 spec)
