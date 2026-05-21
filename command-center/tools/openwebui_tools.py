@@ -8,13 +8,12 @@ import os
 from pathlib import Path
 from typing import Optional
 
+import requests
 from pydantic import BaseModel, Field
 
 # When installed in Open WebUI's tools dir, clickup_client must be importable.
 # In dev, set PYTHONPATH to the tools/ folder.
 from clickup_client import create_task_for_venture, load_ventures
-
-VENTURES_PATH = Path(os.path.expanduser("~/AIX-Command-Center/config/ventures.json"))
 
 
 class Tools:
@@ -27,6 +26,10 @@ class Tools:
             default=0,
             description="Numeric ClickUp user id to assign tasks to. Required.",
         )
+        VENTURES_PATH: str = Field(
+            default=os.path.expanduser("~/AIX-Command-Center/config/ventures.json"),
+            description="Absolute path to ventures.json. Override when running in Docker if the mount differs from the host path.",
+        )
 
     def __init__(self):
         self.valves = self.Valves()
@@ -36,7 +39,7 @@ class Tools:
 
         :return: list of {slug, name, default_tag} for each active venture
         """
-        ventures = load_ventures(VENTURES_PATH)
+        ventures = load_ventures(Path(self.valves.VENTURES_PATH))
         return [
             {"slug": v["slug"], "name": v["name"], "default_tag": v["default_tag"]}
             for v in ventures
@@ -67,7 +70,7 @@ class Tools:
         try:
             return create_task_for_venture(
                 token=self.valves.CLICKUP_API_TOKEN,
-                ventures_path=VENTURES_PATH,
+                ventures_path=Path(self.valves.VENTURES_PATH),
                 venture_slug=venture_slug,
                 title=title,
                 description=description,
@@ -79,3 +82,5 @@ class Tools:
             return {"error": str(e)}
         except RuntimeError as e:
             return {"error": str(e)}
+        except requests.exceptions.RequestException as e:
+            return {"error": f"Network error: {e}"}

@@ -143,3 +143,44 @@ def test_create_task_raises_on_archived_venture(mocker):
             assignee_id=1,
         )
     mock_post.assert_not_called()
+
+
+def test_error_excerpt_redacts_clickup_token(mocker):
+    """Token must not leak into RuntimeError messages."""
+    mock_post = mocker.patch("clickup_client.requests.post")
+    mock_post.return_value.status_code = 401
+    mock_post.return_value.text = 'Unauthorized: invalid token pk_thisIsTheLeakedSecret_abc123'
+
+    import pytest as _pytest
+    with _pytest.raises(RuntimeError) as exc_info:
+        create_task_for_venture(
+            token="pk_test",
+            ventures_path=FIXTURE_PATH,
+            venture_slug="tmmt-rentals",
+            title="t",
+            description="d",
+            assignee_id=1,
+        )
+
+    msg = str(exc_info.value)
+    assert "pk_thisIsTheLeakedSecret" not in msg
+    assert "pk_REDACTED" in msg
+    assert "401" in msg
+
+
+def test_create_task_for_venture_omits_priority_when_not_provided(mocker):
+    mock_post = mocker.patch("clickup_client.requests.post")
+    mock_post.return_value.status_code = 200
+    mock_post.return_value.json.return_value = {"id": "xyz", "url": "https://app.clickup.com/t/xyz"}
+
+    create_task_for_venture(
+        token="pk_test",
+        ventures_path=FIXTURE_PATH,
+        venture_slug="tmmt-rentals",
+        title="No priority",
+        description="task",
+        assignee_id=12345678,
+    )
+
+    body = mock_post.call_args.kwargs["json"]
+    assert "priority" not in body
