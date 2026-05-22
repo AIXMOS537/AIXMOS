@@ -434,6 +434,8 @@ verify_kit() {
     fi
   } > "$report"
 
+  clean_kit_metadata "$drive"
+
   [[ -z "$bad" ]] || {
     echo "Verification failed for $drive. See $report" >&2
     return 1
@@ -452,6 +454,7 @@ build_drive() {
     clean_kit_metadata "$drive"
     write_manifest "$drive" "$role"
     write_checksums "$drive"
+    clean_kit_metadata "$drive"
   fi
   verify_kit "$drive" "$role"
   log "done: $drive ($role)"
