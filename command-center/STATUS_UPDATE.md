@@ -37,7 +37,7 @@
 
 | Blocker | Action |
 |---------|--------|
-| Supabase empty in script | Verify project URL/keys in `AUTOMATIONS/CONFIG/daily_command_center.json`; test in TMMT OS |
+| Supabase empty in script | Add `SUPABASE_KEY` to `AIX_AI_COMMAND_SYSTEM/.env`; run `./scripts/aix integrate status --probe` to confirm |
 | No collection checkoffs | Owner calls — reply with "[customer] done" etc. to update checklist |
 | Lexar not plugged | Sync when mounted: `AIX_AI_COMMAND_SYSTEM/scripts/sync-to-lexar.sh` |
 

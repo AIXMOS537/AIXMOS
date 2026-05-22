@@ -9,6 +9,12 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).resolve().parent / ".env")
+except ImportError:
+    pass
+
 ROOT = Path(__file__).resolve().parent
 PROMPTS_DIR = ROOT / "prompts"
 AIRTABLE_TEMPLATES_DIR = ROOT / "airtable_templates"
