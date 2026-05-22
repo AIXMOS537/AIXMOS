@@ -377,6 +377,18 @@ write_checksums() {
   ) > "$kit/checksums/SHA256SUMS.txt"
 }
 
+clean_kit_metadata() {
+  local drive="$1"
+  local kit
+  kit="$(kit_path "$drive")"
+  if [[ "$MODE" == "--dry-run" ]]; then
+    log "[dry-run] clean metadata $kit"
+    return 0
+  fi
+  find "$kit" \( -name '._*' -o -name '.DS_Store' \) -print0 2>/dev/null |
+    xargs -0 rm -f
+}
+
 verify_kit() {
   local drive="$1"
   local role="$2"
@@ -437,6 +449,7 @@ build_drive() {
   write_kit_docs "$drive" "$role"
   if [[ "$MODE" != "--verify-only" ]]; then
     sync_common_sources "$drive" "$role"
+    clean_kit_metadata "$drive"
     write_manifest "$drive" "$role"
     write_checksums "$drive"
   fi

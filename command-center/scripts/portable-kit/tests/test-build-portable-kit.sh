@@ -72,6 +72,9 @@ make_source() {
 make_volumes() {
   local root="$1"
   mkdir -p "$root/AIXMOS02" "$root/CYBORG" "$root/LEXAR"
+  mkdir -p "$root/AIXMOS02/AIXMOS-PORTABLE-KIT/AI-OPS-STARTER"
+  printf 'stale root metadata\n' > "$root/AIXMOS02/AIXMOS-PORTABLE-KIT/._root"
+  printf 'stale metadata\n' > "$root/AIXMOS02/AIXMOS-PORTABLE-KIT/AI-OPS-STARTER/._old"
 }
 
 SOURCE_ROOT="$TMP_ROOT/source"
@@ -97,6 +100,8 @@ for drive in AIXMOS02 CYBORG LEXAR; do
   assert_file "$kit/checksums/SHA256SUMS.txt"
   assert_file "$kit/reports/verification.txt"
   assert_contains "$kit/reports/verification.txt" "PASS"
+  assert_not_exists "$kit/._root"
+  assert_not_exists "$kit/AI-OPS-STARTER/._old"
   assert_not_exists "$kit/work/TMMT/.env"
   assert_not_exists "$kit/work/TMMT/node_modules"
   assert_not_exists "$kit/work/TMMT/.next"
