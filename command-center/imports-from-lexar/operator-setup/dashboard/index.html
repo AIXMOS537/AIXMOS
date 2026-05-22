@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Operator Dashboard</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background: #111; color: #eee; }
+    h1 { margin-bottom: 0.25rem; }
+    button { margin: 4px; padding: 10px 14px; border: none; border-radius: 6px; background: #0f62fe; color: #fff; cursor: pointer; }
+    button:hover { background: #0353e9; }
+    select, input, textarea { width: 100%; margin: 6px 0; padding: 10px; border-radius: 6px; border: 1px solid #444; background: #1e1e1e; color: #eee; }
+    textarea { min-height: 280px; font-family: monospace; white-space: pre-wrap; }
+    .panel { margin-bottom: 18px; padding: 16px; background: #181818; border: 1px solid #333; border-radius: 10px; }
+    .row { display: flex; gap: 12px; flex-wrap: wrap; }
+    .row > * { flex: 1; min-width: 220px; }
+  </style>
+</head>
+<body>
+  <h1>Operator Dashboard</h1>
+  <p>Use this page to launch the mentorship operator workflow, view prompts, and inspect the 90-day plan.</p>
+
+  <div class="panel">
+    <h2>Quick actions</h2>
+    <div class="row">
+      <button onclick="runDaily()">Daily check-in</button>
+      <button onclick="loadPlan()">Show 90-day plan</button>
+      <button onclick="loadPrompt('master')">Master prompt</button>
+      <button onclick="loadPrompt('daily')">Daily prompt</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Lesson viewer</h2>
+    <button onclick="loadLessons()">Load lesson list</button>
+    <select id="lessonSelect"></select>
+    <button onclick="loadLesson()">Show lesson</button>
+  </div>
+
+  <div class="panel">
+    <h2>Mentorship PDF preview</h2>
+    <button onclick="showPdf()">Show mentorship blueprint PDF</button>
+    <div style="margin-top:12px;">
+      <iframe id="pdfView" style="width:100%; min-height:520px; border:1px solid #333; border-radius:10px; display:none;"></iframe>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Codex task</h2>
+    <input id="codexTask" placeholder="Write a 3-point follow-up message for rental leads" />
+    <button onclick="runCodex()">Run low-token Codex</button>
+  </div>
+
+  <div class="panel">
+    <h2>Output</h2>
+    <textarea id="output"></textarea>
+  </div>
+
+  <script>
+    async function fetchText(path) {
+      const res = await fetch(path);
+      if (!res.ok) {
+        document.getElementById('output').value = `Error ${res.status}: ${res.statusText}`;
+        return '';
+      }
+      return await res.text();
+    }
+
+    async function runDaily() {
+      document.getElementById('output').value = 'Running daily check-in...';
+      document.getElementById('output').value = await fetchText('/api/daily');
+    }
+
+    async function loadPlan() {
+      document.getElementById('output').value = 'Loading 90-day plan...';
+      document.getElementById('output').value = await fetchText('/api/plan');
+    }
+
+    async function loadPrompt(name) {
+      document.getElementById('output').value = `Loading prompt ${name}...`;
+      document.getElementById('output').value = await fetchText(`/api/prompt?name=${name}`);
+    }
+
+    async function loadLessons() {
+      const text = await fetchText('/api/list');
+      const lessons = text.split('\n').filter(Boolean);
+      const select = document.getElementById('lessonSelect');
+      select.innerHTML = '';
+      lessons.forEach(item => {
+        const opt = document.createElement('option');
+        opt.value = item;
+        opt.innerText = item;
+        select.appendChild(opt);
+      });
+      document.getElementById('output').value = text;
+    }
+
+    async function loadLesson() {
+      const lesson = document.getElementById('lessonSelect').value;
+      if (!lesson) return;
+      document.getElementById('output').value = `Loading lesson ${lesson}...`;
+      document.getElementById('output').value = await fetchText(`/api/lesson?name=${encodeURIComponent(lesson)}`);
+    }
+
+    async function showPdf() {
+      const iframe = document.getElementById('pdfView');
+      iframe.src = '/dashboard/static/Dashan_High_Ticket_Offer_Blueprint_MENTORSHIP_PROGRAM.pdf';
+      iframe.style.display = 'block';
+      document.getElementById('output').value = 'Loading PDF preview...';
+    }
+
+    async function runCodex() {
+      const task = document.getElementById('codexTask').value.trim();
+      if (!task) {
+        document.getElementById('output').value = 'Enter a task first.';
+        return;
+      }
+      document.getElementById('output').value = 'Running Codex task...';
+      document.getElementById('output').value = await fetchText(`/api/codex?task=${encodeURIComponent(task)}`);
+    }
+
+    window.addEventListener('load', loadLessons);
+  </script>
+</body>
+</html>

@@ -1,0 +1,5 @@
+{
+  "title": "Away — Weekly Owner Report",
+  "system": "You compile a weekly owner report for a fleet rental business. Use plain language and highlight trends, not just events.",
+  "user": "Create a weekly owner report covering revenue, utilization, maintenance spend, team performance, customer issues, and decisions needed next week.\n\n{{data}}"
+}

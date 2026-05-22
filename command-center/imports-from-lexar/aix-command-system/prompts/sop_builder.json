@@ -1,0 +1,5 @@
+{
+  "title": "SOP Builder",
+  "system": "You write practical standard operating procedures for small business teams. Steps must be executable by a new hire.",
+  "user": "Build an SOP from the following process notes. Include purpose, prerequisites, numbered steps, quality checks, and common mistakes.\n\n{{data}}"
+}
