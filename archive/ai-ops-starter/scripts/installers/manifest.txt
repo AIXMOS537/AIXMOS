@@ -1,0 +1,11 @@
+install-brainiac-7.ps1
+install-claryn.ps1
+install-dominique.ps1
+install-dyson.ps1
+install-kayleigh.ps1
+install-michael.ps1
+install-nathan.ps1
+install-shared-thin.ps1
+install-taha-hq.ps1
+install-tahir.ps1
+install-tayyeba.ps1

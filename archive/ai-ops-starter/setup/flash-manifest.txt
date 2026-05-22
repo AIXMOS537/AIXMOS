@@ -1,0 +1,32 @@
+# Flash drive install kit manifest
+# PRIMARY channel — see docs/TEAM-SELF-INSTALL.md
+# INCLUDED: full project + .git (offline history) + scripts/installers/
+# EXCLUDED: .env (secrets), data/ (runtime), dist/ (zip built to AI-OPS-RELEASES/)
+
+START-HERE-FLASH.md
+docs/TEAM-SELF-INSTALL.md
+VERSION
+scripts/installers/
+README.md
+README-FLASH.txt              (generated on verify)
+OPEN-ME-FIRST.txt             (generated on verify)
+.git/                         (offline history — git log works on USB)
+
+docker-compose.yml
+.env.example
+install-windows.ps1
+install-mac.sh
+docs/DEPLOY-ORDER.md
+docs/mobile-voice-command-center.md
+docs/auto-response-playbook.md
+docs/team-roster.md
+setup/operators/registry.yaml
+setup/mac/MACBOOK-SETUP.md
+setup/phone/
+n8n/voice-memo-to-task.json
+n8n/inbound-message-draft-response.json
+agents/
+scripts/
+n8n/
+nas/
+# ... full tree per sync-to-flash (everything except excludes above)

@@ -1,0 +1,95 @@
+{
+  "name": "Unanswered Question → Escalate Taha",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "hours", "hoursInterval": 4 }]
+        }
+      },
+      "id": "schedule-check",
+      "name": "Every 4 Hours",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://127.0.0.1:5678/webhook-test/pending-questions",
+        "options": {}
+      },
+      "id": "fetch-pending",
+      "name": "Fetch Pending Questions",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 300],
+      "notes": "Replace with your queue source: DB, file on NAS, or webhook store"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.age_hours }}",
+              "rightValue": 4,
+              "operator": { "type": "number", "operation": "gte" }
+            }
+          ]
+        }
+      },
+      "id": "filter-stale",
+      "name": "Older Than 4h",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [700, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:11434/api/generate",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"llama3.2\",\n  \"stream\": false,\n  \"prompt\": \"You are Operator aboard Brainiac 7. Summarize this unanswered question for human escalation to Taha. Include: question, asked_by, age_hours, suggested_next_step. Concise.\\n\\n\" + JSON.stringify($json)\n}"
+      },
+      "id": "ollama-summary",
+      "name": "Ollama Escalation Summary",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [920, 200]
+    },
+    {
+      "parameters": {
+        "content": "=ESCALATION TO TAHA\n\n{{ $json.response }}\n\n---\nConfigure Slack/email in this node when ready.",
+        "options": {}
+      },
+      "id": "notify-taha",
+      "name": "Notify Taha",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1140, 200],
+      "notes": "Replace with Slack/Email node; set ESCALATION_SLACK_WEBHOOK in .env"
+    }
+  ],
+  "connections": {
+    "Every 4 Hours": {
+      "main": [[{ "node": "Fetch Pending Questions", "type": "main", "index": 0 }]]
+    },
+    "Fetch Pending Questions": {
+      "main": [[{ "node": "Older Than 4h", "type": "main", "index": 0 }]]
+    },
+    "Older Than 4h": {
+      "main": [
+        [{ "node": "Ollama Escalation Summary", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Ollama Escalation Summary": {
+      "main": [[{ "node": "Notify Taha", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "meta": {
+    "description": "Brainiac 7 — polls stale questions; Operator summary; wire Notify to Slack/email for Taha"
+  }
+}
