@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>AIXMOS Agent Network — User Guide</title>
+<style>
+  @page { size: Letter; margin: 0.75in 0.85in; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body {
+    font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+    font-size: 10.5pt; line-height: 1.45; color: #1a1a1a;
+    max-width: 7in; margin: 0 auto;
+  }
+  h1 { font-size: 22pt; color: #0a2540; margin: 1.5em 0 0.4em; border-bottom: 2px solid #0a2540; padding-bottom: 0.2em; page-break-before: auto; }
+  h1:first-of-type { page-break-before: avoid; margin-top: 0; }
+  h2 { font-size: 15pt; color: #0a4d7a; margin: 1.6em 0 0.4em; border-bottom: 1px solid #cdd5e0; padding-bottom: 0.15em; page-break-after: avoid; }
+  h3 { font-size: 12pt; color: #0a4d7a; margin: 1.3em 0 0.3em; page-break-after: avoid; }
+  h4 { font-size: 11pt; color: #333; margin: 1.0em 0 0.2em; }
+  p  { margin: 0.5em 0; }
+  ul, ol { margin: 0.4em 0 0.6em 1.2em; padding: 0; }
+  li { margin: 0.15em 0; }
+  code { font-family: "Cascadia Code", Consolas, monospace; font-size: 9.5pt; background: #f1f3f7; padding: 1px 4px; border-radius: 3px; }
+  pre.code { background: #0a2540; color: #e6edf3; padding: 0.7em 0.9em; border-radius: 4px; overflow-x: auto; font-size: 9pt; line-height: 1.4; page-break-inside: avoid; }
+  pre.code code { background: transparent; color: inherit; padding: 0; }
+  table { width: 100%; border-collapse: collapse; margin: 0.6em 0; font-size: 9.5pt; page-break-inside: avoid; }
+  th { background: #0a2540; color: white; text-align: left; padding: 0.4em 0.6em; }
+  td { border-bottom: 1px solid #e0e4ec; padding: 0.35em 0.6em; vertical-align: top; }
+  tr:nth-child(even) td { background: #f7f9fc; }
+  blockquote { border-left: 3px solid #0a4d7a; padding: 0.3em 0.9em; margin: 0.6em 0; background: #f5f7fb; color: #333; font-style: italic; }
+  hr { border: none; border-top: 1px solid #cdd5e0; margin: 1.2em 0; }
+  a { color: #0a4d7a; text-decoration: none; }
+</style>
+</head><body>
+<h1>AIXMOS Agent Network — User Guide</h1>
+<p>A 10-agent operations toolkit for TMMT / AIXMOS. Runs as Node.js processes on Windows, talks to either Claude (cloud) or Ollama (local) for reasoning. This guide covers daily use and how to extend the system.</p>
+<hr/>
+<h2>1. Quick Start</h2>
+<p>You have a USB labelled <strong>CYBORG</strong> (drive letter varies — usually <code>D:</code> or <code>E:</code>). The agents live in <code>&amp;lt;USB&amp;gt;\AIXMOS-AGENTS\</code>.</p>
+<h3>The 3-second path</h3>
+<ol><li>Plug the USB into a Windows PC.</li><li>Open the <code>AIXMOS-AGENTS</code> folder.</li><li>Double-click <strong><code>START-HERE.bat</code></strong>.</li><li>Pick one of:</li></ol>
+<p>   - <strong>1 — INSTALL</strong> → copies the agents to <code>C:\Users\&amp;lt;you&amp;gt;\AIXMOS</code>, creates Desktop launchers. <em>Best for the laptop you actually work on.</em>    - <strong>2 — RUN FROM USB</strong> → runs agents directly off the USB. <em>Best for borrowed/temporary PCs.</em>    - <strong>3 — OFFLINE MODE</strong> → installs Ollama + local model so the agents work without internet. <em>Optional.</em></p>
+<p>After install, your Desktop has:</p>
+<ul><li><code>AIXMOS.bat</code> — master orchestrator menu (all 10 agents).</li><li><code>AIXMOS-LAUNCHERS\</code> — one <code>.bat</code> per agent for one-click runs.</li></ul>
+<h3>Smoke test</h3>
+<p>Double-click <code>Desktop\AIXMOS-LAUNCHERS\RUN-AGENT-TESTS.bat</code>. Expect <strong>47/49 pass</strong> out of the box. The 2 failures are environment-only:</p>
+<ul><li><code>tank:docker-available</code> — Docker Desktop not running (TANK <code>--up</code> needs it).</li><li><code>sticks:env</code> — <code>SUPABASE_URL</code> not set (STICKS <code>--scan</code> needs Supabase).</li></ul>
+<p>Both are fine to leave for now — agents respond fine without them.</p>
+<hr/>
+<h2>2. The 10 Agents</h2>
+<p>Every agent has a system prompt in <code>agents/prompts.js</code>. They share a <code>BUSINESS_CONTEXT</code> block (revenue is car rentals via TMMT Auto Services; Level A escalation; owner-only escalations for insurance, unpleasant CX, and pitfalls).</p>
+<h3>CHUMMO — Customer comms</h3>
+<blockquote><strong>C</strong>ommunicates <strong>H</strong>uman-first <strong>U</strong>nified <strong>M</strong>obility <strong>M</strong>ember <strong>O</strong>perations.</blockquote>
+<p>Drafts every outbound customer message in your voice. Friend-first, no corporate openers, name first, one CTA, SMS under 160 chars when possible. Output is <em>only</em> the message; CHUMMO ends with a <code>MOOSE_HANDOFF:</code> line telling MOOSE what internal task this triggers.</p>
+<ul><li><strong>Launcher:</strong> <code>Desktop\AIXMOS-LAUNCHERS\CHUMMO.bat</code></li><li><strong>Direct:</strong> <code>node orchestrator.js chummo</code></li></ul>
+<h3>MOOSE — Ops execution</h3>
+<blockquote><strong>M</strong>oves <strong>O</strong>perations <strong>O</strong>rchestrates <strong>S</strong>yncs <strong>E</strong>xecutes.</blockquote>
+<p>Executes reversible internal ops without hesitation. Returns numbered tasks with an owner + timing (<code>TODAY</code> / <code>24H</code> / <code>THIS WEEK</code>) on every line. Ends with <code>CAPTAIN_HANDOFF:</code>.</p>
+<ul><li><strong>Launcher:</strong> <code>MOOSE.bat</code></li><li><strong>Direct:</strong> <code>node moose.js</code></li></ul>
+<h3>CAPTAIN — Command &amp; routing</h3>
+<blockquote><strong>C</strong>ommand <strong>A</strong>uthority for <strong>P</strong>riorities, <strong>T</strong>iming, <strong>A</strong>nd <strong>N</strong>avigation.</blockquote>
+<p>Moves the rubik's-cube: cars, money, agents, customers, deals, docs, time. Outputs a <code>COMMAND BRIEF</code> with priority stack, resource moves, team routing, and a 🚨 escalate-to-owner block (only if insurance / bad CX / pitfalls).</p>
+<ul><li><strong>Launcher:</strong> <code>CAPTAIN.bat</code></li><li><strong>Direct:</strong> <code>node captain.js</code></li></ul>
+<h3>WONDER WOMAN — Trust defender</h3>
+<blockquote><strong>W</strong>atch <strong>O</strong>ver <strong>N</strong>eeds, <strong>D</strong>efend, <strong>E</strong>scalate, <strong>R</strong>esolve.</blockquote>
+<p>Fixes trust-breaking situations. Moral check + long-term-fit check before any potentially harmful action. Says "This is not a good idea" when it isn't. Output line: <code>ACTION | MESSAGE | SEND VIA | TIMING | OWNER | IF NO RESPONSE</code>.</p>
+<ul><li><strong>Launcher:</strong> <code>WONDER-WOMAN.bat</code></li><li><strong>Direct:</strong> <code>node wonderwoman.js</code></li></ul>
+<h3>VISION — Governance / go-no-go</h3>
+<p>Long-term-fit reviewer. Verdict is one of <code>GO ✅</code> / <code>HOLD ⚠️</code> / <code>NO-GO ❌</code> with a one-line reason and the long-term-fit assessment. If <code>HOLD</code>, lists what must be true to proceed.</p>
+<ul><li><strong>Launcher:</strong> <code>VISION.bat</code></li><li><strong>Direct:</strong> <code>node vision.js</code></li></ul>
+<h3>JARVIS — Speaks for the owner</h3>
+<p>The orchestrator that talks for Muhammad Taha so he stops repeating himself. Explains payouts, the business model, day-to-day, bottlenecks — in his voice (direct, respectful, no fluff). Classifies an incoming request, names primary + support agents, gives ordered execution steps. Does <strong>not</strong> vote on the 5-panel.</p>
+<ul><li><strong>Launcher:</strong> <code>JARVIS.bat</code></li><li><strong>Direct:</strong> <code>node jarvis.js</code></li></ul>
+<h3>TANK — Heavy infrastructure</h3>
+<p>Owns Docker hub-brain, n8n, Supabase / tmmt-os, Vercel deploys, migrations, env wiring. Outputs numbered steps with exact commands. Flags blockers. Ends with <code>BOB_HANDOFF:</code>.</p>
+<ul><li><strong>Launchers:</strong> <code>TANK.bat</code> (menu), or directly: <code>node tank.js --up</code> / <code>--down</code> / <code>--status</code></li><li><strong>Requires:</strong> Docker Desktop running for <code>--up</code>.</li></ul>
+<h3>FLY GUY — Customer comms support</h3>
+<p>Drafts under CHUMMO voice rules but never overrides CHUMMO. One CTA, never corporate. Ends with <code>CHUMMO_HANDOFF:</code> so CHUMMO can polish or queue for Level A.</p>
+<ul><li><strong>Launcher:</strong> <code>FLY-GUY.bat</code></li><li><strong>Direct:</strong> <code>node flyguy.js</code></li></ul>
+<h3>BOB — Audit &amp; docs</h3>
+<p>Logs what happened, what was decided, who owns follow-up. Outputs <code>AUDIT LOG</code> + <code>DOC UPDATES NEEDED</code> (bullets). Use this when you want a paper trail of an agent decision.</p>
+<ul><li><strong>Launcher:</strong> <code>BOB.bat</code></li><li><strong>Direct:</strong> <code>node bob.js</code></li></ul>
+<h3>STICKS — SLA &amp; monitoring</h3>
+<p>Rentals-first SLA dashboard. Tracks overdue and stuck requests across 🔴 CRITICAL / 🟡 AT RISK / 🟢 ON TRACK. Ends with <code>CAPTAIN_HANDOFF:</code> when routing is needed.</p>
+<ul><li><strong>Launchers:</strong> <code>STICKS.bat</code> (menu), <code>node sticks.js --scan</code> (Supabase scan), <code>node sticks.js --push-ghl</code> (GHL webhook).</li><li><strong>Requires:</strong> <code>SUPABASE_URL</code> + <code>SUPABASE_SERVICE_ROLE_KEY</code> for <code>--scan</code>.</li></ul>
+<h3>Other launchers</h3>
+<ul><li><code>MORNING-BRIEF.bat</code> — daily briefing (uses <code>briefing.js</code>). Scheduled at 7 AM by the installer if you opted in.</li><li><code>BRAIN-ASK.bat</code> / <code>BRAIN-STATUS.bat</code> — central "AI brain" helpers (<code>brain-ask.js</code>, <code>brain-status.js</code>).</li><li><code>RUN-AGENT-TESTS.bat</code> — full smoke test (<code>test-all-agents.js --live</code>).</li></ul>
+<hr/>
+<h2>3. Installation</h2>
+<h3>Plug-and-play (recommended)</h3>
+<ol><li>Plug the CYBORG USB into the PC.</li><li>Open <code>AIXMOS-AGENTS\</code> and double-click <code>START-HERE.bat</code>.</li><li>Choose mode 1 (INSTALL).</li><li>When asked, paste your <code>ANTHROPIC_API_KEY</code> (get one at https://console.anthropic.com).</li><li>Optionally schedule the 7 AM morning brief.</li></ol>
+<p>The installer:</p>
+<ul><li>Mirrors the entire tree to <code>%USERPROFILE%\AIXMOS</code> (via <code>robocopy /MIR</code>, preserving <code>aixmos-state.json</code>).</li><li>Confirms <code>node_modules</code> exists or runs <code>npm install</code>.</li><li>Saves the API key with <code>setx</code> (User scope; survives reboots).</li><li>Creates <code>Desktop\AIXMOS.bat</code> + 14 launchers in <code>Desktop\AIXMOS-LAUNCHERS\</code>.</li><li>Optionally creates a Task Scheduler entry for the morning brief.</li></ul>
+<h3>Manual install</h3>
+<pre class="code lang-powershell"><code>robocopy D:\AIXMOS-AGENTS C:\Users\&lt;you&gt;\AIXMOS /MIR /XF aixmos-state.json
+cd C:\Users\&lt;you&gt;\AIXMOS
+npm install
+setx ANTHROPIC_API_KEY "sk-ant-..."
+node test-all-agents.js --live</code></pre>
+<h3>Prerequisites</h3>
+<table><thead><tr><th>Required</th><th>Notes</th></tr></thead><tbody><tr><td><strong>Node.js LTS</strong></td><td>Use the bundled <code>_installers\node-v24.15.0-x64.msi</code> if missing.</td></tr><tr><td><strong>ANTHROPIC_API_KEY</strong></td><td>Set via <code>setx</code> or paste during installer. Not needed if you only use offline mode.</td></tr><tr><td><strong>Internet</strong></td><td>Required for Claude backend. Not required for Ollama backend.</td></tr><tr><td>Optional: Docker Desktop</td><td>Needed only for TANK <code>--up</code> (spinning up hub-brain).</td></tr><tr><td>Optional: Supabase creds</td><td>Needed only for STICKS <code>--scan</code>.</td></tr><tr><td>Optional: GHL webhook secret</td><td>Needed only for STICKS <code>--push-ghl</code>.</td></tr><tr><td>Optional: Ollama runtime</td><td>Needed only for offline LLM mode.</td></tr></tbody></table>
+<hr/>
+<h2>4. Online vs Offline LLM mode</h2>
+<p>The agents pick a backend at runtime from <code>AIXMOS_LLM_BACKEND</code>:</p>
+<table><thead><tr><th>Value</th><th>What it does</th></tr></thead><tbody><tr><td><code>claude</code> <em>(default)</em></td><td>Anthropic cloud API. Uses <code>ANTHROPIC_API_KEY</code>.</td></tr><tr><td><code>ollama</code></td><td>Local Ollama runtime at <code>OLLAMA_HOST</code> (default <code>http://localhost:11434</code>). Model name from <code>OLLAMA_MODEL</code>.</td></tr><tr><td><code>auto</code></td><td>Tries Claude first; falls back to Ollama if cloud fails.</td></tr></tbody></table>
+<h3>Quality vs cost tradeoff</h3>
+<table><thead><tr><th>Aspect</th><th>Claude Sonnet 4.6</th><th>Llama 3.1 8B</th><th>Phi-3 Mini</th></tr></thead><tbody><tr><td>Voice/brand quality (CHUMMO, FLY GUY)</td><td>★★★★★</td><td>★★★</td><td>★★</td></tr><tr><td>Analytical quality (BOB, STICKS, VISION)</td><td>★★★★★</td><td>★★★★</td><td>★★★</td></tr><tr><td>Speed per response</td><td>2–5s</td><td>10–25s (CPU) / 2–8s (GPU)</td><td>3–10s (CPU)</td></tr><tr><td>Disk size</td><td>none</td><td>~4.7 GB</td><td>~2.3 GB</td></tr><tr><td>Internet</td><td>required</td><td>none after pull</td><td>none after pull</td></tr><tr><td>First-time setup</td><td>API key only</td><td>install Ollama + <code>ollama pull llama3.1:8b</code></td><td>install Ollama + <code>ollama pull phi3:mini</code></td></tr></tbody></table>
+<p><strong>Recommendation:</strong> stay on <code>claude</code> for daily customer-facing work; switch to <code>ollama</code> only when offline. Set <code>AIXMOS_LLM_BACKEND=auto</code> for hands-free fallback.</p>
+<h3>Switching modes</h3>
+<pre class="code lang-powershell"><code># Permanent (User env, survives reboot)
+setx AIXMOS_LLM_BACKEND "ollama"
+setx OLLAMA_MODEL "llama3.1:8b"
+
+# Session-only
+$env:AIXMOS_LLM_BACKEND = "claude"</code></pre>
+<p>Or run <code>OFFLINE-MODE-SETUP.bat</code> from the USB to do install + config in one go.</p>
+<h3>FAT32 model-file limit</h3>
+<p>The CYBORG USB is FAT32 → 4 GB per file. <strong>Phi-3 Mini fits, Llama 8B does not.</strong> Recommended layout: keep Phi-3 on the USB for portable use; install Llama 3.1 8B to C: via Ollama (it stores models in <code>%USERPROFILE%\.ollama\models</code>, no 4 GB limit).</p>
+<hr/>
+<h2>5. Configuration</h2>
+<h3>Env file locations (loaded by <code>lib/env.js</code>)</h3>
+<p>In order of precedence (later files do <strong>not</strong> override earlier ones):</p>
+<ol><li><code>&amp;lt;install&amp;gt;\.env</code></li><li><code>&amp;lt;install&amp;gt;\config\aixmos.env</code></li><li><code>&amp;lt;tmmt_os&amp;gt;\.env.local</code> (path from <code>agents/registry.json::infrastructure_paths.tmmt_os</code>)</li><li><code>&amp;lt;tmmt_os&amp;gt;\.env</code></li><li><code>&amp;lt;tmmt_os&amp;gt;\..\AUTOMATIONS\.env</code></li></ol>
+<p>Process env (<code>setx</code> / <code>$env:</code>) wins over all of these.</p>
+<h3>Env vars — full list</h3>
+<pre class="code lang-bash"><code># Claude (online)
+ANTHROPIC_API_KEY=sk-ant-...
+AIXMOS_MODEL=claude-sonnet-4-6
+
+# Backend selector
+AIXMOS_LLM_BACKEND=claude        # claude | ollama | auto
+
+# Ollama (offline)
+OLLAMA_HOST=http://localhost:11434
+OLLAMA_MODEL=llama3.1:8b         # or phi3:mini
+
+# TMMT OS / production
+TMMT_OPS_URL=https://your-tmmt-os.vercel.app
+AGENT_WEBHOOK_SECRET=
+
+# Supabase (STICKS --scan)
+SUPABASE_URL=https://&lt;project&gt;.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=
+
+# GHL webhook (STICKS --push-ghl)
+GHL_OVERDUE_WEBHOOK_SECRET=
+
+# Debug
+AIXMOS_DEBUG=1                   # prints LLM fallback messages</code></pre>
+<h3>State file — <code>aixmos-state.json</code></h3>
+<p>Tracks per-agent state across sessions: last lead, last mode, last output snippet, active handoffs. Persisted at the install root. <strong>The installer preserves this file when refreshing from the USB</strong> (<code>robocopy /XF aixmos-state.json</code>).</p>
+<h3>Registry — <code>agents/registry.json</code></h3>
+<p>The single source of truth for which agents exist, which script powers each, and which paths point to TMMT-OS infrastructure. The smoke test (<code>test-all-agents.js</code>) reads it to verify every registered agent has a matching script.</p>
+<h3>System prompts — <code>agents/prompts.js</code></h3>
+<p>CommonJS module that exports one prompt string per agent. Shared <code>BUSINESS_CONTEXT</code> block lives at the top.</p>
+<hr/>
+<h2>6. Troubleshooting</h2>
+<table><thead><tr><th>Symptom</th><th>Likely cause</th><th>Fix</th></tr></thead><tbody><tr><td><code>404 not_found_error  model: claude-...</code></td><td>Hard-coded outdated model id</td><td>Set <code>AIXMOS_MODEL=claude-sonnet-4-6</code> or update the literal.</td></tr><tr><td><code>ANTHROPIC_API_KEY is not set</code></td><td>Env var missing</td><td><code>setx ANTHROPIC_API_KEY "sk-ant-..."</code> then open a NEW terminal.</td></tr><tr><td><code>Ollama not reachable at http://localhost:11434</code></td><td>Ollama service not running</td><td><code>ollama serve</code> or restart the Ollama tray icon.</td></tr><tr><td><code>Docker not running — TANK --up will fail</code></td><td>Docker Desktop stopped</td><td>Start Docker Desktop, wait for the whale icon to settle.</td></tr><tr><td><code>Missing SUPABASE_URL — --scan needs Supabase</code></td><td>Supabase env vars unset</td><td>Put them in <code>&amp;lt;install&amp;gt;\.env</code> or <code>tmmt-os\.env.local</code>.</td></tr><tr><td><code>global fetch missing — Ollama backend needs Node.js 18+</code></td><td>Old Node</td><td>Upgrade to Node 20+ LTS.</td></tr><tr><td><code>Cannot find module '@anthropic-ai/sdk'</code></td><td><code>npm install</code> never ran</td><td><code>cd &amp;lt;install&amp;gt; &amp;amp;&amp;amp; npm install</code>.</td></tr><tr><td>Smoke test shows 0 live passes</td><td>Network blocked or wrong key</td><td>Try a <code>curl https://api.anthropic.com</code> to confirm reachability.</td></tr></tbody></table>
+<h3>Where to look first when something breaks</h3>
+<ol><li><code>node test-all-agents.js --live</code> — full smoke test, names the broken thing.</li><li><code>AIXMOS_DEBUG=1 node &amp;lt;agent&amp;gt;.js</code> — verbose LLM path.</li><li><code>aixmos-state.json</code> — last known good state of every agent.</li></ol>
+<hr/>
+<h2>7. Updating from the USB</h2>
+<p>When you change agent code (or the USB has a newer version):</p>
+<pre class="code lang-powershell"><code>robocopy D:\AIXMOS-AGENTS C:\Users\&lt;you&gt;\AIXMOS /MIR /XF aixmos-state.json</code></pre>
+<p>That preserves your local state, mirrors everything else. Or just re-run <code>START-HERE.bat → 1 (INSTALL)</code>.</p>
+<p>The installer is idempotent — running it twice doesn't double-install.</p>
+<hr/>
+<h2>8. Extending the network — adding a new agent</h2>
+<p>The 5 newer agents (JARVIS, TANK, FLY GUY, BOB, STICKS) use a thin shim pattern. Follow it for new ones.</p>
+<h3>Step-by-step</h3>
+<ol><li><strong>Add the system prompt</strong> in <code>agents/prompts.js</code>:</li></ol>
+<p>   ``<code>js    newagent: </code>You are NEWAGENT — your role.</p>
+<p>   ${BUSINESS_CONTEXT}</p>
+<p>   OUTPUT: ...<code>,    </code>``</p>
+<ol><li><strong>Create the launcher script</strong> <code>newagent.js</code> at the install root:</li></ol>
+<p>   ```js    #!/usr/bin/env node    const { runAgent } = require('./lib/runner');    const prompts = require('./agents/prompts');    const { repl } = require('./lib/agent-cli');</p>
+<p>   repl({      name: 'NEWAGENT',      system: prompts.newagent,      greeting: 'Ask NEWAGENT anything.',    });    ```</p>
+<p>   <code>lib/agent-cli.js::repl</code> handles the interactive loop; you just provide <code>name</code>, <code>system</code>, and <code>greeting</code>.</p>
+<ol><li><strong>Register it</strong> in <code>agents/registry.json</code> under <code>agents</code>:</li></ol>
+<p>   ``<code>json    "newagent": {      "script": "newagent.js",      "role": "one-line description"    }    </code>``</p>
+<ol><li><strong>Add a smoke-test case</strong> in <code>test-all-agents.js::LIVE_CASES</code>:</li></ol>
+<p>   ``<code>js    { id: 'newagent', prompt: 'MODE: SMOKE_TEST\nShort task. One line only.' },    </code>``</p>
+<ol><li><strong>Run the tests</strong> — expect <code>live:newagent</code> to pass:</li></ol>
+<p>   ``<code>powershell    node test-all-agents.js --live    </code>``</p>
+<ol><li><strong>Add a Desktop launcher</strong> (manual) — copy any existing <code>.bat</code> in <code>Desktop\AIXMOS-LAUNCHERS\</code> and change the script name.</li></ol>
+<hr/>
+<h2>9. Editing agent prompts</h2>
+<p>All prompts live in <code>agents/prompts.js</code>. The <code>BUSINESS_CONTEXT</code> block at the top is interpolated into every agent's system prompt — change it once and every agent updates.</p>
+<p>Voice rules that apply to customer-facing agents (CHUMMO, FLY GUY):</p>
+<ul><li>Friend first, name first, one CTA.</li><li>SMS under 160 chars when possible.</li><li>Never corporate openers ("We are pleased to...", "Dear valued customer").</li><li>Email = subject + body; SMS = text only.</li><li>End every output with the agent's handoff marker (<code>MOOSE_HANDOFF:</code>, <code>CAPTAIN_HANDOFF:</code>, etc.).</li></ul>
+<p>After editing, run <code>node test-all-agents.js --live</code> to confirm the prompts still parse and produce sensible output.</p>
+<hr/>
+<h2>10. Architecture</h2>
+<h3>File layout</h3>
+<pre class="code"><code>AIXMOS-AGENTS/
+├── orchestrator.js            CHUMMO + cross-agent menu
+├── moose.js                   MOOSE standalone
+├── vision.js                  VISION standalone
+├── briefing.js                Morning brief generator
+├── jarvis.js, tank.js, ...    Thin shims using lib/agent-cli.js
+├── lib/
+│   ├── llm.js                 ★ Dual-backend LLM abstraction (Claude / Ollama)
+│   ├── runner.js              Shared runAgent — delegates to lib/llm.js
+│   ├── env.js                 Layered .env loader
+│   ├── agent-cli.js           Interactive REPL for shim agents
+│   ├── tank-docker.js         Docker availability check
+│   └── sticks-alerts.js       Supabase overdue scan
+├── agents/
+│   ├── prompts.js             System prompts (10 agents + BUSINESS_CONTEXT)
+│   └── registry.json          Agent metadata + infrastructure paths
+├── config/
+│   └── aixmos.env.example     Reference env file
+├── _installers/               Bundled Node.js MSI for fresh PCs
+├── node_modules/              Vendored deps (@anthropic-ai/sdk)
+├── aixmos-state.json          Per-agent runtime state (preserved across updates)
+├── package.json               npm scripts for every agent
+├── START-HERE.bat             ★ Top-level entry point (install / portable / offline)
+├── install-windows.bat        Installer (mirrors tree to C:, creates launchers)
+├── RUN-FROM-USB.bat           Portable launcher (no install)
+├── OFFLINE-MODE-SETUP.bat     Ollama install + model pull + env wiring
+├── RUN-AGENT-TESTS.bat        Smoke test entry point
+└── test-all-agents.js         Smoke test (structure + live API)</code></pre>
+<h3>The LLM abstraction — <code>lib/llm.js</code></h3>
+<p>Every agent that needs to think calls <code>generate({ system, prompt, maxTokens })</code> from <code>lib/llm.js</code>. That function reads <code>AIXMOS_LLM_BACKEND</code> and routes to either <code>callClaude</code> (uses <code>@anthropic-ai/sdk</code>) or <code>callOllama</code> (POSTs to <code>${OLLAMA_HOST}/api/chat</code>). <code>auto</code> mode tries Claude first and falls back to Ollama on any error.</p>
+<p>Adding a new backend (e.g. Mistral.ai, vLLM, llama.cpp HTTP server) means adding one <code>callX</code> function + one <code>if (mode === 'x')</code> branch in <code>generate</code>. Everything downstream stays the same.</p>
+<h3>Per-agent flow</h3>
+<pre class="code"><code>user clicks WONDER-WOMAN.bat
+  → node wonderwoman.js
+    → require('./lib/agent-cli').repl({name, system, greeting})
+      → reads user input, builds prompt
+      → require('./lib/runner').runAgent({system, userPrompt, maxTokens})
+        → require('./lib/llm').generate({system, prompt, maxTokens})
+          → callClaude   (online) | callOllama (offline)
+      → prints response, extracts handoffs, updates aixmos-state.json
+      → loops</code></pre>
+<hr/>
+<h2>11. Reference — what the smoke test checks</h2>
+<p><code>node test-all-agents.js --live</code> runs <strong>49 checks</strong>:</p>
+<ul><li>23 × <code>syntax:&amp;lt;file&amp;gt;</code> — every <code>.js</code> file must <code>node --check</code> clean.</li><li>2 × <code>require:&amp;lt;module&amp;gt;</code> — <code>state</code> and <code>prompts</code> must load.</li><li>1 × <code>state:roundtrip</code> — write → read state cycle.</li><li>1 × <code>registry:load</code> — <code>agents/registry.json</code> parses.</li><li>10 × <code>registry:&amp;lt;agent&amp;gt;:&amp;lt;script&amp;gt;</code> — every registered agent's script exists.</li><li>10 × <code>live:&amp;lt;agent&amp;gt;</code> <em>(when <code>--live</code>)</em> — every agent responds via the live LLM backend.</li><li>2 × infra (<code>tank:docker-available</code>, <code>sticks:env</code>) — environment-only sanity checks.</li></ul>
+<p>Without <code>--live</code> it's 39 checks (no live LLM calls).</p>
+<hr/>
+<h2>12. Where to get help</h2>
+<ul><li><strong>Agent prompts:</strong> <code>agents/prompts.js</code> — every voice + output format lives here.</li><li><strong>Infrastructure docs:</strong> <code>INFRASTRUCTURE-QUICKSTART.md</code> and <code>README-AI-BRAIN.txt</code>.</li><li><strong>Anthropic console:</strong> https://console.anthropic.com (API keys, billing).</li><li><strong>Ollama docs:</strong> https://ollama.com/library (model catalogue, pull commands).</li></ul>
+<p>— END —</p>
+</body></html>

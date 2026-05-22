@@ -1,0 +1,90 @@
+{
+  "version": "1.0.0",
+  "owner": "Muhammad Taha / Project AIXMOS",
+  "rules": {
+    "no_hesitation_agents": ["chummo", "moose"],
+    "level_a_outbound": ["chummo", "fly_guy"],
+    "escalate_to_owner": ["insurance_claim", "unpleasant_cx", "pitfall"],
+    "jarvis_not_vote_seat": true
+  },
+  "agents": {
+    "chummo": {
+      "display": "C.H.U.M.M.O",
+      "role": "communication",
+      "infrastructure": ["customer_sms", "customer_email", "rental_comms", "ghl_messaging"],
+      "script": "orchestrator.js chummo",
+      "handoff_to": "moose"
+    },
+    "moose": {
+      "display": "M.O.O.S.E",
+      "role": "execution",
+      "infrastructure": ["bookings", "crm_updates", "handoffs", "resource_moves", "task_close"],
+      "script": "moose.js",
+      "handoff_to": "captain"
+    },
+    "captain": {
+      "display": "CAPTAIN",
+      "role": "command",
+      "infrastructure": ["priorities", "fleet_routing", "team_assignments", "rubiks_cube", "insurance_claims_route"],
+      "script": "captain.js",
+      "handoff_to": "wonder_woman"
+    },
+    "wonder_woman": {
+      "display": "WONDERWOMAN",
+      "role": "trust_guard",
+      "infrastructure": ["unpleasant_cx", "reputation", "moral_check", "owner_alerts"],
+      "script": "wonderwoman.js",
+      "handoff_to": null
+    },
+    "vision": {
+      "display": "VISION",
+      "role": "governance",
+      "infrastructure": ["go_no_go", "long_term_fit", "bad_idea_block", "policy"],
+      "script": "vision.js",
+      "handoff_to": "captain"
+    },
+    "tank": {
+      "display": "TANK",
+      "role": "infrastructure_execution",
+      "infrastructure": ["docker", "n8n", "supabase", "vercel", "deploy", "migrations", "hub_brain"],
+      "script": "tank.js",
+      "handoff_to": "bob"
+    },
+    "fly_guy": {
+      "display": "FLY GUY",
+      "role": "comms_support",
+      "infrastructure": ["message_templates", "portal_copy", "comms_qa"],
+      "script": "flyguy.js",
+      "handoff_to": "chummo"
+    },
+    "bob": {
+      "display": "BOB",
+      "role": "audit",
+      "infrastructure": ["logs", "sops", "documentation", "audit_trail", "explainability"],
+      "script": "bob.js",
+      "handoff_to": null
+    },
+    "sticks": {
+      "display": "STICKS",
+      "role": "monitoring",
+      "infrastructure": ["sla", "overdue", "customer_request_timeliness", "alerts", "health_checks"],
+      "script": "sticks.js",
+      "handoff_to": "captain"
+    },
+    "jarvis": {
+      "display": "JARVIS",
+      "role": "orchestrator",
+      "infrastructure": ["routing", "owner_voice", "bottleneck_briefs", "payout_explanations", "business_model_answers"],
+      "script": "jarvis.js",
+      "handoff_to": null
+    }
+  },
+  "infrastructure_paths": {
+    "hub_brain_compose": "D:\\APP_BUILD_FILES_2026-05-18\\01_AIX_Command_Center\\TMMT MANAGEMENT\\ops\\dev-machine\\hub-brain\\docker-compose.yml",
+    "tmmt_os": "D:\\APP_BUILD_FILES_2026-05-18\\01_AIX_Command_Center\\TMMT MANAGEMENT\\tmmt-os",
+    "chummo_stack": "D:\\APP_BUILD_FILES_2026-05-18\\01_AIX_Command_Center\\ops\\chummo-stack",
+    "ops_files": "D:\\APP_BUILD_FILES_2026-05-18\\01_AIX_Command_Center\\ops\\files",
+    "agents_root": "D:\\AIXMOS-AGENTS"
+  },
+  "decision_order": ["vision", "captain", "moose", "chummo", "wonder_woman"]
+}

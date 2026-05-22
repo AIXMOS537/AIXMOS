@@ -1,0 +1,31 @@
+AIXMOS AGENTS - FLASH DRIVE INSTALL
+
+WHAT IS READY
+- Folder to copy to USB:
+  AIXMOS-FLASHDRIVE-INSTALL
+- One-click copier:
+  COPY-AGENTS-TO-FLASHDRIVE.bat
+- Backup zip:
+  AIXMOS-FLASHDRIVE-INSTALL.zip
+
+TO LOAD THE FLASH DRIVE
+1. Plug in the flash drive.
+2. Double-click COPY-AGENTS-TO-FLASHDRIVE.bat.
+3. Enter the drive letter, for example E or F.
+4. Wait for the copy to finish.
+
+ON THE OTHER WINDOWS COMPUTER
+1. Open the flash drive.
+2. Open AIXMOS-AGENTS.
+3. Double-click START-HERE-FLASHDRIVE.bat.
+4. If Node.js is missing, install it from the included _installers folder, then run START-HERE again.
+5. Paste your Anthropic API key when asked.
+
+WHAT GETS INSTALLED
+- Agents install to %USERPROFILE%\AIXMOS
+- Desktop launchers are created for:
+  AIXMOS, chummo, moose, vision, captain, wonder-woman, morning-brief, contacts, scheduler
+
+DIRECT USB RUN
+You can also run from the USB folder with:
+  node orchestrator.js
