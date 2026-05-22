@@ -17,8 +17,10 @@ DRIVE_ROLES=("MASTER" "WORK" "FIELD")
 
 COMMON_EXCLUDES=(
   "--exclude=.git/"
+  "--exclude=.sync-inspect/"
   "--exclude=.env"
   "--exclude=.env.*"
+  "--exclude=imports/"
   "--exclude=secrets/"
   "--exclude=SECRETS/"
   "--exclude=*secret*"
@@ -29,6 +31,10 @@ COMMON_EXCLUDES=(
   "--exclude=*KEY*"
   "--exclude=*.key"
   "--exclude=*.pem"
+  "--exclude=*.zip"
+  "--exclude=*.tar"
+  "--exclude=*.tar.gz"
+  "--exclude=*.tgz"
   "--exclude=id_rsa"
   "--exclude=id_ed25519"
   "--exclude=node_modules/"
@@ -292,7 +298,7 @@ sync_dir() {
     return 0
   }
   run mkdir -p "$dst"
-  run rsync -a --delete "${COMMON_EXCLUDES[@]}" "$src/" "$dst/"
+  run rsync -a --delete --delete-excluded "${COMMON_EXCLUDES[@]}" "$src/" "$dst/"
 }
 
 copy_file_if_exists() {
