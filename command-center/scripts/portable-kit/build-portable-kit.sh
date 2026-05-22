@@ -311,22 +311,57 @@ copy_file_if_exists() {
   run rsync -a "${COMMON_EXCLUDES[@]}" "$src" "$dst"
 }
 
+reset_dir() {
+  local dst="$1"
+  run rm -rf "$dst"
+  run mkdir -p "$dst"
+}
+
+write_field_lightweight_sources() {
+  local kit="$1"
+
+  reset_dir "$kit/AI-OPS-STARTER"
+  reset_dir "$kit/AIXMOS-AGENTS"
+
+  write_file "$kit/AI-OPS-STARTER/README-FIELD.txt" <<'EOF_FIELD_AI'
+FIELD drive note:
+
+This drive intentionally does not carry the full AI-OPS-STARTER source tree.
+Use it to open the portable kit, read setup docs, and reach Brainiac 7 over Tailscale.
+
+For the full AI stack, use:
+- MASTER: AIXMOS02
+- WORK: CYBORG
+- Home PC: Brainiac 7
+EOF_FIELD_AI
+
+  write_file "$kit/AIXMOS-AGENTS/README-FIELD.txt" <<'EOF_FIELD_AGENTS'
+FIELD drive note:
+
+This drive intentionally does not carry the full AIXMOS-AGENTS runtime.
+It is safe for operator/team use and recovery instructions.
+
+Use WORK or MASTER when you need the full Node.js agent scripts.
+EOF_FIELD_AGENTS
+}
+
 sync_common_sources() {
   local drive="$1"
   local role="$2"
   local kit
   kit="$(kit_path "$drive")"
 
-  sync_dir "$HOME_ROOT/AI-OPS-STARTER" "$kit/AI-OPS-STARTER"
-  sync_dir "$HOME_ROOT/AIXMOS-AGENTS" "$kit/AIXMOS-AGENTS"
-  sync_dir "$HOME_ROOT/portable-setup" "$kit/portable-setup"
-
   if [[ "$role" == "FIELD" ]]; then
+    write_field_lightweight_sources "$kit"
+    sync_dir "$HOME_ROOT/portable-setup" "$kit/portable-setup"
     sync_dir "$HOME_ROOT/AIX-Command-Center/guides" "$kit/AIX-Command-Center/guides"
     sync_dir "$HOME_ROOT/AIX-Command-Center/docs" "$kit/AIX-Command-Center/docs"
     sync_dir "$HOME_ROOT/AIX-Command-Center/agents" "$kit/AIX-Command-Center/agents"
     copy_file_if_exists "$HOME_ROOT/AIX-Command-Center/README.md" "$kit/AIX-Command-Center/README.md"
   else
+    sync_dir "$HOME_ROOT/AI-OPS-STARTER" "$kit/AI-OPS-STARTER"
+    sync_dir "$HOME_ROOT/AIXMOS-AGENTS" "$kit/AIXMOS-AGENTS"
+    sync_dir "$HOME_ROOT/portable-setup" "$kit/portable-setup"
     sync_dir "$HOME_ROOT/AIX-Command-Center" "$kit/AIX-Command-Center"
     sync_dir "$HOME_ROOT/TMMT" "$kit/work/TMMT"
   fi
