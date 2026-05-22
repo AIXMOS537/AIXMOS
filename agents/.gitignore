@@ -10,6 +10,10 @@ node_modules/
 # Per-machine runtime state — installer preserves with robocopy /XF
 aixmos-state.json
 
+# Runtime output — generated per run, not source
+logs/
+outbox/
+
 # OS / editor cruft
 .DS_Store
 *.log
