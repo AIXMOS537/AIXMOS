@@ -70,11 +70,10 @@ See `~/Documents/TMMT/docs/superpowers/specs/2026-05-21-brain-dump-clickup-agent
 
 ## Setup checklist (before first use)
 
-Before brain-dumping for the first time, complete these one-time owner tasks (from the v1 plan):
+Status verified 2026-05-22 — `.env` already has `CLICKUP_API_TOKEN`, `CLICKUP_DEFAULT_ASSIGNEE_ID`, and `ANTHROPIC_API_KEY` set, and the 10/10 test suite passes. **One blocker remains before go-live:**
 
-- [ ] **Task 1** — Generate ClickUp API token, find your user ID, find the TMMT Rentals list ID
-- [ ] Paste the three values into `~/AIX-Command-Center/.env` (replace the `REPLACE_ME` placeholders)
-- [ ] Edit `~/AIX-Command-Center/config/ventures.json` — replace `REPLACE_ME_after_Task_1` with the real TMMT Rentals list ID
+- [x] **Task 1 (partial)** — ClickUp API token + assignee user ID generated and saved to `~/AIX-Command-Center/.env`
+- [ ] **← GO-LIVE BLOCKER: TMMT Rentals ClickUp list ID.** Edit `~/AIX-Command-Center/config/ventures.json` and replace `REPLACE_ME_after_Task_1` with the real list ID. Get it from ClickUp: right-click the **TMMT Rentals** list → Copy link → the `/li/<id>` segment is the list ID. Until this is done, `clickup_create_task` returns a ClickUp API error and no tasks are created. (`list_ventures` and the rest of the tool already work.)
 - [ ] **Task 9** — On the home PC, paste `tools/openwebui_tools.py` into Open WebUI → Workspace → Tools, set the Valves (`CLICKUP_API_TOKEN`, `CLICKUP_DEFAULT_ASSIGNEE_ID`), and create the "TMMT Command Center" model with the persona prompt from `agents/tmm-business-command-center.agent.md`
 - [ ] **Task 10** — Run the smoke test: paste the canonical 3-item brain-dump, confirm 3 tasks land in ClickUp
 
