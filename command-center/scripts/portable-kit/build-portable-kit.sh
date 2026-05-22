@@ -7,6 +7,8 @@ if [[ "$MODE" != "--dry-run" && "$MODE" != "--apply" && "$MODE" != "--verify-onl
   exit 2
 fi
 
+export COPYFILE_DISABLE=1
+
 HOME_ROOT="${PORTABLE_KIT_HOME:-$HOME}"
 VOLUMES_ROOT="${PORTABLE_KIT_VOLUMES_ROOT:-/Volumes}"
 KIT_NAME="AIXMOS-PORTABLE-KIT"
@@ -402,7 +404,8 @@ verify_kit() {
     -name '.venv' -o \
     -name '__pycache__' -o \
     -name '.pytest_cache' -o \
-    -name 'test-results' \
+    -name 'test-results' -o \
+    -name '._*' \
   \) -print 2>/dev/null || true)"
 
   {
