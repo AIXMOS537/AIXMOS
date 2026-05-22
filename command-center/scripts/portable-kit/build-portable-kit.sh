@@ -1,11 +1,34 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-MODE="${1:---dry-run}"
-if [[ "$MODE" != "--dry-run" && "$MODE" != "--apply" && "$MODE" != "--verify-only" ]]; then
-  echo "Usage: $0 [--dry-run|--apply|--verify-only]" >&2
-  exit 2
+MODE="--dry-run"
+TARGET_DRIVE=""
+
+usage() {
+  echo "Usage: $0 [--dry-run|--apply|--verify-only] [--drive AIXMOS02|CYBORG|LEXAR]" >&2
+}
+
+if [[ $# -gt 0 && ( "$1" == "--dry-run" || "$1" == "--apply" || "$1" == "--verify-only" ) ]]; then
+  MODE="$1"
+  shift
 fi
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --drive)
+      [[ $# -ge 2 ]] || {
+        usage
+        exit 2
+      }
+      TARGET_DRIVE="$2"
+      shift 2
+      ;;
+    *)
+      usage
+      exit 2
+      ;;
+  esac
+done
 
 export COPYFILE_DISABLE=1
 
@@ -345,6 +368,57 @@ Use WORK or MASTER when you need the full Node.js agent scripts.
 EOF_FIELD_AGENTS
 }
 
+write_field_reference_docs() {
+  local kit="$1"
+
+  write_file "$kit/portable-setup/README-FIELD.txt" <<'EOF_FIELD_SETUP'
+FIELD drive setup note:
+
+This drive carries the launchers and operating map for getting back to work
+from a Mac or Windows computer. It intentionally avoids large synced source
+trees so it stays safe and fast on small field media.
+
+Use Brainiac 7 over Tailscale for local AI services. Use CYBORG or AIXMOS02
+when you need the full development payload.
+EOF_FIELD_SETUP
+
+  write_file "$kit/AIX-Command-Center/README-FIELD.txt" <<'EOF_FIELD_COMMAND'
+FIELD drive command-center note:
+
+This is the lightweight command-center kit. It is for orientation, bootstrap
+checks, and recovery. The full command-center source snapshot lives on WORK
+and MASTER.
+EOF_FIELD_COMMAND
+
+  write_file "$kit/AIX-Command-Center/guides/README-FIELD.txt" <<'EOF_FIELD_GUIDES'
+FIELD drive guides note:
+
+Use START-HERE.md at the drive root first. For full guides, use WORK, MASTER,
+or the main AIX-Command-Center repository.
+EOF_FIELD_GUIDES
+
+  write_file "$kit/AIX-Command-Center/docs/README-FIELD.txt" <<'EOF_FIELD_DOCS'
+FIELD drive docs note:
+
+This role is intentionally slim and secret-free. It tells a borrowed computer
+how to reach the private fleet without exposing local AI services publicly.
+EOF_FIELD_DOCS
+
+  write_file "$kit/AIX-Command-Center/agents/README-FIELD.txt" <<'EOF_FIELD_AGENTS_DOC'
+FIELD drive agents note:
+
+Do not run production or money-facing agents from FIELD. Use it to recover,
+inspect the machine map, and connect to the private fleet.
+EOF_FIELD_AGENTS_DOC
+
+  write_file "$kit/docs/team/README-FIELD.txt" <<'EOF_FIELD_TEAM'
+FIELD drive team note:
+
+This drive is the simplified recovery and handoff kit. It contains no real
+secrets and should only reach private tools through Tailscale or the LAN.
+EOF_FIELD_TEAM
+}
+
 sync_common_sources() {
   local drive="$1"
   local role="$2"
@@ -353,11 +427,7 @@ sync_common_sources() {
 
   if [[ "$role" == "FIELD" ]]; then
     write_field_lightweight_sources "$kit"
-    sync_dir "$HOME_ROOT/portable-setup" "$kit/portable-setup"
-    sync_dir "$HOME_ROOT/AIX-Command-Center/guides" "$kit/AIX-Command-Center/guides"
-    sync_dir "$HOME_ROOT/AIX-Command-Center/docs" "$kit/AIX-Command-Center/docs"
-    sync_dir "$HOME_ROOT/AIX-Command-Center/agents" "$kit/AIX-Command-Center/agents"
-    copy_file_if_exists "$HOME_ROOT/AIX-Command-Center/README.md" "$kit/AIX-Command-Center/README.md"
+    write_field_reference_docs "$kit"
   else
     sync_dir "$HOME_ROOT/AI-OPS-STARTER" "$kit/AI-OPS-STARTER"
     sync_dir "$HOME_ROOT/AIXMOS-AGENTS" "$kit/AIXMOS-AGENTS"
@@ -366,7 +436,7 @@ sync_common_sources() {
     sync_dir "$HOME_ROOT/TMMT" "$kit/work/TMMT"
   fi
 
-  if [[ -d "$HOME_ROOT/Desktop" ]]; then
+  if [[ "$role" != "FIELD" && -d "$HOME_ROOT/Desktop" ]]; then
     run mkdir -p "$kit/docs/team"
     find "$HOME_ROOT/Desktop" -maxdepth 1 -type f \( -name 'TEAM_*' -o -name '*GUIDE*' -o -name '*AIXMOS*' \) -print0 2>/dev/null |
       while IFS= read -r -d '' file; do
@@ -497,6 +567,18 @@ build_drive() {
   log "done: $drive ($role)"
 }
 
+matched_drive="false"
 for i in "${!DRIVE_NAMES[@]}"; do
-  build_drive "${DRIVE_NAMES[$i]}" "${DRIVE_ROLES[$i]}"
+  drive="${DRIVE_NAMES[$i]}"
+  role="${DRIVE_ROLES[$i]}"
+  if [[ -n "$TARGET_DRIVE" && "$TARGET_DRIVE" != "$drive" && "$TARGET_DRIVE" != "$role" ]]; then
+    continue
+  fi
+  matched_drive="true"
+  build_drive "$drive" "$role"
 done
+
+if [[ "$matched_drive" != "true" ]]; then
+  echo "No configured drive or role matched: $TARGET_DRIVE" >&2
+  exit 1
+fi
