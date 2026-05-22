@@ -47,6 +47,8 @@ make_source() {
     "$base/TMMT/src" \
     "$base/TMMT/node_modules/example" \
     "$base/TMMT/.next/cache" \
+    "$base/TMMT/imports/old-drive" \
+    "$base/TMMT/.sync-inspect/old-copy" \
     "$base/Desktop"
 
   printf '# AI OPS\n' > "$base/AI-OPS-STARTER/README.md"
@@ -60,6 +62,10 @@ make_source() {
   printf 'SECRET=do-not-copy\n' > "$base/TMMT/.env"
   printf 'cached\n' > "$base/TMMT/.next/cache/blob"
   printf 'dependency\n' > "$base/TMMT/node_modules/example/file"
+  printf 'old import\n' > "$base/TMMT/imports/old-drive/file.txt"
+  printf 'old copy\n' > "$base/TMMT/.sync-inspect/old-copy/file.txt"
+  printf 'archive\n' > "$base/TMMT/old-kit.zip"
+  printf 'archive\n' > "$base/TMMT/node_modules.tar"
   printf 'team guide\n' > "$base/Desktop/TEAM_SIMPLE_SETUP_GUIDE.txt"
 }
 
@@ -94,6 +100,10 @@ for drive in AIXMOS02 CYBORG LEXAR; do
   assert_not_exists "$kit/work/TMMT/.env"
   assert_not_exists "$kit/work/TMMT/node_modules"
   assert_not_exists "$kit/work/TMMT/.next"
+  assert_not_exists "$kit/work/TMMT/imports"
+  assert_not_exists "$kit/work/TMMT/.sync-inspect"
+  assert_not_exists "$kit/work/TMMT/old-kit.zip"
+  assert_not_exists "$kit/work/TMMT/node_modules.tar"
 done
 
 assert_file "$VOLUMES_ROOT/AIXMOS02/AIXMOS-PORTABLE-KIT/ROLE-MASTER.md"
