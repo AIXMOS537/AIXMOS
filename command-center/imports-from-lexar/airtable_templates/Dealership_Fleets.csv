@@ -1,0 +1,2 @@
+DealershipID,VehicleID,Status,CurrentLocation,MaintenanceDueDate,BookedUntil,ProfitabilityTag,Notes
+D001,V002,available,Partner Lot,2026-06-15,2026-06-20,high-margin,Sample fleet entry

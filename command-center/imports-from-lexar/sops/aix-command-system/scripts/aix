@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Wrapper: load .env and run aix_operator.py
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
+
+# Load keys if .env exists; still allow commands that do not need keys
+if [[ -f "$ROOT/.env" ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source "$ROOT/.env"
+  set +a
+fi
+
+exec python3 "$ROOT/aix_operator.py" "$@"
