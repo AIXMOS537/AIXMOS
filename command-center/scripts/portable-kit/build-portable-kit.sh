@@ -402,6 +402,8 @@ verify_kit() {
     return 0
   fi
 
+  clean_kit_metadata "$drive"
+
   bad="$(find "$kit" \( \
     -name '.env' -o \
     -name '.env.*' -o \
