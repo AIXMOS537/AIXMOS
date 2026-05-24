@@ -1,0 +1,30 @@
+name: aixmos-agents
+
+services:
+  aix-agent-host:
+    image: node:20-alpine
+    container_name: aix-agent-host
+    restart: unless-stopped
+    working_dir: /app
+    command: ["node", "agent-server.js"]
+    volumes:
+      - ./:/app
+    environment:
+      # Force Ollama on host, override the localhost value baked into .env
+      OLLAMA_HOST: "http://host.docker.internal:11434"
+      AIX_AGENT_PORT: "7777"
+      AIX_AGENT_HOST: "0.0.0.0"
+    env_file:
+      - .env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "127.0.0.1:7777:7777"
+      # Web access via Tailscale is handled by `tailscale serve` on the host,
+      # which proxies https://macbook-pro:8443 -> http://127.0.0.1:7777
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:7777/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
