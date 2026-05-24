@@ -32,31 +32,27 @@ function println(t = '') {
 
 async function runDockerCommand(action) {
   const registry = loadRegistry();
-  const hubDir = getHubBrainDir(registry);
+  const remote = (process.env.HUB_BRAIN_HOST || '').trim();
 
-  if (!dockerAvailable()) {
-    println('Docker is not running. Start Docker Desktop, then run: node tank.js --up');
-    process.exit(1);
+  if (remote) {
+    println(`TANK → hub-brain (remote: ${remote})`);
+  } else {
+    const hubDir = getHubBrainDir(registry);
+    if (!dockerAvailable()) {
+      println('Docker is not running. Start Docker Desktop, then run: node tank.js --up');
+      process.exit(1);
+    }
+    println(`TANK → hub-brain (${hubDir})`);
+    if (action === 'up') println('Running: docker compose up -d …');
   }
 
-  println(`TANK → hub-brain (${hubDir})`);
   let result;
   switch (action) {
-    case 'up':
-      println('Running: docker compose up -d …');
-      result = composeUp(registry);
-      break;
-    case 'down':
-      result = composeDown(registry);
-      break;
-    case 'ps':
-      result = composePs(registry);
-      break;
-    case 'logs':
-      result = composeLogs(registry);
-      break;
-    default:
-      return;
+    case 'up':   result = composeUp(registry);   break;
+    case 'down': result = composeDown(registry); break;
+    case 'ps':   result = composePs(registry);   break;
+    case 'logs': result = composeLogs(registry); break;
+    default: return;
   }
 
   if (result.stdout) println(result.stdout);
@@ -64,7 +60,7 @@ async function runDockerCommand(action) {
   println(result.ok ? '✓ OK' : `✗ Failed (exit ${result.status})`);
   if (!result.ok) process.exit(result.status || 1);
 
-  if (action === 'up') {
+  if (action === 'up' && !remote) {
     println('\nServices (defaults):');
     println('  n8n         http://localhost:5678');
     println('  Open WebUI  http://localhost:3000  (maps container 8080)');

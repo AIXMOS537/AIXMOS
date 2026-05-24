@@ -6,8 +6,11 @@ const fs = require('fs');
 const path = require('path');
 const { execSync, spawnSync } = require('child_process');
 
+function remoteHost() { return (process.env.HUB_BRAIN_HOST || '').trim(); }
+
 function getHubBrainDir(registry) {
   const composeFile =
+    process.env.HUB_BRAIN_COMPOSE ||
     registry?.infrastructure_paths?.hub_brain_compose ||
     path.join(__dirname, '..', 'hub-brain', 'docker-compose.yml');
   return path.dirname(composeFile);
@@ -20,6 +23,40 @@ function dockerAvailable() {
   } catch {
     return false;
   }
+}
+
+function probeRemote(host) {
+  const probes = [
+    { name: 'open-webui', port: 3000 },
+    { name: 'n8n',        port: 5678 },
+  ];
+  return probes.map(({ name, port }) => {
+    const r = spawnSync('curl', ['-sS', '-o', '/dev/null', '-w', '%{http_code}',
+      '--max-time', '5', `http://${host}:${port}/`], { encoding: 'utf8' });
+    const code = parseInt((r.stdout || '').trim(), 10) || 0;
+    return { name, port, code, ok: code >= 200 && code < 500 };
+  });
+}
+
+function remoteStatus(host) {
+  const results = probeRemote(host);
+  const lines = results.map(p =>
+    `  ${p.ok ? '✓' : '✗'} ${p.name.padEnd(10)} http://${host}:${p.port}  (HTTP ${p.code})`);
+  return {
+    ok: results.every(p => p.ok),
+    status: 0,
+    stdout: `Hub-brain (remote) on ${host}:\n${lines.join('\n')}`,
+    stderr: '',
+  };
+}
+
+function remoteRefuse(action, host) {
+  return {
+    ok: true,
+    status: 0,
+    stdout: `Hub-brain lives on ${host}. To ${action}, run TANK on that machine — not here.`,
+    stderr: '',
+  };
 }
 
 function runCompose(hubDir, args, opts = {}) {
@@ -50,21 +87,29 @@ function runCompose(hubDir, args, opts = {}) {
 }
 
 function composeUp(registry) {
+  const host = remoteHost();
+  if (host) return remoteRefuse('start', host);
   const hubDir = getHubBrainDir(registry);
   return runCompose(hubDir, ['up', '-d', '--remove-orphans']);
 }
 
 function composeDown(registry) {
+  const host = remoteHost();
+  if (host) return remoteRefuse('stop', host);
   const hubDir = getHubBrainDir(registry);
   return runCompose(hubDir, ['down']);
 }
 
 function composePs(registry) {
+  const host = remoteHost();
+  if (host) return remoteStatus(host);
   const hubDir = getHubBrainDir(registry);
   return runCompose(hubDir, ['ps']);
 }
 
 function composeLogs(registry, tail = 40) {
+  const host = remoteHost();
+  if (host) return remoteRefuse('tail logs', host);
   const hubDir = getHubBrainDir(registry);
   return runCompose(hubDir, ['logs', '--tail', String(tail)]);
 }
