@@ -1,0 +1,28 @@
+# OS junk
+.DS_Store
+._*
+Thumbs.db
+desktop.ini
+
+# Local state — never commit
+.last-pull.log
+.last-brief.log
+.last-brief.html
+.last-brief.md
+kit-id.txt
+.role
+.env
+.env.local
+
+# Editor noise
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Build artifacts
+*.dmg
+*.iso
+build/
+dist/
+owner-registry/
