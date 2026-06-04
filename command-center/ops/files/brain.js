@@ -3,15 +3,7 @@
 const readline = require('readline');
 const { ask, copyToClipboard, saveAgentContext, getAllAgentContext, sendText } = require('./shared-utils');
 
-let Anthropic;
-try {
-  Anthropic = require('@anthropic-ai/sdk');
-} catch {
-  console.error('Missing dependency. Run: npm install @anthropic-ai/sdk');
-  process.exit(1);
-}
-
-const client = new Anthropic.default();
+const { chatCompletion, requireAiAvailable } = require('./llm-client');
 
 const AGENTS = [
   {
@@ -95,6 +87,14 @@ function println(text = '') { console.log(text); }
 function hr(char = '─', len = 70) { println(char.repeat(len)); }
 function print(text) { process.stdout.write(text); }
 
+/** Section 4 only — avoids shipping section 5 + @roles into iMessage body */
+function extractTeamMessage(brainOutput) {
+  const m =
+    brainOutput.match(/4\)\s*TEAM MESSAGE:\s*([\s\S]*?)(?=\n\s*5\)\s|$)/i) ||
+    brainOutput.match(/TEAM MESSAGE:\s*([\s\S]*?)(?=\n\s*5\)\s|$)/i);
+  return m ? m[1].trim() : brainOutput.trim();
+}
+
 function buildAgentPrompt(agent, problem, context, params) {
   const lines = [
     `You are ${agent.label}. ${agent.desc}`,
@@ -144,24 +144,22 @@ function buildBrainPrompt(problem, context, agentResults) {
 
 async function runAgent(agent, problem, context, params) {
   const prompt = buildAgentPrompt(agent, problem, context, params);
-  const response = await client.messages.create({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 1200,
+  const response = await chatCompletion({
     system: `You are ${agent.label}. ${agent.desc}`,
-    messages: [{ role: 'user', content: prompt }],
+    userMessage: prompt,
+    maxTokens: 1200,
   });
-  return response.content[0].text;
+  return response.text;
 }
 
 async function runBrain(problem, context, agentResults) {
   const prompt = buildBrainPrompt(problem, context, agentResults);
-  const response = await client.messages.create({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 1500,
+  const response = await chatCompletion({
     system: SYSTEM,
-    messages: [{ role: 'user', content: prompt }],
+    userMessage: prompt,
+    maxTokens: 1500,
   });
-  return response.content[0].text;
+  return response.text;
 }
 
 async function main() {
@@ -169,10 +167,8 @@ async function main() {
   println('AIXMOS BRAIN ORCHESTRATOR');
   hr();
 
-  if (!process.env.ANTHROPIC_API_KEY) {
-    println('No API key found. Set ANTHROPIC_API_KEY and rerun.');
-    process.exit(1);
-  }
+  const ai = await requireAiAvailable();
+  println(`AI: ${ai.status.active} · ${ai.status.ollamaModel || 'claude (cloud)'}\n`);
 
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 
@@ -222,14 +218,22 @@ async function main() {
 
   const deliver = await ask(rl, 'Send the team message via iMessage? (y/n): ', true);
   if (deliver.toLowerCase() === 'y') {
-    const recipients = await ask(rl, 'Enter comma-separated iMessage handles (+number or email): ');
+    const recipients = await ask(
+      rl,
+      'Enter comma-separated iMessage handles (+1571… or email; 10-digit US ok): '
+    );
+    const { normalizeIMessageHandle } = require('./shared-utils');
     const handles = recipients.split(',').map(s => s.trim()).filter(Boolean);
-    const messageStart = brainOutput.match(/TEAM MESSAGE:(.*)/i);
-    const text = messageStart ? messageStart[1].trim() : brainOutput;
+    const text = extractTeamMessage(brainOutput);
 
     for (const recipient of handles) {
-      const success = sendText(recipient, text);
-      println(success ? `Sent iMessage to ${recipient}` : `Failed to send to ${recipient}`);
+      const buddy = normalizeIMessageHandle(recipient);
+      const success = sendText(buddy, text);
+      println(
+        success
+          ? `Sent iMessage to ${buddy}`
+          : `Failed to send to ${buddy} (add contact in Messages; use +1… format)`
+      );
     }
   }
 

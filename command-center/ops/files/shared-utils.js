@@ -45,18 +45,41 @@ function copyToClipboard(text) {
   }
 }
 
+/** E.164-ish handle for Messages.app (US 10-digit → +1…) */
+function normalizeIMessageHandle(raw) {
+  const s = String(raw).trim().replace(/^@+/, '');
+  if (!s) return '';
+  if (s.includes('@')) return s;
+  if (/^\+[1-9]\d{6,14}$/.test(s)) return s;
+  const digits = s.replace(/\D/g, '');
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`;
+  if (digits.length > 0) return `+${digits}`;
+  return s;
+}
+
 function sendText(recipient, message) {
   if (process.platform !== 'darwin') return false;
+  const buddy = normalizeIMessageHandle(recipient);
+  if (!buddy || !message) return false;
   try {
-    const escaped = message.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n');
-    const script = `tell application "Messages"
-      set targetService to 1st service whose service type = iMessage
-      set targetBuddy to buddy "${recipient}" of targetService
-      send "${escaped}" to targetBuddy
-    end tell`;
-    execSync(`osascript -e ${JSON.stringify(script)}`);
+    const script = `on run argv
+  set theBuddy to item 1 of argv
+  set theText to item 2 of argv
+  tell application "Messages"
+    set targetService to 1st service whose service type is iMessage
+    set targetBuddy to buddy theBuddy of targetService
+    send theText to targetBuddy
+  end tell
+end run`;
+    execSync('osascript', ['-e', script, '--', buddy, message], {
+      encoding: 'utf8',
+      maxBuffer: 10 * 1024 * 1024,
+    });
     return true;
-  } catch {
+  } catch (err) {
+    const detail = err.stderr?.toString?.() || err.message || String(err);
+    console.error(detail.trim());
     return false;
   }
 }
@@ -84,6 +107,7 @@ function getAllAgentContext(agent) {
 module.exports = {
   ask,
   copyToClipboard,
+  normalizeIMessageHandle,
   sendText,
   saveAgentContext,
   getLastAgentContext,

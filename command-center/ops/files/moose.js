@@ -27,17 +27,7 @@ const c = {
   magenta:'\x1b[35m',
 };
 
-// ── ANTHROPIC SDK ────────────────────────────────────
-let Anthropic;
-try {
-  Anthropic = require('@anthropic-ai/sdk');
-} catch {
-  console.log(`\n${c.red}Missing dependency. Run this first:${c.reset}`);
-  console.log(`${c.cyan}  npm install @anthropic-ai/sdk${c.reset}\n`);
-  process.exit(1);
-}
-
-const client = new Anthropic.default();
+const { chatCompletion, requireAiAvailable } = require('./llm-client');
 
 // ── MOOSE MODES ──────────────────────────────────────
 const MODES = [
@@ -253,11 +243,10 @@ function buildPrompt(mode, inputs) {
 async function main() {
   banner();
 
-  if (!process.env.ANTHROPIC_API_KEY) {
-    println(`${c.red}No API key found. Set it with:${c.reset}`);
-    println(`${c.cyan}  export ANTHROPIC_API_KEY=your_key_here${c.reset}\n`);
-    process.exit(1);
-  }
+  const ai = await requireAiAvailable();
+  const prov = ai.status.active;
+  const modelLabel = prov === 'ollama' ? ai.status.ollamaModel : 'claude (cloud)';
+  println(`  ${c.green}AI:${c.reset} ${prov} · ${modelLabel}\n`);
 
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   let running = true;
@@ -306,13 +295,12 @@ async function main() {
 
     let output = '';
     try {
-      const response = await client.messages.create({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 2000,
+      const response = await chatCompletion({
         system: SYSTEM,
-        messages: [{ role: 'user', content: userPrompt }],
+        userMessage: userPrompt,
+        maxTokens: 2000,
       });
-      output = response.content[0].text;
+      output = response.text;
     } catch (err) {
       clearInterval(dots);
       println(`\n${c.red}API error: ${err.message}${c.reset}\n`);

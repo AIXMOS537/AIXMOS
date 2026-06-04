@@ -1,0 +1,28 @@
+{
+  "name": "aixmos-chummo",
+  "version": "1.0.0",
+  "description": "CHUMMO — AIXMOS Messaging Agent. For the people. By the people.",
+  "main": "chummo.js",
+  "scripts": {
+    "start":   "node chummo.js",
+    "run":     "node chummo-run.js",
+    "run:demo":"node chummo-run.js --source data/leads.example.csv --limit 3",
+    "va:packs":"node chummo-draft-leads.js --limit 15",
+    "va:pathways":"node chummo-draft-leads.js --pathway-only --limit 15",
+    "moose":   "node ../files/moose.js",
+    "brain":   "node ../files/brain.js",
+    "serve":   "node serve.js",
+    "agent":   "node drive-agent.js",
+    "check":   "node --check chummo.js && node --check serve.js && node --check drive-agent.js",
+    "setup":   "npm install && echo '\nCHUMMO is ready. Run: npm start\n'"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.20.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "author": "Muhammad Taha — AIXMOS",
+  "license": "UNLICENSED",
+  "private": true
+}
