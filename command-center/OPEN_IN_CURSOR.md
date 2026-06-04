@@ -36,12 +36,14 @@
 | `all_in_one_platform/` | Milestone 1 static OS shells (`npm run dev`) |
 | `docs/LOCAL_AI_FLEET_FAST_TRACK_CLAUDE_READY.md` | Multi-machine + Ollama fleet setup |
 
-## Ollama
+## Ollama (local AI first)
 
+- **Start everything:** `bash scripts/start-command-center-mac.sh`
+- Agents (CHUMMO, MOOSE, BRAIN) use **Ollama first**, Anthropic as fallback (`ops/files/llm-client.js`)
 - **Do not** store large models on FAT32 USB drives (4 GB file limit).
 - Install on Mac: `brew install ollama` → `ollama pull qwen2.5-coder:14b`
-- Fleet GPU host: set `OLLAMA_HOST=http://ai-1:11434` (see fleet doc in `docs/`)
-- USB agents use Anthropic API by default; Ollama is optional via Continue or custom adapter (`docs/LOCAL_AI_TOOL_GUIDE.md`)
+- Fleet GPU host: `OLLAMA_BASE_URL=http://ai-1:11434` (see `docs/LOCAL_AI_FLEET_FAST_TRACK_CLAUDE_READY.md`)
+- Force cloud only: `export AI_PROVIDER=anthropic`
 
 ## Investor flash drives
 

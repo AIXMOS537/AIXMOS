@@ -46,26 +46,20 @@ if [ ! -d "node_modules" ]; then
   echo -e "  ${GREEN}✓ Ready${RESET}"
 fi
 
-# ── Check API Key ──────────────────────────────────────
-if [ -z "$ANTHROPIC_API_KEY" ]; then
-  echo ""
-  echo -e "  ${YELLOW}No API key found.${RESET}"
-  echo "  Get yours at: https://console.anthropic.com"
-  echo ""
-  read -p "  Paste your Anthropic API key: " API_KEY
-  if [ -z "$API_KEY" ]; then
-    echo -e "\n  ${RED}No key entered. Exiting.${RESET}\n"
-    exit 1
-  fi
-  export ANTHROPIC_API_KEY="$API_KEY"
-  read -p "  Save permanently to this Mac? (y/n): " SAVE
-  if [[ "$SAVE" =~ ^[Yy]$ ]]; then
-    echo "export ANTHROPIC_API_KEY=$API_KEY" >> ~/.zshrc
-    echo -e "  ${GREEN}✓ Saved${RESET}"
-  fi
-fi
+# ── AI — Ollama first ──────────────────────────────────
+export AI_PROVIDER="${AI_PROVIDER:-auto}"
+export OLLAMA_BASE_URL="${OLLAMA_BASE_URL:-http://127.0.0.1:11434}"
 
-echo -e "  ${GREEN}✓ API key ready${RESET}"
+if curl -sf "${OLLAMA_BASE_URL}/api/tags" &>/dev/null; then
+  echo -e "  ${GREEN}✓ Ollama ready${RESET}"
+elif [ -z "$ANTHROPIC_API_KEY" ]; then
+  echo -e "  ${YELLOW}Start Ollama (ollama serve) or set ANTHROPIC_API_KEY${RESET}"
+  read -p "  Paste Anthropic API key (or Enter to exit): " API_KEY
+  [ -z "$API_KEY" ] && exit 1
+  export ANTHROPIC_API_KEY="$API_KEY"
+else
+  echo -e "  ${GREEN}✓ Cloud fallback available${RESET}"
+fi
 echo ""
 echo -e "  ${BLUE}Launching MOOSE...${RESET}"
 echo ""
