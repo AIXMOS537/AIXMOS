@@ -55,6 +55,8 @@ export default {
         if (!c.expires || Date.parse(c.expires) > Date.now()) {
           ctx = { name: c.name || "Customer", role: `cust_${c.brand || "x"}`, admin: false,
                   maxTier: c.maxTier || "free", monthly: c.monthly || 100,
+                  walletKey: `wallet:${hash}`,   // PURCHASED TMMT-token balance (persistent, tops up)
+                  agents: Array.isArray(c.agents) ? c.agents : [],  // which brain/agents this tier unlocks
                   persona: c.persona || `AIXMOS for ${c.brand || "a client"}. Brief, decisive.` };
         }
       }
@@ -74,6 +76,13 @@ export default {
         out[p[1]] = { name: p[0], monthly: p[4], used, remaining: Math.max(0, p[4] - used), maxTier: p[3] };
       }
       return Response.json({ month, people: out });
+    }
+
+    // ── /wallet : anyone checks their plan — TMMT tokens left, model ceiling, unlocked agents. ──
+    if (url.pathname === "/wallet" && req.method === "GET") {
+      const tokens = ctx.walletKey ? parseInt((await env.AIXMOS_KV.get(ctx.walletKey)) || "0", 10) : null;
+      return Response.json({ name: ctx.name, plan_model_ceiling: ctx.maxTier,
+        tmmt_tokens_left: tokens, agents_unlocked: ctx.agents || [], free_lane_always: true });
     }
 
     // ── /mem : shared memory, namespaced so team can't read your private context. ────────
@@ -103,13 +112,23 @@ export default {
       let want = incoming.tier && RANK[incoming.tier] !== undefined ? incoming.tier : ctx.maxTier;
       if (RANK[want] > RANK[ctx.maxTier]) want = ctx.maxTier;
 
-      // Credit check. If a paid tier would exceed the monthly allowance, DOWN-SHIFT to free
-      // (your Ollama) instead of blocking — work never stops, premium just pauses.
+      // ACCESS GATE: free for everyone; the brain/agents cost TMMT tokens.
+      //  - Customers spend a PURCHASED wallet (persistent balance, tops up).
+      //  - Staff spend a monthly allowance (auto-resets).
+      // Out of tokens? DOWN-SHIFT to free (your Ollama) — the free floor is always there.
       const used = await getUsed();
-      let tier = want, downgraded = false;
-      if (tier !== "free" && used + COST[tier] > ctx.monthly) {
-        tier = "free"; downgraded = true;
+      let tier = want, downgraded = false, walletBal = null;
+      if (tier !== "free") {
+        if (ctx.walletKey) {                                   // customer = purchased tokens
+          walletBal = parseInt((await env.AIXMOS_KV.get(ctx.walletKey)) || "0", 10);
+          if (walletBal < COST[tier]) { tier = "free"; downgraded = true; }
+        } else if (used + COST[tier] > ctx.monthly) {          // staff = monthly allowance
+          tier = "free"; downgraded = true;
+        }
       }
+      // Agent gating: a requested agent must be unlocked by this customer's tier.
+      if (incoming.agent && ctx.walletKey && ctx.agents.length && !ctx.agents.includes(incoming.agent))
+        return Response.json({ error: `Agent '${incoming.agent}' not in your plan. Upgrade tier to unlock.` }, { status: 403 });
 
       // ── FREE LANE → your own Ollama via Cloudflare Tunnel ($0, private). ──
       if (tier === "free") {
@@ -141,8 +160,12 @@ export default {
         return Response.json({ lane: "free", model: env.OLLAMA_MODEL || "llama3.1", downgraded, text, raw: data }, { status: r.ok ? 200 : 502 });
       }
 
-      // ── PAID LANE → Anthropic. Debit TMMT tokens first (monthly auto-reset via TTL). ──
-      await env.AIXMOS_KV.put(credKey, String(used + COST[tier]), { expirationTtl: 60 * 60 * 24 * 40 });
+      // ── PAID LANE → Anthropic. Debit TMMT tokens first. ──
+      if (ctx.walletKey) {           // customer: spend PURCHASED tokens (persistent, no reset)
+        await env.AIXMOS_KV.put(ctx.walletKey, String(Math.max(0, walletBal - COST[tier])));
+      } else {                        // staff: monthly allowance (auto-reset via TTL)
+        await env.AIXMOS_KV.put(credKey, String(used + COST[tier]), { expirationTtl: 60 * 60 * 24 * 40 });
+      }
       // light daily counter too (visibility)
       const dKey = `calls:${ctx.role}:${day}`;
       await env.AIXMOS_KV.put(dKey, String(parseInt((await env.AIXMOS_KV.get(dKey)) || "0", 10) + 1), { expirationTtl: 172800 });
@@ -159,13 +182,11 @@ export default {
         body: JSON.stringify(payload),
       });
       const body = await r.text();
-      // attach lane/credit info via headers so clients can show "X tokens left"
-      return new Response(body, { status: r.status, headers: {
-        "content-type": "application/json",
-        "x-aixmos-lane": tier,
-        "x-aixmos-credits-used": String(used + COST[tier]),
-        "x-aixmos-credits-monthly": String(ctx.monthly),
-      }});
+      // attach lane/token info via headers so clients can show "X tokens left"
+      const hdrs = { "content-type": "application/json", "x-aixmos-lane": tier };
+      if (ctx.walletKey) hdrs["x-aixmos-tokens-left"] = String(Math.max(0, walletBal - COST[tier]));
+      else { hdrs["x-aixmos-credits-used"] = String(used + COST[tier]); hdrs["x-aixmos-credits-monthly"] = String(ctx.monthly); }
+      return new Response(body, { status: r.status, headers: hdrs });
     }
 
     return new Response("Not found", { status: 404 });
