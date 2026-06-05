@@ -1,0 +1,10 @@
+{
+  "name": "aixmos-gateway",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "deploy": "bash deploy.sh",
+    "tail": "npx wrangler tail",
+    "usage": "echo 'Open https://YOUR.workers.dev/usage with your admin secret header'"
+  }
+}

@@ -1,0 +1,8 @@
+name = "aixmos-gateway"
+main = "src/index.js"
+compatibility_date = "2025-06-01"
+
+# deploy.sh creates the KV store and writes the real id here automatically.
+[[kv_namespaces]]
+binding = "AIXMOS_KV"
+id = "PASTE_KV_ID"
