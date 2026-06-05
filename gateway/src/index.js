@@ -20,6 +20,47 @@ export default {
   async fetch(req, env) {
     const url = new URL(req.url);
     const auth = req.headers.get("x-aixmos-auth");
+    const BRAND = env.BRAND_NAME || "AIXMOS";
+
+    // ── PUBLIC: landing page (top of funnel) — no auth. ──
+    if ((url.pathname === "/" || url.pathname === "/join") && req.method === "GET") {
+      const html = `<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1">
+<title>${BRAND} — your AI operating brain</title><style>
+body{font-family:system-ui,sans-serif;background:#0b0b0f;color:#eee;margin:0;display:flex;min-height:100vh;align-items:center;justify-content:center}
+.card{max-width:520px;padding:40px;text-align:center}h1{font-size:2rem;margin:.2em 0}p{color:#aaa;line-height:1.5}
+input,button{font-size:1rem;padding:12px 14px;border-radius:10px;border:1px solid #333;margin:6px}
+input{background:#15151c;color:#fff;width:60%}button{background:#5b8cff;color:#fff;border:0;cursor:pointer;font-weight:600}
+#out{margin-top:18px;text-align:left;background:#15151c;padding:14px;border-radius:10px;display:none;white-space:pre-wrap;font-size:.85rem}
+small{color:#777}</style></head><body><div class=card>
+<h1>${BRAND}</h1><p>Your AI operating brain — runs your ops, agents, and automations. <b>Free to start.</b> Add TMMT tokens to unlock premium models & agents.</p>
+<div><input id=email type=email placeholder="you@email.com"><button onclick=go()>Get free access</button></div>
+<div id=out></div><small>Free tier runs on our edge AI. No card required.</small>
+<script>async function go(){const e=document.getElementById('email').value;const o=document.getElementById('out');o.style.display='block';o.textContent='Creating your free account…';
+const r=await fetch('/signup',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:e})});const d=await r.json();
+if(d.secret){o.textContent='✅ You\\'re in! Your key (save it):\\n\\n'+d.secret+'\\n\\nTry it:\\ncurl -s '+location.origin+' -H "x-aixmos-auth: '+d.secret+'" -X POST -d \\'{"prompt":"hello"}\\'';}else{o.textContent='Error: '+(d.error||'try again');}}</script>
+</div></body></html>`;
+      return new Response(html, { headers: { "content-type": "text/html;charset=utf-8" } });
+    }
+
+    // ── PUBLIC: self-serve free signup — issues a free account on the spot. ──
+    if (url.pathname === "/signup" && req.method === "POST") {
+      const b = await req.json().catch(() => ({}));
+      const email = (b.email || "").toString().slice(0, 120);
+      if (!email || !email.includes("@")) return Response.json({ error: "valid email required" }, { status: 400 });
+      // light abuse guard: cap signups/day globally
+      const sd = `signups:${new Date().toISOString().slice(0,10)}`;
+      const sc = parseInt((await env.AIXMOS_KV.get(sd)) || "0", 10);
+      if (sc > 500) return Response.json({ error: "signups paused, try later" }, { status: 429 });
+      await env.AIXMOS_KV.put(sd, String(sc + 1), { expirationTtl: 172800 });
+      const secret = "ax_free_" + crypto.randomUUID().replace(/-/g, "");
+      const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(secret));
+      const hash = [...new Uint8Array(buf)].map(x => x.toString(16).padStart(2, "0")).join("");
+      const cfg = { name: email, brand: "free", maxTier: "free", monthly: 0,
+        agents: ["tmmt-brain"], persona: `${BRAND} free assistant. Helpful, brief.`, tier: "free_signup" };
+      await env.AIXMOS_KV.put(`cust:${hash}`, JSON.stringify(cfg));
+      await env.AIXMOS_KV.put(`wallet:${hash}`, "0");
+      return Response.json({ ok: true, secret, plan: "free", note: "Free edge AI. Buy TMMT tokens to unlock premium models + agents." });
+    }
 
     // ── PEOPLE: one row per person for individual revocation + accountability. ──────────
     //  maxTier = the best model this person may use. monthly = their TMMT-token allowance.
@@ -130,34 +171,34 @@ export default {
       if (incoming.agent && ctx.walletKey && ctx.agents.length && !ctx.agents.includes(incoming.agent))
         return Response.json({ error: `Agent '${incoming.agent}' not in your plan. Upgrade tier to unlock.` }, { status: 403 });
 
-      // ── FREE LANE → your own Ollama via Cloudflare Tunnel ($0, private). ──
+      // ── FREE LANE — public free tier on Cloudflare Workers AI (scales, keeps home brain private).
+      //    Staff/internal can route to private Ollama by setting OLLAMA_URL (Tailscale).
       if (tier === "free") {
-        if (!env.OLLAMA_URL) {
-          return Response.json({ error: "Free lane not configured (set OLLAMA_URL to your tunnel)." }, { status: 503 });
-        }
-        // ABUSE GUARD: bound free-lane calls/person/day so nobody can hammer the brain PC.
+        // ABUSE GUARD: bound free calls/account/day.
         const fKey = `free:${ctx.role}:${day}`;
         const fUsed = parseInt((await env.AIXMOS_KV.get(fKey)) || "0", 10);
-        const FREE_DAILY = 500;
+        const FREE_DAILY = 100;
         if (fUsed >= FREE_DAILY)
-          return Response.json({ error: `Daily free-lane limit reached for ${ctx.role}` }, { status: 429 });
+          return Response.json({ error: "Daily free limit reached. Buy TMMT tokens to keep going." }, { status: 429 });
         await env.AIXMOS_KV.put(fKey, String(fUsed + 1), { expirationTtl: 172800 });
-        const messages = incoming.messages || [{ role: "user", content: incoming.prompt || "" }];
-        const r = await fetch(`${env.OLLAMA_URL.replace(/\/$/, "")}/api/chat`, {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-            ...(env.OLLAMA_AUTH ? { "x-aixmos-tunnel": env.OLLAMA_AUTH } : {}),
-          },
-          body: JSON.stringify({
-            model: env.OLLAMA_MODEL || "llama3.1",
-            stream: false,
-            messages: [{ role: "system", content: ctx.persona }, ...messages],
-          }),
-        });
-        const data = await r.json().catch(() => ({}));
-        const text = data?.message?.content ?? data?.response ?? "";
-        return Response.json({ lane: "free", model: env.OLLAMA_MODEL || "llama3.1", downgraded, text, raw: data }, { status: r.ok ? 200 : 502 });
+        const messages = [{ role: "system", content: ctx.persona }, ...(incoming.messages || [{ role: "user", content: incoming.prompt || "" }])];
+        // 1) private Ollama (only if you wire OLLAMA_URL for internal/Tailscale)
+        if (env.OLLAMA_URL) {
+          const r = await fetch(`${env.OLLAMA_URL.replace(/\/$/, "")}/api/chat`, {
+            method: "POST",
+            headers: { "content-type": "application/json", ...(env.OLLAMA_AUTH ? { "x-aixmos-tunnel": env.OLLAMA_AUTH } : {}) },
+            body: JSON.stringify({ model: env.OLLAMA_MODEL || "llama3.1", stream: false, messages }),
+          });
+          const data = await r.json().catch(() => ({}));
+          return Response.json({ lane: "free", model: env.OLLAMA_MODEL || "llama3.1", downgraded, text: data?.message?.content ?? data?.response ?? "", raw: data }, { status: r.ok ? 200 : 502 });
+        }
+        // 2) public free tier → Cloudflare Workers AI
+        if (env.AI) {
+          const m = env.WORKERS_AI_MODEL || "@cf/meta/llama-3.1-8b-instruct";
+          const a = await env.AI.run(m, { messages, max_tokens: 512 });
+          return Response.json({ lane: "free", model: m, downgraded, text: a.response || "" });
+        }
+        return Response.json({ error: "Free lane not configured." }, { status: 503 });
       }
 
       // ── PAID LANE → Anthropic. Debit TMMT tokens first. ──

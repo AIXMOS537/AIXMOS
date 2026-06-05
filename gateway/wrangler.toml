@@ -7,6 +7,11 @@ compatibility_date = "2025-06-01"
 binding = "AIXMOS_KV"
 id = "64fb993c87c74c139f6e4dac027cc851"
 
-# Free-lane model name on your Ollama box (override anytime; not a secret).
+# Public free tier runs on Cloudflare Workers AI (scales, keeps your home brain private).
+[ai]
+binding = "AI"
+
+# Free-lane model name on your Ollama box (team/Tailscale only) + the Workers AI model for the public free tier.
 [vars]
 OLLAMA_MODEL = "llama3.1"
+WORKERS_AI_MODEL = "@cf/meta/llama-3.1-8b-instruct"
