@@ -104,6 +104,55 @@ async function buy(p){const r=await fetch('/buy',{method:'POST',headers:{'conten
       return Response.json({ received: true });
     }
 
+    // ── PUBLIC: UNIVERSAL payment webhook — connect ANY US payment rail (cards, ACH, PayPal,
+    //    Venmo, CashApp, Zelle, Square, crypto) via the provider's webhook OR a Zapier/Make zap.
+    //    Auth = shared secret header `x-pay-secret`. Body: { email|secret|hash, tokens|amount_usd, maxTier?, agents? }.
+    if (url.pathname === "/pay/webhook" && req.method === "POST") {
+      if (!env.PAY_WEBHOOK_SECRET) return new Response("not configured", { status: 503 });
+      if (req.headers.get("x-pay-secret") !== env.PAY_WEBHOOK_SECRET) return new Response("bad secret", { status: 401 });
+      const b = await req.json().catch(() => ({}));
+      let h = b.hash;
+      if (!h && (b.secret || b.email)) {
+        const seed = b.secret || `email:${b.email}`;   // map email→deterministic account if no secret
+        const hb = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(seed));
+        h = [...new Uint8Array(hb)].map(x => x.toString(16).padStart(2, "0")).join("");
+      }
+      // amount_usd (dollars) maps to a PACK; or pass explicit tokens
+      let tokens = parseInt(b.tokens || "0", 10), maxTier = b.maxTier;
+      if (!tokens && b.amount_usd) {
+        const cents = Math.round(parseFloat(b.amount_usd) * 100);
+        const p = Object.values(PACKS).find(x => x.usd === cents);
+        if (p) { tokens = p.tokens; maxTier = maxTier || p.maxTier; }
+      }
+      if (!h || !tokens) return Response.json({ error: "need {email|secret|hash} and {tokens|amount_usd}" }, { status: 400 });
+      const cur = parseInt((await env.AIXMOS_KV.get(`wallet:${h}`)) || "0", 10);
+      await env.AIXMOS_KV.put(`wallet:${h}`, String(cur + tokens));
+      if (maxTier) { const c = JSON.parse((await env.AIXMOS_KV.get(`cust:${h}`)) || "{}"); c.maxTier = maxTier; if (b.agents) c.agents = String(b.agents).split(",").filter(Boolean); await env.AIXMOS_KV.put(`cust:${h}`, JSON.stringify(c)); }
+      return Response.json({ ok: true, wallet: cur + tokens });
+    }
+
+    // ── PUBLIC: Coinbase Commerce crypto webhook (HMAC over raw body w/ X-CC-Webhook-Signature). ──
+    if (url.pathname === "/pay/coinbase" && req.method === "POST") {
+      if (!env.COINBASE_WEBHOOK_SECRET) return new Response("not configured", { status: 503 });
+      const raw = await req.text();
+      const sig = req.headers.get("x-cc-webhook-signature") || "";
+      const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(env.COINBASE_WEBHOOK_SECRET), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+      const mac = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(raw));
+      const expected = [...new Uint8Array(mac)].map(x => x.toString(16).padStart(2, "0")).join("");
+      if (expected !== sig) return new Response("sig mismatch", { status: 400 });
+      const ev = JSON.parse(raw);
+      if (ev.event?.type === "charge:confirmed" || ev.event?.type === "charge:resolved") {
+        const md = ev.event?.data?.metadata || {};
+        const tokens = parseInt(md.tokens || "0", 10);
+        if (md.hash && tokens > 0) {
+          const cur = parseInt((await env.AIXMOS_KV.get(`wallet:${md.hash}`)) || "0", 10);
+          await env.AIXMOS_KV.put(`wallet:${md.hash}`, String(cur + tokens));
+          if (md.maxTier) { const c = JSON.parse((await env.AIXMOS_KV.get(`cust:${md.hash}`)) || "{}"); c.maxTier = md.maxTier; await env.AIXMOS_KV.put(`cust:${md.hash}`, JSON.stringify(c)); }
+        }
+      }
+      return Response.json({ received: true });
+    }
+
     // ── PEOPLE: one row per person for individual revocation + accountability. ──────────
     //  maxTier = the best model this person may use. monthly = their TMMT-token allowance.
     //  Most staff: maxTier "free", small allowance for occasional cloud. You: opus, big.
@@ -187,6 +236,29 @@ async function buy(p){const r=await fetch('/buy',{method:'POST',headers:{'conten
       });
       const s = await r.json();
       return s.url ? Response.json({ url: s.url, pack: b.pack }) : Response.json({ error: s.error?.message || "stripe error" }, { status: 502 });
+    }
+
+    // ── /pay/crypto : authed buyer picks a pack → Coinbase Commerce hosted crypto checkout (BTC/ETH/USDC…). ──
+    if (url.pathname === "/pay/crypto" && req.method === "POST") {
+      if (!env.COINBASE_COMMERCE_KEY) return Response.json({ error: "crypto not configured yet" }, { status: 503 });
+      const b = await req.json().catch(() => ({}));
+      const pack = PACKS[b.pack];
+      if (!pack) return Response.json({ error: "unknown pack", packs: Object.keys(PACKS) }, { status: 400 });
+      const hb = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(auth));
+      const bhash = [...new Uint8Array(hb)].map(x => x.toString(16).padStart(2, "0")).join("");
+      const r = await fetch("https://api.commerce.coinbase.com/charges", {
+        method: "POST",
+        headers: { "X-CC-Api-Key": env.COINBASE_COMMERCE_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: pack.label, description: `${BRAND} TMMT tokens`, pricing_type: "fixed_price",
+          local_price: { amount: (pack.usd / 100).toFixed(2), currency: "USD" },
+          metadata: { hash: bhash, tokens: String(pack.tokens), maxTier: pack.maxTier },
+          redirect_url: `${url.origin}/?paid=1`, cancel_url: `${url.origin}/?canceled=1`,
+        }),
+      });
+      const c = await r.json();
+      const hosted = c.data?.hosted_url;
+      return hosted ? Response.json({ url: hosted, pack: b.pack }) : Response.json({ error: c.error?.message || "coinbase error" }, { status: 502 });
     }
 
     // ── /admin/topup : PROCESSOR-AGNOSTIC token loading (admin only). Works with ANY payment:
