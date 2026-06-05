@@ -84,8 +84,11 @@ export default {
 
     // ── PUBLIC: landing page (top of funnel) — no auth. ──
     if ((url.pathname === "/" || url.pathname === "/join") && req.method === "GET") {
+      const TS_KEY = env.TURNSTILE_SITEKEY || "";   // when set, renders the bot-check widget on signup
+      const tsScript = TS_KEY ? '<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>' : '';
+      const tsWidget = TS_KEY ? `<div class="cf-turnstile" data-sitekey="${TS_KEY}" style="margin:8px auto"></div>` : '';
       const html = `<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1">
-<title>${BRAND} — your AI operating brain</title><style>
+<title>${BRAND} — your AI operating brain</title>${tsScript}<style>
 body{font-family:system-ui,sans-serif;background:#0b0b0f;color:#eee;margin:0;display:flex;min-height:100vh;align-items:center;justify-content:center}
 .card{max-width:520px;padding:40px;text-align:center}h1{font-size:2rem;margin:.2em 0}p{color:#aaa;line-height:1.5}
 input,button{font-size:1rem;padding:12px 14px;border-radius:10px;border:1px solid #333;margin:6px}
@@ -94,10 +97,12 @@ input{background:#15151c;color:#fff;width:60%}button{background:#5b8cff;color:#f
 small{color:#777}</style></head><body><div class=card>
 <h1>${BRAND}</h1><p>Your AI operating brain — runs your ops, agents, and automations. <b>Free to start.</b> Add TMMT tokens to unlock premium models & agents.</p>
 <div><input id=email type=email placeholder="you@email.com"><button onclick=go()>Get free access</button></div>
+${tsWidget}
 <div id=out></div><small>Free tier runs on our edge AI. No card required.</small>
 <script>let SEC='';
 async function go(){const e=document.getElementById('email').value;const o=document.getElementById('out');o.style.display='block';o.textContent='Creating your free account…';
-const r=await fetch('/signup',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:e})});const d=await r.json();
+const tk=(window.turnstile&&turnstile.getResponse)?turnstile.getResponse():'';
+const r=await fetch('/signup',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:e,turnstile:tk})});const d=await r.json();
 if(d.secret){SEC=d.secret;o.innerHTML='✅ You\\'re in! Save your key:<br><code style="color:#5b8cff">'+d.secret+'</code><br><br>Unlock premium models + agents with TMMT tokens:<br><button onclick="buy(\\'starter\\')">Card $25</button> <button onclick="buy(\\'pro\\')">Card $100</button> <button onclick="buy(\\'scale\\')">Card $500</button><br><button onclick="buyCrypto(\\'pro\\')">₿ Pay with crypto</button>';}else{o.textContent='Error: '+(d.error||'try again');}}
 async function buy(p){const r=await fetch('/buy',{method:'POST',headers:{'content-type':'application/json','x-aixmos-auth':SEC},body:JSON.stringify({pack:p})});const d=await r.json();if(d.url){location.href=d.url;}else{alert(d.error||'card payments not live yet — use crypto or contact us');}}
 async function buyCrypto(p){const r=await fetch('/pay/crypto',{method:'POST',headers:{'content-type':'application/json','x-aixmos-auth':SEC},body:JSON.stringify({pack:p})});const d=await r.json();if(d.url){location.href=d.url;}else{alert(d.error||'crypto not live yet');}}</script>
@@ -202,6 +207,21 @@ if(A)go();</script></body></html>`;
       const b = await req.json().catch(() => ({}));
       const email = (b.email || "").toString().slice(0, 120);
       if (!email || !email.includes("@")) return Response.json({ error: "valid email required" }, { status: 400 });
+      const ip = req.headers.get("cf-connecting-ip") || "unknown";
+      // BOT GUARD: Cloudflare Turnstile (free). Activates when you set TURNSTILE_SECRET (+ TURNSTILE_SITEKEY
+      // makes the widget render). Until then signup still works, protected by the per-IP + global caps below.
+      if (env.TURNSTILE_SECRET) {
+        const tv = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+          method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({ secret: env.TURNSTILE_SECRET, response: (b.turnstile || "").toString(), remoteip: ip }),
+        }).then(r => r.json()).catch(() => ({ success: false }));
+        if (!tv.success) return Response.json({ error: "bot check failed — refresh and try again" }, { status: 403 });
+      }
+      // ABUSE GUARD: per-IP daily cap stops one network flooding fake accounts (each costs you Workers-AI calls).
+      const ipk = `sigip:${ip}:${new Date().toISOString().slice(0,10)}`;
+      const ipc = parseInt((await env.AIXMOS_KV.get(ipk)) || "0", 10);
+      if (ipc >= 10) return Response.json({ error: "too many signups from this network today" }, { status: 429 });
+      await env.AIXMOS_KV.put(ipk, String(ipc + 1), { expirationTtl: 172800 });
       // light abuse guard: cap signups/day globally
       const sd = `signups:${new Date().toISOString().slice(0,10)}`;
       const sc = parseInt((await env.AIXMOS_KV.get(sd)) || "0", 10);
