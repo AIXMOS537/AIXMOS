@@ -14,7 +14,7 @@ Open these in order:
 
 **Already have TMMT on Airtable + Supabase + Vercel?** See `INTEGRATION.md` — connect your existing base (no CSV import required).
 
-**TMMT OS app** (Next.js workflow on Vercel): see `integrations/TMMT_OS.md` — extracted from `tmmt-os.zip` under `integrations/tmmt-os/tmmt-os/`.
+**TMMT Rentals app** (Next.js, deployed on Vercel): lives in the private repo `AIXMOS537/TMMT`. The earlier `tmmt-os` prototype was removed — see `../archive/TMMT_OS_ARCHIVE_NOTE.md`.
 
 **Daily routine:** `ONE_PAGE_START.md` → run `./scripts/tmmt-day` each morning.
 

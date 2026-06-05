@@ -1,0 +1,11 @@
+{
+  "ventures": [
+    {
+      "slug": "tmmt-rentals",
+      "name": "TMMT Rentals",
+      "clickup_list_id": "REPLACE_ME_after_Task_1",
+      "default_tag": "tmmt-rentals",
+      "status": "active"
+    }
+  ]
+}

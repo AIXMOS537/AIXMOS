@@ -1,0 +1,3 @@
+Booking ID,Customer,Vehicle ID,Start Date,End Date,Status,Total,Notes
+B-5001,Jane Doe,V-103,2026-05-10,2026-05-25,Active,1425,Corporate client
+B-5002,John Smith,V-101,2026-05-16,2026-05-18,Confirmed,130,Weekend rental

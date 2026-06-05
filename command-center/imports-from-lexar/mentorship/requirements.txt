@@ -1,0 +1,2 @@
+# Optional runtime requirements
+openai>=1.0.0  # optional: set OPENAI_API_KEY to enable remote chat
