@@ -24,8 +24,10 @@ fi
 # Set secrets (input is hidden and never written to a file).
 echo
 echo "Set your secrets now. Minimum to start: ANTHROPIC_KEY and SECRET_PERSONAL."
-echo "(Skip the others for now — add SECRET_WORK/OP/VA/OFFICE when you add your work phone and team.)"
-for S in ANTHROPIC_KEY SECRET_PERSONAL SECRET_WORK SECRET_OP SECRET_VA SECRET_OFFICE; do
+echo "FREE LANE (most employees): OLLAMA_URL (your Cloudflare Tunnel URL) + OLLAMA_AUTH (a password"
+echo "you also put on the tunnel). See TMMT_TOKENS.md for the tunnel setup on your brain PC."
+echo "Per-person secrets: SECRET_LEAD/WORK/OP/VA/OFFICE — add as you onboard people."
+for S in ANTHROPIC_KEY SECRET_PERSONAL OLLAMA_URL OLLAMA_AUTH SECRET_WORK SECRET_LEAD SECRET_OP SECRET_VA SECRET_OFFICE; do
   printf "Set %s now? [y/N] " "$S"; read yn
   case "$yn" in [Yy]*) npx wrangler secret put "$S";; esac
 done

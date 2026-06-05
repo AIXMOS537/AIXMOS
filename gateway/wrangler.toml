@@ -5,4 +5,8 @@ compatibility_date = "2025-06-01"
 # deploy.sh creates the KV store and writes the real id here automatically.
 [[kv_namespaces]]
 binding = "AIXMOS_KV"
-id = "PASTE_KV_ID"
+id = "64fb993c87c74c139f6e4dac027cc851"
+
+# Free-lane model name on your Ollama box (override anytime; not a secret).
+[vars]
+OLLAMA_MODEL = "llama3.1"
