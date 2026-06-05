@@ -15,6 +15,13 @@ const TIERS = {
 // TMMT-token cost per call by model. free = your own hardware = 0.
 const COST = { free: 0, haiku: 1, sonnet: 5, opus: 25 };
 const RANK = { free: 0, haiku: 1, sonnet: 2, opus: 3 };
+// TMMT TOKEN PACKS (buy with Stripe → auto-loaded into wallet). usd in cents. Bonus scales up.
+// Bumps maxTier so buying tokens also unlocks premium models. Adjust pricing freely.
+const PACKS = {
+  starter: { usd: 2500,  tokens: 600,   maxTier: "haiku",  label: "Starter — 600 TMMT tokens" },
+  pro:     { usd: 10000, tokens: 3000,  maxTier: "sonnet", label: "Pro — 3,000 TMMT tokens" },
+  scale:   { usd: 50000, tokens: 18000, maxTier: "opus",   label: "Scale — 18,000 TMMT tokens" },
+};
 
 export default {
   async fetch(req, env) {
@@ -35,9 +42,11 @@ small{color:#777}</style></head><body><div class=card>
 <h1>${BRAND}</h1><p>Your AI operating brain — runs your ops, agents, and automations. <b>Free to start.</b> Add TMMT tokens to unlock premium models & agents.</p>
 <div><input id=email type=email placeholder="you@email.com"><button onclick=go()>Get free access</button></div>
 <div id=out></div><small>Free tier runs on our edge AI. No card required.</small>
-<script>async function go(){const e=document.getElementById('email').value;const o=document.getElementById('out');o.style.display='block';o.textContent='Creating your free account…';
+<script>let SEC='';
+async function go(){const e=document.getElementById('email').value;const o=document.getElementById('out');o.style.display='block';o.textContent='Creating your free account…';
 const r=await fetch('/signup',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:e})});const d=await r.json();
-if(d.secret){o.textContent='✅ You\\'re in! Your key (save it):\\n\\n'+d.secret+'\\n\\nTry it:\\ncurl -s '+location.origin+' -H "x-aixmos-auth: '+d.secret+'" -X POST -d \\'{"prompt":"hello"}\\'';}else{o.textContent='Error: '+(d.error||'try again');}}</script>
+if(d.secret){SEC=d.secret;o.innerHTML='✅ You\\'re in! Save your key:<br><code style="color:#5b8cff">'+d.secret+'</code><br><br>Unlock premium models + agents with TMMT tokens:<br><button onclick="buy(\\'starter\\')">Starter $25</button> <button onclick="buy(\\'pro\\')">Pro $100</button> <button onclick="buy(\\'scale\\')">Scale $500</button>';}else{o.textContent='Error: '+(d.error||'try again');}}
+async function buy(p){const r=await fetch('/buy',{method:'POST',headers:{'content-type':'application/json','x-aixmos-auth':SEC},body:JSON.stringify({pack:p})});const d=await r.json();if(d.url){location.href=d.url;}else{alert(d.error||'payments not live yet');}}</script>
 </div></body></html>`;
       return new Response(html, { headers: { "content-type": "text/html;charset=utf-8" } });
     }
@@ -60,6 +69,39 @@ if(d.secret){o.textContent='✅ You\\'re in! Your key (save it):\\n\\n'+d.secret
       await env.AIXMOS_KV.put(`cust:${hash}`, JSON.stringify(cfg));
       await env.AIXMOS_KV.put(`wallet:${hash}`, "0");
       return Response.json({ ok: true, secret, plan: "free", note: "Free edge AI. Buy TMMT tokens to unlock premium models + agents." });
+    }
+
+    // ── PUBLIC: Stripe webhook — payment confirmed → auto-load TMMT tokens into the buyer's wallet. ──
+    if (url.pathname === "/stripe/webhook" && req.method === "POST") {
+      const raw = await req.text();
+      const sigHeader = req.headers.get("stripe-signature") || "";
+      if (!env.STRIPE_WEBHOOK_SECRET) return new Response("stripe not configured", { status: 503 });
+      // verify Stripe signature (HMAC-SHA256 over `${t}.${rawBody}`)
+      const parts = Object.fromEntries(sigHeader.split(",").map(kv => kv.split("=")));
+      const t = parts.t, v1 = parts.v1;
+      if (!t || !v1) return new Response("bad sig", { status: 400 });
+      if (Math.abs(Math.floor(Date.now() / 1000) - parseInt(t, 10)) > 300) return new Response("stale", { status: 400 });
+      const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(env.STRIPE_WEBHOOK_SECRET), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+      const macBuf = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`${t}.${raw}`));
+      const expected = [...new Uint8Array(macBuf)].map(b => b.toString(16).padStart(2, "0")).join("");
+      if (expected !== v1) return new Response("sig mismatch", { status: 400 });
+      const event = JSON.parse(raw);
+      if (event.type === "checkout.session.completed" || event.type === "payment_intent.succeeded") {
+        const md = (event.data?.object?.metadata) || {};
+        const tokens = parseInt(md.tokens || "0", 10);
+        if (md.hash && tokens > 0) {
+          const cur = parseInt((await env.AIXMOS_KV.get(`wallet:${md.hash}`)) || "0", 10);
+          await env.AIXMOS_KV.put(`wallet:${md.hash}`, String(cur + tokens));
+          // optional: a pack can also raise the model ceiling/agents
+          if (md.maxTier || md.agents) {
+            const c = JSON.parse((await env.AIXMOS_KV.get(`cust:${md.hash}`)) || "{}");
+            if (md.maxTier) c.maxTier = md.maxTier;
+            if (md.agents) c.agents = md.agents.split(",").filter(Boolean);
+            await env.AIXMOS_KV.put(`cust:${md.hash}`, JSON.stringify(c));
+          }
+        }
+      }
+      return Response.json({ received: true });
     }
 
     // ── PEOPLE: one row per person for individual revocation + accountability. ──────────
@@ -117,6 +159,34 @@ if(d.secret){o.textContent='✅ You\\'re in! Your key (save it):\\n\\n'+d.secret
         out[p[1]] = { name: p[0], monthly: p[4], used, remaining: Math.max(0, p[4] - used), maxTier: p[3] };
       }
       return Response.json({ month, people: out });
+    }
+
+    // ── /buy : authed buyer picks a TMMT-token pack → Stripe Checkout URL. Webhook loads tokens on payment. ──
+    if (url.pathname === "/buy" && req.method === "POST") {
+      if (!env.STRIPE_SECRET_KEY) return Response.json({ error: "payments not configured yet" }, { status: 503 });
+      const b = await req.json().catch(() => ({}));
+      const pack = PACKS[b.pack];
+      if (!pack) return Response.json({ error: "unknown pack", packs: Object.keys(PACKS) }, { status: 400 });
+      const hbuf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(auth));
+      const bhash = [...new Uint8Array(hbuf)].map(x => x.toString(16).padStart(2, "0")).join("");
+      const f = new URLSearchParams();
+      f.set("mode", "payment");
+      f.set("success_url", `${url.origin}/?paid=1`);
+      f.set("cancel_url", `${url.origin}/?canceled=1`);
+      f.set("line_items[0][quantity]", "1");
+      f.set("line_items[0][price_data][currency]", "usd");
+      f.set("line_items[0][price_data][unit_amount]", String(pack.usd));
+      f.set("line_items[0][price_data][product_data][name]", pack.label);
+      f.set("metadata[hash]", bhash);
+      f.set("metadata[tokens]", String(pack.tokens));
+      f.set("metadata[maxTier]", pack.maxTier);
+      const r = await fetch("https://api.stripe.com/v1/checkout/sessions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`, "Content-Type": "application/x-www-form-urlencoded" },
+        body: f.toString(),
+      });
+      const s = await r.json();
+      return s.url ? Response.json({ url: s.url, pack: b.pack }) : Response.json({ error: s.error?.message || "stripe error" }, { status: 502 });
     }
 
     // ── /wallet : anyone checks their plan — TMMT tokens left, model ceiling, unlocked agents. ──
