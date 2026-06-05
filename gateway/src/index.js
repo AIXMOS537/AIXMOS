@@ -52,6 +52,46 @@ async function buyCrypto(p){const r=await fetch('/pay/crypto',{method:'POST',hea
       return new Response(html, { headers: { "content-type": "text/html;charset=utf-8" } });
     }
 
+    // ── /me : customer portal — log in with key, see TMMT tokens + agents, chat, buy more. ──
+    if (url.pathname === "/me" && req.method === "GET") {
+      const html = `<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1">
+<title>${BRAND}</title><style>
+body{font-family:system-ui,sans-serif;background:#0b0b0f;color:#eee;margin:0;padding:20px;max-width:640px;margin:auto}
+h2{margin:.2em 0}.bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;background:#15151c;padding:12px;border-radius:12px;margin:12px 0}
+.pill{background:#1f1f2b;padding:6px 12px;border-radius:20px;font-size:.85rem}.pill b{color:#5b8cff}
+input,select,textarea,button{font-size:1rem;padding:11px;border-radius:10px;border:1px solid #333;background:#15151c;color:#fff;box-sizing:border-box}
+textarea{width:100%;min-height:80px}button{background:#5b8cff;border:0;font-weight:700;cursor:pointer}
+#chat{background:#15151c;border-radius:12px;padding:14px;margin:12px 0;white-space:pre-wrap;min-height:60px}
+.row{display:flex;gap:8px;margin:8px 0}small{color:#777}.buy button{margin:4px}</style></head>
+<body><h2>${BRAND}</h2>
+<div class=bar><input id=key type=password placeholder="your access key" style="flex:1"><button onclick=login()>Connect</button></div>
+<div id=panel style=display:none>
+ <div class=bar><span class=pill>TMMT tokens: <b id=tok>–</b></span><span class=pill>Model: <b id=tier>–</b></span><span class=pill>Agents: <b id=agents>–</b></span></div>
+ <div class=row><select id=agent style="flex:1"></select></div>
+ <textarea id=prompt placeholder="Ask AIXMOS…"></textarea>
+ <div class=row><button onclick=send() style="flex:1">Send</button></div>
+ <div id=chat>Connect and ask anything. Free runs on edge AI; premium agents use TMMT tokens.</div>
+ <div class=buy><small>Need more tokens?</small><br>
+  <button onclick="buy('starter')">Card $25</button><button onclick="buy('pro')">Card $100</button><button onclick="buy('scale')">Card $500</button>
+  <button onclick="buyCrypto('pro')">₿ Crypto</button></div>
+</div>
+<script>let K=localStorage.getItem('aixkey')||'';if(K){document.getElementById('key').value=K;login();}
+async function api(path,opt){opt=opt||{};opt.headers=Object.assign({'x-aixmos-auth':K,'content-type':'application/json'},opt.headers||{});return (await fetch(path,opt)).json();}
+async function login(){K=document.getElementById('key').value;localStorage.setItem('aixkey',K);const w=await api('/wallet');if(w.name===undefined){alert('invalid key');return;}
+document.getElementById('panel').style.display='block';document.getElementById('tok').textContent=w.tmmt_tokens_left??'free';document.getElementById('tier').textContent=w.plan_model_ceiling;
+const ag=w.agents_unlocked||[];document.getElementById('agents').textContent=ag.length?ag.join(', '):'tmmt-brain';
+const sel=document.getElementById('agent');sel.innerHTML='<option value="">auto</option>'+ag.map(a=>'<option>'+a+'</option>').join('');}
+async function send(){const p=document.getElementById('prompt').value;const c=document.getElementById('chat');c.textContent='…';
+const body={prompt:p};const a=document.getElementById('agent').value;if(a)body.agent=a;
+const d=await api('/',{method:'POST',body:JSON.stringify(body)});
+c.textContent=(d.text)||(d.content&&d.content[0]&&d.content[0].text)||(d.error||JSON.stringify(d));
+const w=await api('/wallet');document.getElementById('tok').textContent=w.tmmt_tokens_left??'free';}
+async function buy(p){const d=await api('/buy',{method:'POST',body:JSON.stringify({pack:p})});if(d.url)location.href=d.url;else alert(d.error||'card not live yet — try crypto');}
+async function buyCrypto(p){const d=await api('/pay/crypto',{method:'POST',body:JSON.stringify({pack:p})});if(d.url)location.href=d.url;else alert(d.error||'crypto not live yet');}</script>
+</body></html>`;
+      return new Response(html, { headers: { "content-type": "text/html;charset=utf-8" } });
+    }
+
     // ── ADMIN console (phone-friendly): load TMMT tokens after ANY payment. Needs your admin key (entered here). ──
     if (url.pathname === "/admin" && req.method === "GET") {
       const html = `<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1">
