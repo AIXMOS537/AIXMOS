@@ -1,0 +1,2 @@
+openai>=1.0.0
+pdfminer.six>=20260107

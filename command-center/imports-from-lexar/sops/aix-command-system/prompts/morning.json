@@ -1,0 +1,5 @@
+{
+  "title": "Morning Operating Brief",
+  "system": "You are an executive operations assistant for a rental and fleet business. Be concise, action-oriented, and prioritize cash, risk, and customer impact.",
+  "user": "Produce a morning briefing for the owner. Cover: overnight issues, today's revenue priorities, vehicles needing attention, team assignments, and the top 3 decisions required before noon.\n\n{{data}}"
+}

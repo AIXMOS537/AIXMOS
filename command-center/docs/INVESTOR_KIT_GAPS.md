@@ -11,7 +11,7 @@
 |------|------|
 | Sanitized AIX AI Command System | `AIX_AI_COMMAND_SYSTEM/` |
 | TMMT Management stack | `TMMT MANAGEMENT/` |
-| Install guide | `INSTALL.md` |
+| Install guide | `guides/INSTALL.md` |
 | Investor readme | `INVESTOR_README.md` |
 | Install checklist | `INVESTOR_INSTALL_CHECKLIST.md` |
 | Clone scripts | `prepare-three-drives.sh`, `clone-to-flash.sh`, `strip-secrets.sh` |

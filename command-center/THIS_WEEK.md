@@ -43,7 +43,7 @@
 | Call [customer] (#3) | You | Sun | [ ] |
 | Call [customer] (#4) | You | Sun | [ ] |
 | Call [customer] (#5) | You | Mon | [ ] |
-| Wire GHL overdue alert | You + VA | Mon–Fri | [ ] → **[`WEEK_1_GHL_WHATSAPP.md`](./WEEK_1_GHL_WHATSAPP.md)** (day-by-day) · [`GHL_OVERDUE_WORKFLOW_SETUP.md`](./TMMT%20MANAGEMENT/AUTOMATIONS/GHL_OVERDUE_WORKFLOW_SETUP.md) |
+| Wire GHL overdue alert | You + VA | Mon–Fri | [ ] → **[`WEEK_1_GHL_WHATSAPP.md`](./guides/WEEK_1_GHL_WHATSAPP.md)** (day-by-day) · [`GHL_OVERDUE_WORKFLOW_SETUP.md`](./TMMT%20MANAGEMENT/AUTOMATIONS/GHL_OVERDUE_WORKFLOW_SETUP.md) |
 | Bank numbers → financial model §0 | You | Tue | [ ] → [`docs/INVESTOR_FINANCIAL_MODEL.md`](./docs/INVESTOR_FINANCIAL_MODEL.md) |
 
 **Scripts:** [`docs/INVESTOR_METRICS_SNAPSHOT.md`](./docs/INVESTOR_METRICS_SNAPSHOT.md) · [`MONEY_COMMAND_CENTER.md`](./AIX_AI_COMMAND_SYSTEM/MONEY_COMMAND_CENTER.md)
