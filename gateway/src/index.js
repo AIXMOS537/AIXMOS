@@ -43,7 +43,22 @@ export default {
       if (typeof secret !== "string" || secret.length < 8) continue; // skip unset secrets (no "undefined" key)
       ROLES[secret] = { name: p[0], role: p[1], admin: p[2], maxTier: p[3], monthly: p[4], persona: p[5] };
     }
-    const ctx = (typeof auth === "string" && auth.length >= 8) ? (ROLES[auth] || null) : null;
+    let ctx = (typeof auth === "string" && auth.length >= 8) ? (ROLES[auth] || null) : null;
+    // RESALE: white-label customers live in KV (keyed by hash of their secret) so we can
+    // sell/provision/revoke without redeploying. provision-customer.sh writes cust:<hash>.
+    if (!ctx && typeof auth === "string" && auth.length >= 16) {
+      const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(auth));
+      const hash = [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
+      const raw = await env.AIXMOS_KV.get(`cust:${hash}`);
+      if (raw) {
+        const c = JSON.parse(raw);
+        if (!c.expires || Date.parse(c.expires) > Date.now()) {
+          ctx = { name: c.name || "Customer", role: `cust_${c.brand || "x"}`, admin: false,
+                  maxTier: c.maxTier || "free", monthly: c.monthly || 100,
+                  persona: c.persona || `AIXMOS for ${c.brand || "a client"}. Brief, decisive.` };
+        }
+      }
+    }
     if (!ctx) return new Response("Unauthorized", { status: 401 });
 
     const month = new Date().toISOString().slice(0, 7);          // YYYY-MM (credits reset monthly)

@@ -1,0 +1,50 @@
+{
+  "product": "AIXMOS / TMMT OS — White-Label Resale",
+  "note": "DRAFT access per tier — confirm/adjust. 'self' = you host on your infra (easy gating/revoke); 'handover' = buyer's own accounts. physical[] = manual fulfillment, NOT script-granted.",
+  "ai_tiers": { "free": "your Ollama", "haiku": "cheap cloud", "sonnet": "premium cloud", "opus": "top" },
+  "tiers": [
+    { "id": 1, "price": 1875, "slug": "airtable_starter", "name": "Airtable Starter",
+      "hosting": "self", "whitelabel": true,
+      "gateway": { "maxTier": "free", "monthly": 200 },
+      "airtable": { "base": true, "automations": false },
+      "entitlements": ["resale_airtable_base", "resale_ai_free", "resale_whitelabel"],
+      "apps": ["crm_base"], "physical": [] },
+
+    { "id": 2, "price": 3750, "slug": "airtable_pro", "name": "Airtable Pro",
+      "hosting": "self", "whitelabel": true,
+      "gateway": { "maxTier": "haiku", "monthly": 500 },
+      "airtable": { "base": true, "automations": false, "extra_views": true },
+      "entitlements": ["resale_airtable_pro", "resale_ai_haiku", "resale_whitelabel"],
+      "apps": ["crm_base", "portals"], "physical": [] },
+
+    { "id": 3, "price": 7500, "slug": "airtable_automations", "name": "Airtable + Automations",
+      "hosting": "self", "whitelabel": true,
+      "gateway": { "maxTier": "sonnet", "monthly": 1500 },
+      "airtable": { "base": true, "automations": true },
+      "entitlements": ["resale_airtable_pro", "resale_airtable_automations", "resale_ai_sonnet", "resale_integrations", "resale_whitelabel"],
+      "apps": ["crm_base", "portals", "automations"], "physical": [] },
+
+    { "id": 4, "price": 15000, "slug": "business_in_a_box", "name": "Business in a Box",
+      "hosting": "self", "whitelabel": true,
+      "gateway": { "maxTier": "sonnet", "monthly": 4000 },
+      "airtable": { "base": true, "automations": true },
+      "entitlements": ["resale_tmmt_os_full", "resale_airtable_automations", "resale_ai_sonnet", "resale_integrations", "resale_whitelabel", "resale_priority_support"],
+      "apps": ["full_stack"], "physical": [] },
+
+    { "id": 5, "price": 25000, "slug": "box_plus_car", "name": "Box + Vehicle",
+      "hosting": "handover", "whitelabel": true,
+      "gateway": { "maxTier": "sonnet", "monthly": 6000 },
+      "airtable": { "base": true, "automations": true },
+      "entitlements": ["resale_tmmt_os_full", "resale_airtable_automations", "resale_ai_sonnet", "resale_integrations", "resale_whitelabel", "resale_priority_support"],
+      "apps": ["full_stack"],
+      "physical": ["VEHICLE — title transfer, insurance, tax/1099 implications; handle via fulfillment + counsel, NOT this script"] },
+
+    { "id": 6, "price": 50000, "slug": "full_stack_max", "name": "Full Stack (35–50k)",
+      "hosting": "handover", "whitelabel": true,
+      "gateway": { "maxTier": "opus", "monthly": 12000 },
+      "airtable": { "base": true, "automations": true },
+      "entitlements": ["resale_tmmt_os_full", "resale_airtable_automations", "resale_ai_opus", "resale_integrations", "resale_whitelabel", "resale_priority_support"],
+      "apps": ["full_stack"],
+      "physical": ["VEHICLE (if bundled)", "GIFTED AMAZON STORE @ $50k — account/asset transfer, ToS + tax implications; fulfillment + counsel, NOT this script"] }
+  ]
+}

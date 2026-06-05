@@ -2,3 +2,7 @@ node_modules/
 .dev.vars
 .wrangler/
 *.log
+
+# resale: customer secrets + sales data stay LOCAL (never GitHub)
+resale/customers/
+resale/sales-ledger.csv
