@@ -6,3 +6,6 @@ node_modules/
 # resale: customer secrets + sales data stay LOCAL (never GitHub)
 resale/customers/
 resale/sales-ledger.csv
+
+# launch: lists with customer PII stay local, never GitHub
+launch/private/
