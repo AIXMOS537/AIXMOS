@@ -29,6 +29,53 @@ async function bump(env, k, by = 1) {
   await env.AIXMOS_KV.put(k, String(v));
 }
 
+// ── STRONGLY-CONSISTENT LEDGER (Durable Object) ──────────────────────────────────────
+// Cloudflare KV is eventually consistent + non-atomic, so read-modify-write on a wallet
+// races under concurrency (20 parallel calls all read "100", all write "95" → 1 debit
+// instead of 20 = double-spend + quota-bypass). The DO serializes every op per account
+// (one single-threaded instance per name, input-gated storage) → atomic, no leak.
+function ledgerOp(env, name, body) {
+  const stub = env.LEDGER.get(env.LEDGER.idFromName(name));
+  return stub.fetch("https://ledger/op", {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
+  }).then(r => r.json());
+}
+
+export class Ledger {
+  constructor(state) { this.state = state; }
+  async fetch(req) {
+    const b = await req.json().catch(() => ({}));
+    const s = this.state.storage;
+    switch (b.op) {
+      case "balance":
+        return Response.json({ balance: (await s.get("bal")) || 0 });
+      case "topup": {                                   // add purchased tokens
+        const bal = ((await s.get("bal")) || 0) + (b.amount || 0);
+        await s.put("bal", bal); return Response.json({ balance: bal });
+      }
+      case "charge": {                                  // atomic wallet debit (customer)
+        let bal = (await s.get("bal")) || 0;
+        if (bal < b.cost) return Response.json({ ok: false, balance: bal });
+        bal -= b.cost; await s.put("bal", bal); return Response.json({ ok: true, balance: bal });
+      }
+      case "freecap": {                                 // per-account daily free-call limit
+        const k = "free:" + b.day, used = (await s.get(k)) || 0;
+        if (used >= b.limit) return Response.json({ ok: false, used });
+        await s.put(k, used + 1); return Response.json({ ok: true, used: used + 1 });
+      }
+      case "allowance": {                               // atomic monthly allowance debit (staff)
+        const k = "cred:" + b.month, used = (await s.get(k)) || 0;
+        if (used + b.cost > b.monthly) return Response.json({ ok: false, used });
+        await s.put(k, used + b.cost); return Response.json({ ok: true, used: used + b.cost });
+      }
+      case "used":                                      // read monthly allowance spent (admin view)
+        return Response.json({ used: (await s.get("cred:" + b.month)) || 0 });
+      default:
+        return Response.json({ error: "unknown op" }, { status: 400 });
+    }
+  }
+}
+
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
@@ -191,8 +238,7 @@ if(A)go();</script></body></html>`;
         const md = (event.data?.object?.metadata) || {};
         const tokens = parseInt(md.tokens || "0", 10);
         if (md.hash && tokens > 0) {
-          const cur = parseInt((await env.AIXMOS_KV.get(`wallet:${md.hash}`)) || "0", 10);
-          await env.AIXMOS_KV.put(`wallet:${md.hash}`, String(cur + tokens));
+          await ledgerOp(env, md.hash, { op: "topup", amount: tokens });
           // optional: a pack can also raise the model ceiling/agents
           if (md.maxTier || md.agents) {
             const c = JSON.parse((await env.AIXMOS_KV.get(`cust:${md.hash}`)) || "{}");
@@ -226,11 +272,10 @@ if(A)go();</script></body></html>`;
         if (p) { tokens = p.tokens; maxTier = maxTier || p.maxTier; }
       }
       if (!h || !tokens) return Response.json({ error: "need {email|secret|hash} and {tokens|amount_usd}" }, { status: 400 });
-      const cur = parseInt((await env.AIXMOS_KV.get(`wallet:${h}`)) || "0", 10);
-      await env.AIXMOS_KV.put(`wallet:${h}`, String(cur + tokens));
+      const { balance } = await ledgerOp(env, h, { op: "topup", amount: tokens });
       await bump(env, "stat:tokens_sold", tokens);
       if (maxTier) { const c = JSON.parse((await env.AIXMOS_KV.get(`cust:${h}`)) || "{}"); c.maxTier = maxTier; if (b.agents) c.agents = String(b.agents).split(",").filter(Boolean); await env.AIXMOS_KV.put(`cust:${h}`, JSON.stringify(c)); }
-      return Response.json({ ok: true, wallet: cur + tokens });
+      return Response.json({ ok: true, wallet: balance });
     }
 
     // ── PUBLIC: Coinbase Commerce crypto webhook (HMAC over raw body w/ X-CC-Webhook-Signature). ──
@@ -247,8 +292,7 @@ if(A)go();</script></body></html>`;
         const md = ev.event?.data?.metadata || {};
         const tokens = parseInt(md.tokens || "0", 10);
         if (md.hash && tokens > 0) {
-          const cur = parseInt((await env.AIXMOS_KV.get(`wallet:${md.hash}`)) || "0", 10);
-          await env.AIXMOS_KV.put(`wallet:${md.hash}`, String(cur + tokens));
+          await ledgerOp(env, md.hash, { op: "topup", amount: tokens });
           if (md.maxTier) { const c = JSON.parse((await env.AIXMOS_KV.get(`cust:${md.hash}`)) || "{}"); c.maxTier = md.maxTier; await env.AIXMOS_KV.put(`cust:${md.hash}`, JSON.stringify(c)); }
         }
       }
@@ -289,7 +333,7 @@ if(A)go();</script></body></html>`;
         if (!c.expires || Date.parse(c.expires) > Date.now()) {
           ctx = { name: c.name || "Customer", role: `cust_${c.brand || "x"}`, admin: false,
                   maxTier: c.maxTier || "free", monthly: c.monthly || 100,
-                  walletKey: `wallet:${hash}`,   // PURCHASED TMMT-token balance (persistent, tops up)
+                  hash,                          // ledger key: PURCHASED TMMT-token balance (DO-backed)
                   agents: Array.isArray(c.agents) ? c.agents : [],  // which brain/agents this tier unlocks
                   persona: c.persona || `AIXMOS for ${c.brand || "a client"}. Brief, decisive.` };
         }
@@ -299,14 +343,12 @@ if(A)go();</script></body></html>`;
 
     const month = new Date().toISOString().slice(0, 7);          // YYYY-MM (credits reset monthly)
     const day   = new Date().toISOString().slice(0, 10);
-    const credKey = `cred:${ctx.role}:${month}`;
-    const getUsed = async () => parseInt((await env.AIXMOS_KV.get(credKey)) || "0", 10);
 
     // ── /usage : admin sees everyone's TMMT-token spend this month + remaining. ──────────
     if (url.pathname === "/usage" && ctx.admin && req.method === "GET") {
       const out = {};
       for (const [, p] of DEFS) {
-        const used = parseInt((await env.AIXMOS_KV.get(`cred:${p[1]}:${month}`)) || "0", 10);
+        const { used } = await ledgerOp(env, `staff:${p[1]}`, { op: "used", month });
         out[p[1]] = { name: p[0], monthly: p[4], used, remaining: Math.max(0, p[4] - used), maxTier: p[3] };
       }
       return Response.json({ month, people: out });
@@ -376,8 +418,7 @@ if(A)go();</script></body></html>`;
       if (!h && b.email) h = await env.AIXMOS_KV.get(`emailidx:${b.email.toLowerCase()}`);   // load by email
       const add = parseInt(b.tokens || "0", 10);
       if (!h || !add) return Response.json({ error: "need {secret|hash, tokens}" }, { status: 400 });
-      const cur = parseInt((await env.AIXMOS_KV.get(`wallet:${h}`)) || "0", 10);
-      await env.AIXMOS_KV.put(`wallet:${h}`, String(cur + add));
+      const { balance } = await ledgerOp(env, h, { op: "topup", amount: add });
       await bump(env, "stat:tokens_sold", add);
       if (b.maxTier || b.agents) {
         const c = JSON.parse((await env.AIXMOS_KV.get(`cust:${h}`)) || "{}");
@@ -385,12 +426,12 @@ if(A)go();</script></body></html>`;
         if (b.agents) c.agents = Array.isArray(b.agents) ? b.agents : String(b.agents).split(",").filter(Boolean);
         await env.AIXMOS_KV.put(`cust:${h}`, JSON.stringify(c));
       }
-      return Response.json({ ok: true, wallet: cur + add });
+      return Response.json({ ok: true, wallet: balance });
     }
 
     // ── /wallet : anyone checks their plan — TMMT tokens left, model ceiling, unlocked agents. ──
     if (url.pathname === "/wallet" && req.method === "GET") {
-      const tokens = ctx.walletKey ? parseInt((await env.AIXMOS_KV.get(ctx.walletKey)) || "0", 10) : null;
+      const tokens = ctx.hash ? (await ledgerOp(env, ctx.hash, { op: "balance" })).balance : null;
       return Response.json({ name: ctx.name, plan_model_ceiling: ctx.maxTier,
         tmmt_tokens_left: tokens, agents_unlocked: ctx.agents || [], free_lane_always: true });
     }
@@ -438,34 +479,35 @@ if(A)go();</script></body></html>`;
       let want = incoming.tier && RANK[incoming.tier] !== undefined ? incoming.tier : ctx.maxTier;
       if (RANK[want] > RANK[ctx.maxTier]) want = ctx.maxTier;
 
-      // ACCESS GATE: free for everyone; the brain/agents cost TMMT tokens.
+      // Agent gating FIRST (before any debit): requested agent must be unlocked by this tier.
+      if (incoming.agent && ctx.hash && ctx.agents.length && !ctx.agents.includes(incoming.agent))
+        return Response.json({ error: `Agent '${incoming.agent}' not in your plan. Upgrade tier to unlock.` }, { status: 403 });
+
+      // ACCESS GATE: free for everyone; the brain/agents cost TMMT tokens. The debit is ATOMIC
+      // via the per-account Durable Object (no KV race → no double-spend, no quota bypass).
       //  - Customers spend a PURCHASED wallet (persistent balance, tops up).
       //  - Staff spend a monthly allowance (auto-resets).
       // Out of tokens? DOWN-SHIFT to free (your Ollama) — the free floor is always there.
-      const used = await getUsed();
-      let tier = want, downgraded = false, walletBal = null;
+      const meter = ctx.hash || `staff:${ctx.role}`;
+      let tier = want, downgraded = false, walletBal = null, staffUsed = null;
       if (tier !== "free") {
-        if (ctx.walletKey) {                                   // customer = purchased tokens
-          walletBal = parseInt((await env.AIXMOS_KV.get(ctx.walletKey)) || "0", 10);
-          if (walletBal < COST[tier]) { tier = "free"; downgraded = true; }
-        } else if (used + COST[tier] > ctx.monthly) {          // staff = monthly allowance
-          tier = "free"; downgraded = true;
+        if (ctx.hash) {                                        // customer = purchased tokens
+          const res = await ledgerOp(env, meter, { op: "charge", cost: COST[tier] });
+          if (res.ok) walletBal = res.balance; else { tier = "free"; downgraded = true; }
+        } else {                                               // staff = monthly allowance
+          const res = await ledgerOp(env, meter, { op: "allowance", cost: COST[tier], monthly: ctx.monthly, month });
+          if (res.ok) staffUsed = res.used; else { tier = "free"; downgraded = true; }
         }
       }
-      // Agent gating: a requested agent must be unlocked by this customer's tier.
-      if (incoming.agent && ctx.walletKey && ctx.agents.length && !ctx.agents.includes(incoming.agent))
-        return Response.json({ error: `Agent '${incoming.agent}' not in your plan. Upgrade tier to unlock.` }, { status: 403 });
 
       // ── FREE LANE — public free tier on Cloudflare Workers AI (scales, keeps home brain private).
       //    Staff/internal can route to private Ollama by setting OLLAMA_URL (Tailscale).
       if (tier === "free") {
-        // ABUSE GUARD: bound free calls/account/day.
-        const fKey = `free:${ctx.role}:${day}`;
-        const fUsed = parseInt((await env.AIXMOS_KV.get(fKey)) || "0", 10);
+        // ABUSE GUARD: bound free calls PER-ACCOUNT/day (atomic; was a shared role counter before).
         const FREE_DAILY = 100;
-        if (fUsed >= FREE_DAILY)
+        const cap = await ledgerOp(env, meter, { op: "freecap", day, limit: FREE_DAILY });
+        if (!cap.ok)
           return Response.json({ error: "Daily free limit reached. Buy TMMT tokens to keep going." }, { status: 429 });
-        await env.AIXMOS_KV.put(fKey, String(fUsed + 1), { expirationTtl: 172800 });
         const messages = [{ role: "system", content: ctx.persona }, ...(incoming.messages || [{ role: "user", content: incoming.prompt || "" }])];
         // 1) private Ollama (only if you wire OLLAMA_URL for internal/Tailscale)
         if (env.OLLAMA_URL) {
@@ -486,15 +528,7 @@ if(A)go();</script></body></html>`;
         return Response.json({ error: "Free lane not configured." }, { status: 503 });
       }
 
-      // ── PAID LANE → Anthropic. Debit TMMT tokens first. ──
-      if (ctx.walletKey) {           // customer: spend PURCHASED tokens (persistent, no reset)
-        await env.AIXMOS_KV.put(ctx.walletKey, String(Math.max(0, walletBal - COST[tier])));
-      } else {                        // staff: monthly allowance (auto-reset via TTL)
-        await env.AIXMOS_KV.put(credKey, String(used + COST[tier]), { expirationTtl: 60 * 60 * 24 * 40 });
-      }
-      // light daily counter too (visibility)
-      const dKey = `calls:${ctx.role}:${day}`;
-      await env.AIXMOS_KV.put(dKey, String(parseInt((await env.AIXMOS_KV.get(dKey)) || "0", 10) + 1), { expirationTtl: 172800 });
+      // ── PAID LANE → Anthropic. TMMT tokens already debited ATOMICALLY at the access gate above. ──
       await bump(env, "stat:paid_calls");
       await bump(env, `stat:agent:${incoming.agent || tier}`);
 
@@ -512,8 +546,8 @@ if(A)go();</script></body></html>`;
       const body = await r.text();
       // attach lane/token info via headers so clients can show "X tokens left"
       const hdrs = { "content-type": "application/json", "x-aixmos-lane": tier };
-      if (ctx.walletKey) hdrs["x-aixmos-tokens-left"] = String(Math.max(0, walletBal - COST[tier]));
-      else { hdrs["x-aixmos-credits-used"] = String(used + COST[tier]); hdrs["x-aixmos-credits-monthly"] = String(ctx.monthly); }
+      if (ctx.hash) hdrs["x-aixmos-tokens-left"] = String(walletBal);
+      else { hdrs["x-aixmos-credits-used"] = String(staffUsed); hdrs["x-aixmos-credits-monthly"] = String(ctx.monthly); }
       return new Response(body, { status: r.status, headers: hdrs });
     }
 

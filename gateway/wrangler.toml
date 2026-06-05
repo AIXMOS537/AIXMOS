@@ -11,6 +11,17 @@ id = "64fb993c87c74c139f6e4dac027cc851"
 [ai]
 binding = "AI"
 
+# STRONGLY-CONSISTENT LEDGER — wallets/credits/quota counters live here, not KV.
+# KV is eventually consistent + non-atomic → debits race under load (double-spend).
+# The Durable Object serializes every op per account. SQLite backend = free-plan friendly.
+[[durable_objects.bindings]]
+name = "LEDGER"
+class_name = "Ledger"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Ledger"]
+
 # CUSTOM DOMAIN (uncomment once you add a domain to this Cloudflare account — see resale/CUSTOM_DOMAIN.md).
 # Then `npx wrangler deploy` serves the product at your brand instead of *.workers.dev.
 # routes = [
