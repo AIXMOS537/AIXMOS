@@ -45,9 +45,34 @@ small{color:#777}</style></head><body><div class=card>
 <script>let SEC='';
 async function go(){const e=document.getElementById('email').value;const o=document.getElementById('out');o.style.display='block';o.textContent='Creating your free account…';
 const r=await fetch('/signup',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:e})});const d=await r.json();
-if(d.secret){SEC=d.secret;o.innerHTML='✅ You\\'re in! Save your key:<br><code style="color:#5b8cff">'+d.secret+'</code><br><br>Unlock premium models + agents with TMMT tokens:<br><button onclick="buy(\\'starter\\')">Starter $25</button> <button onclick="buy(\\'pro\\')">Pro $100</button> <button onclick="buy(\\'scale\\')">Scale $500</button>';}else{o.textContent='Error: '+(d.error||'try again');}}
-async function buy(p){const r=await fetch('/buy',{method:'POST',headers:{'content-type':'application/json','x-aixmos-auth':SEC},body:JSON.stringify({pack:p})});const d=await r.json();if(d.url){location.href=d.url;}else{alert(d.error||'payments not live yet');}}</script>
+if(d.secret){SEC=d.secret;o.innerHTML='✅ You\\'re in! Save your key:<br><code style="color:#5b8cff">'+d.secret+'</code><br><br>Unlock premium models + agents with TMMT tokens:<br><button onclick="buy(\\'starter\\')">Card $25</button> <button onclick="buy(\\'pro\\')">Card $100</button> <button onclick="buy(\\'scale\\')">Card $500</button><br><button onclick="buyCrypto(\\'pro\\')">₿ Pay with crypto</button>';}else{o.textContent='Error: '+(d.error||'try again');}}
+async function buy(p){const r=await fetch('/buy',{method:'POST',headers:{'content-type':'application/json','x-aixmos-auth':SEC},body:JSON.stringify({pack:p})});const d=await r.json();if(d.url){location.href=d.url;}else{alert(d.error||'card payments not live yet — use crypto or contact us');}}
+async function buyCrypto(p){const r=await fetch('/pay/crypto',{method:'POST',headers:{'content-type':'application/json','x-aixmos-auth':SEC},body:JSON.stringify({pack:p})});const d=await r.json();if(d.url){location.href=d.url;}else{alert(d.error||'crypto not live yet');}}</script>
 </div></body></html>`;
+      return new Response(html, { headers: { "content-type": "text/html;charset=utf-8" } });
+    }
+
+    // ── ADMIN console (phone-friendly): load TMMT tokens after ANY payment. Needs your admin key (entered here). ──
+    if (url.pathname === "/admin" && req.method === "GET") {
+      const html = `<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1">
+<title>${BRAND} — Load Tokens</title><style>
+body{font-family:system-ui,sans-serif;background:#0b0b0f;color:#eee;margin:0;padding:24px;max-width:460px;margin:auto}
+h2{margin-top:0}label{display:block;margin:14px 0 4px;color:#aaa;font-size:.85rem}
+input,select,button{width:100%;font-size:1rem;padding:12px;border-radius:10px;border:1px solid #333;background:#15151c;color:#fff;box-sizing:border-box}
+button{background:#5b8cff;border:0;font-weight:700;margin-top:18px;cursor:pointer}#msg{margin-top:14px;white-space:pre-wrap}small{color:#777}</style></head>
+<body><h2>${BRAND} · Load Tokens</h2><small>After a Zelle/CashApp/PayPal/crypto/cash payment, load the customer's TMMT tokens.</small>
+<label>Your admin key</label><input id=adm type=password placeholder="admin secret (saved on this device)">
+<label>Customer email</label><input id=email type=email placeholder="customer@email.com">
+<label>TMMT tokens to add</label><input id=tok type=number value=3000>
+<label>Unlock model up to</label><select id=tier><option>free</option><option>haiku</option><option selected>sonnet</option><option>opus</option></select>
+<button onclick=load()>Load tokens</button><div id=msg></div>
+<script>const A=localStorage.getItem('aixadm');if(A)document.getElementById('adm').value=A;
+async function load(){const adm=document.getElementById('adm').value;localStorage.setItem('aixadm',adm);
+const m=document.getElementById('msg');m.textContent='Loading…';
+const r=await fetch('/admin/topup',{method:'POST',headers:{'content-type':'application/json','x-aixmos-auth':adm},
+body:JSON.stringify({email:document.getElementById('email').value,tokens:parseInt(document.getElementById('tok').value),maxTier:document.getElementById('tier').value})});
+const d=await r.json();m.textContent=d.ok?('✅ Loaded. New balance: '+d.wallet+' tokens'):('❌ '+(d.error||'failed — check admin key / that the customer signed up'));}</script>
+</body></html>`;
       return new Response(html, { headers: { "content-type": "text/html;charset=utf-8" } });
     }
 
@@ -68,6 +93,7 @@ async function buy(p){const r=await fetch('/buy',{method:'POST',headers:{'conten
         agents: ["tmmt-brain"], persona: `${BRAND} free assistant. Helpful, brief.`, tier: "free_signup" };
       await env.AIXMOS_KV.put(`cust:${hash}`, JSON.stringify(cfg));
       await env.AIXMOS_KV.put(`wallet:${hash}`, "0");
+      await env.AIXMOS_KV.put(`emailidx:${email.toLowerCase()}`, hash);   // load tokens later by email
       return Response.json({ ok: true, secret, plan: "free", note: "Free edge AI. Buy TMMT tokens to unlock premium models + agents." });
     }
 
@@ -112,11 +138,11 @@ async function buy(p){const r=await fetch('/buy',{method:'POST',headers:{'conten
       if (req.headers.get("x-pay-secret") !== env.PAY_WEBHOOK_SECRET) return new Response("bad secret", { status: 401 });
       const b = await req.json().catch(() => ({}));
       let h = b.hash;
-      if (!h && (b.secret || b.email)) {
-        const seed = b.secret || `email:${b.email}`;   // map email→deterministic account if no secret
-        const hb = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(seed));
+      if (!h && b.secret) {
+        const hb = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(b.secret));
         h = [...new Uint8Array(hb)].map(x => x.toString(16).padStart(2, "0")).join("");
       }
+      if (!h && b.email) h = await env.AIXMOS_KV.get(`emailidx:${b.email.toLowerCase()}`);   // signup account by email
       // amount_usd (dollars) maps to a PACK; or pass explicit tokens
       let tokens = parseInt(b.tokens || "0", 10), maxTier = b.maxTier;
       if (!tokens && b.amount_usd) {
@@ -271,6 +297,7 @@ async function buy(p){const r=await fetch('/buy',{method:'POST',headers:{'conten
         const hb = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(b.secret));
         h = [...new Uint8Array(hb)].map(x => x.toString(16).padStart(2, "0")).join("");
       }
+      if (!h && b.email) h = await env.AIXMOS_KV.get(`emailidx:${b.email.toLowerCase()}`);   // load by email
       const add = parseInt(b.tokens || "0", 10);
       if (!h || !add) return Response.json({ error: "need {secret|hash, tokens}" }, { status: 400 });
       const cur = parseInt((await env.AIXMOS_KV.get(`wallet:${h}`)) || "0", 10);
