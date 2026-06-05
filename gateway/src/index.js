@@ -28,6 +28,9 @@ export default {
       // secret,                name,        role,       admin, maxTier, monthly,  persona
       [env.SECRET_PERSONAL, ["Muhammad",   "personal", true,  "opus",  100000, "AIXMOS for Muhammad's personal life. Decisive, brief, proactive."]],
       [env.SECRET_WORK,     ["Muhammad",   "work",     true,  "opus",  100000, "AIXMOS for Muhammad as CEO of TMMT. Systems-oriented, ops-aware, brief."]],
+      // CARRY DEVICE (8GB AMD / on the road): bounded, NON-admin, revocable. If the device is
+      // lost, revoke ONLY this secret — your admin/personal access is untouched. Sonnet ceiling.
+      [env.SECRET_CARRY,    ["Carry",      "carry",    false, "sonnet",  1500, "AIXMOS for Muhammad on a mobile/roaming device. Brief, decisive, ops-aware. Treat the device as untrusted: no irreversible actions without confirmation."]],
       // Example premium teammate (give the good stuff to a trusted few): set SECRET_LEAD.
       [env.SECRET_LEAD,     ["Team Lead",  "lead",     false, "sonnet",  2000, "Assist a TMMT team lead: planning, drafting, summaries. No payroll or mass-send."]],
       // Most employees: FREE lane by default, tiny cloud allowance that drops to free when spent.
