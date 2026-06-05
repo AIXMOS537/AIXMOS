@@ -189,6 +189,29 @@ async function buy(p){const r=await fetch('/buy',{method:'POST',headers:{'conten
       return s.url ? Response.json({ url: s.url, pack: b.pack }) : Response.json({ error: s.error?.message || "stripe error" }, { status: 502 });
     }
 
+    // ── /admin/topup : PROCESSOR-AGNOSTIC token loading (admin only). Works with ANY payment:
+    //    manual, PayPal, crypto, Zelle, invoice — or a Zapier/Make automation that fires on payment.
+    //    Body: { secret OR hash, tokens, maxTier?, agents? }. Use your admin secret in x-aixmos-auth.
+    if (url.pathname === "/admin/topup" && req.method === "POST" && ctx.admin) {
+      const b = await req.json().catch(() => ({}));
+      let h = b.hash;
+      if (!h && b.secret) {
+        const hb = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(b.secret));
+        h = [...new Uint8Array(hb)].map(x => x.toString(16).padStart(2, "0")).join("");
+      }
+      const add = parseInt(b.tokens || "0", 10);
+      if (!h || !add) return Response.json({ error: "need {secret|hash, tokens}" }, { status: 400 });
+      const cur = parseInt((await env.AIXMOS_KV.get(`wallet:${h}`)) || "0", 10);
+      await env.AIXMOS_KV.put(`wallet:${h}`, String(cur + add));
+      if (b.maxTier || b.agents) {
+        const c = JSON.parse((await env.AIXMOS_KV.get(`cust:${h}`)) || "{}");
+        if (b.maxTier) c.maxTier = b.maxTier;
+        if (b.agents) c.agents = Array.isArray(b.agents) ? b.agents : String(b.agents).split(",").filter(Boolean);
+        await env.AIXMOS_KV.put(`cust:${h}`, JSON.stringify(c));
+      }
+      return Response.json({ ok: true, wallet: cur + add });
+    }
+
     // ── /wallet : anyone checks their plan — TMMT tokens left, model ceiling, unlocked agents. ──
     if (url.pathname === "/wallet" && req.method === "GET") {
       const tokens = ctx.walletKey ? parseInt((await env.AIXMOS_KV.get(ctx.walletKey)) || "0", 10) : null;
