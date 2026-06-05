@@ -11,6 +11,12 @@ id = "64fb993c87c74c139f6e4dac027cc851"
 [ai]
 binding = "AI"
 
+# CUSTOM DOMAIN (uncomment once you add a domain to this Cloudflare account — see resale/CUSTOM_DOMAIN.md).
+# Then `npx wrangler deploy` serves the product at your brand instead of *.workers.dev.
+# routes = [
+#   { pattern = "app.YOURBRAND.com", custom_domain = true }
+# ]
+
 # Free-lane model name on your Ollama box (team/Tailscale only) + the Workers AI model for the public free tier.
 [vars]
 OLLAMA_MODEL = "llama3.1"

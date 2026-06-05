@@ -23,6 +23,12 @@ const PACKS = {
   scale:   { usd: 50000, tokens: 18000, maxTier: "opus",   label: "Scale — 18,000 TMMT tokens" },
 };
 
+// lightweight metric counter (founder dashboard)
+async function bump(env, k, by = 1) {
+  const v = parseInt((await env.AIXMOS_KV.get(k)) || "0", 10) + by;
+  await env.AIXMOS_KV.put(k, String(v));
+}
+
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
@@ -116,6 +122,34 @@ const d=await r.json();m.textContent=d.ok?('✅ Loaded. New balance: '+d.wallet+
       return new Response(html, { headers: { "content-type": "text/html;charset=utf-8" } });
     }
 
+    // ── /founder : your business at a glance (page prompts admin key, reads /founder/data). ──
+    if (url.pathname === "/founder" && req.method === "GET") {
+      const html = `<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1">
+<title>${BRAND} · Founder</title><style>
+body{font-family:system-ui,sans-serif;background:#0b0b0f;color:#eee;margin:0;padding:22px;max-width:640px;margin:auto}
+h2{margin:.2em 0}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0}
+.kpi{background:#15151c;border-radius:14px;padding:18px}.kpi b{font-size:1.8rem;color:#5b8cff;display:block}.kpi span{color:#aaa;font-size:.8rem}
+input,button{font-size:1rem;padding:11px;border-radius:10px;border:1px solid #333;background:#15151c;color:#fff}
+button{background:#5b8cff;border:0;font-weight:700;cursor:pointer}#ag{background:#15151c;border-radius:14px;padding:14px;margin-top:12px}</style></head>
+<body><h2>${BRAND} · Founder</h2>
+<div><input id=adm type=password placeholder="admin key" style="width:60%"><button onclick=go()>View</button></div>
+<div id=dash style=display:none><div class=grid>
+<div class=kpi><b id=signups>–</b><span>Free signups</span></div>
+<div class=kpi><b id=cust>–</b><span>Accounts</span></div>
+<div class=kpi><b id=tok>–</b><span>TMMT tokens sold</span></div>
+<div class=kpi><b id=calls>–</b><span>Premium calls</span></div></div>
+<div id=ag></div></div>
+<script>const A=localStorage.getItem('aixadm');if(A)document.getElementById('adm').value=A;
+async function go(){const a=document.getElementById('adm').value;localStorage.setItem('aixadm',a);
+const r=await fetch('/founder/data',{headers:{'x-aixmos-auth':a}});if(!r.ok){alert('bad admin key');return;}const d=await r.json();
+document.getElementById('dash').style.display='block';
+signups.textContent=d.signups;cust.textContent=d.customers;tok.textContent=d.tmmt_tokens_sold.toLocaleString();calls.textContent=d.paid_calls;
+const e=Object.entries(d.agents_used).sort((a,b)=>b[1]-a[1]);
+document.getElementById('ag').innerHTML='<b>Top agents/models</b><br>'+(e.length?e.map(x=>x[0]+': '+x[1]).join('<br>'):'none yet');}
+if(A)go();</script></body></html>`;
+      return new Response(html, { headers: { "content-type": "text/html;charset=utf-8" } });
+    }
+
     // ── PUBLIC: self-serve free signup — issues a free account on the spot. ──
     if (url.pathname === "/signup" && req.method === "POST") {
       const b = await req.json().catch(() => ({}));
@@ -134,6 +168,7 @@ const d=await r.json();m.textContent=d.ok?('✅ Loaded. New balance: '+d.wallet+
       await env.AIXMOS_KV.put(`cust:${hash}`, JSON.stringify(cfg));
       await env.AIXMOS_KV.put(`wallet:${hash}`, "0");
       await env.AIXMOS_KV.put(`emailidx:${email.toLowerCase()}`, hash);   // load tokens later by email
+      await bump(env, "stat:signups");
       return Response.json({ ok: true, secret, plan: "free", note: "Free edge AI. Buy TMMT tokens to unlock premium models + agents." });
     }
 
@@ -193,6 +228,7 @@ const d=await r.json();m.textContent=d.ok?('✅ Loaded. New balance: '+d.wallet+
       if (!h || !tokens) return Response.json({ error: "need {email|secret|hash} and {tokens|amount_usd}" }, { status: 400 });
       const cur = parseInt((await env.AIXMOS_KV.get(`wallet:${h}`)) || "0", 10);
       await env.AIXMOS_KV.put(`wallet:${h}`, String(cur + tokens));
+      await bump(env, "stat:tokens_sold", tokens);
       if (maxTier) { const c = JSON.parse((await env.AIXMOS_KV.get(`cust:${h}`)) || "{}"); c.maxTier = maxTier; if (b.agents) c.agents = String(b.agents).split(",").filter(Boolean); await env.AIXMOS_KV.put(`cust:${h}`, JSON.stringify(c)); }
       return Response.json({ ok: true, wallet: cur + tokens });
     }
@@ -342,6 +378,7 @@ const d=await r.json();m.textContent=d.ok?('✅ Loaded. New balance: '+d.wallet+
       if (!h || !add) return Response.json({ error: "need {secret|hash, tokens}" }, { status: 400 });
       const cur = parseInt((await env.AIXMOS_KV.get(`wallet:${h}`)) || "0", 10);
       await env.AIXMOS_KV.put(`wallet:${h}`, String(cur + add));
+      await bump(env, "stat:tokens_sold", add);
       if (b.maxTier || b.agents) {
         const c = JSON.parse((await env.AIXMOS_KV.get(`cust:${h}`)) || "{}");
         if (b.maxTier) c.maxTier = b.maxTier;
@@ -356,6 +393,22 @@ const d=await r.json();m.textContent=d.ok?('✅ Loaded. New balance: '+d.wallet+
       const tokens = ctx.walletKey ? parseInt((await env.AIXMOS_KV.get(ctx.walletKey)) || "0", 10) : null;
       return Response.json({ name: ctx.name, plan_model_ceiling: ctx.maxTier,
         tmmt_tokens_left: tokens, agents_unlocked: ctx.agents || [], free_lane_always: true });
+    }
+
+    // ── /founder/data : your live business numbers (admin only, JSON). ──
+    if (url.pathname === "/founder/data" && req.method === "GET" && ctx.admin) {
+      const g = async k => parseInt((await env.AIXMOS_KV.get(k)) || "0", 10);
+      const custList = await env.AIXMOS_KV.list({ prefix: "cust:", limit: 1000 });
+      const agList = await env.AIXMOS_KV.list({ prefix: "stat:agent:", limit: 100 });
+      const agents = {};
+      for (const k of agList.keys) agents[k.name.replace("stat:agent:", "")] = await g(k.name);
+      return Response.json({
+        signups: await g("stat:signups"),
+        tmmt_tokens_sold: await g("stat:tokens_sold"),
+        paid_calls: await g("stat:paid_calls"),
+        customers: custList.keys.length + (custList.list_complete ? 0 : 1000),
+        agents_used: agents,
+      });
     }
 
     // ── /mem : shared memory, namespaced so team can't read your private context. ────────
@@ -442,6 +495,8 @@ const d=await r.json();m.textContent=d.ok?('✅ Loaded. New balance: '+d.wallet+
       // light daily counter too (visibility)
       const dKey = `calls:${ctx.role}:${day}`;
       await env.AIXMOS_KV.put(dKey, String(parseInt((await env.AIXMOS_KV.get(dKey)) || "0", 10) + 1), { expirationTtl: 172800 });
+      await bump(env, "stat:paid_calls");
+      await bump(env, `stat:agent:${incoming.agent || tier}`);
 
       const payload = {
         model: TIERS[tier],
