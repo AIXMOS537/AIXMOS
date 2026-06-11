@@ -10,6 +10,7 @@
  */
 
 const http = require('http');
+const { timingSafeEqual } = require('crypto');
 const { loadAixmosEnv } = require('./lib/env');
 const llm = require('./lib/llm');
 const prompts = require('./agents/prompts');
@@ -18,19 +19,42 @@ const { runAgent, loadRegistry } = require('./lib/runner');
 loadAixmosEnv();
 
 const PORT = parseInt(process.env.AIX_AGENT_PORT || '7777', 10);
-const HOST = process.env.AIX_AGENT_HOST || '0.0.0.0';
+// Bind localhost-only by default. Set AIX_AGENT_HOST=0.0.0.0 explicitly to
+// expose to the network (e.g. compose forwarding, Tailscale tunnel). The
+// prior default of 0.0.0.0 made it trivially reachable on any LAN.
+const HOST = process.env.AIX_AGENT_HOST || '127.0.0.1';
 const KNOWN_AGENTS = Object.keys(prompts);
 const AUTH_TOKEN = (process.env.AIX_AGENT_TOKEN || '').trim();
+
+// Fail-closed at startup. The prior implementation logged "auth=OPEN (no
+// token set)" and accepted ALL requests when AIX_AGENT_TOKEN was empty —
+// a single misconfigured deploy was a free-LLM-tokens vending machine.
+if (!AUTH_TOKEN || AUTH_TOKEN.length < 16) {
+  console.error('[aix-agent-host] FATAL: AIX_AGENT_TOKEN must be set and at least 16 characters');
+  console.error('[aix-agent-host]        generate one with:  openssl rand -hex 32');
+  process.exit(1);
+}
+
 const OPEN_PATHS = new Set(['/', '/healthz']);
+const AUTH_BUF = Buffer.from(AUTH_TOKEN, 'utf8');
+
+function constantEq(provided) {
+  if (typeof provided !== 'string') return false;
+  const pBuf = Buffer.from(provided, 'utf8');
+  if (pBuf.length !== AUTH_BUF.length) return false;
+  try { return timingSafeEqual(pBuf, AUTH_BUF); }
+  catch { return false; }
+}
 
 function checkAuth(req, url) {
-  if (!AUTH_TOKEN) return true;
   if (OPEN_PATHS.has(url.pathname)) return true;
+  // Bearer header only. The prior `?token=` query string fallback leaked
+  // the token via Referer headers, browser history, and reverse-proxy
+  // access logs — the exact "copy a URL out of someone's browser" attack
+  // we want to prevent.
   const header = req.headers['authorization'] || '';
   const m = header.match(/^Bearer\s+(.+)$/i);
-  if (m && m[1].trim() === AUTH_TOKEN) return true;
-  const qs = url.searchParams.get('token');
-  return !!qs && qs === AUTH_TOKEN;
+  return !!m && constantEq(m[1].trim());
 }
 
 function send(res, status, body) {
@@ -122,7 +146,7 @@ const server = http.createServer(async (req, res) => {
   const method = req.method.toUpperCase();
   try {
     if (!checkAuth(req, url)) {
-      return send(res, 401, { error: 'unauthorized — provide Authorization: Bearer <token> or ?token=' });
+      return send(res, 401, { error: 'unauthorized — provide Authorization: Bearer <token>' });
     }
     if (method === 'GET' && url.pathname === '/healthz') {
       return send(res, 200, {
@@ -172,6 +196,6 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, HOST, () => {
   console.log(`[aix-agent-host] listening on http://${HOST}:${PORT}`);
   console.log(`[aix-agent-host] backend=${llm.backend()} ollama=${llm.OLLAMA_HOST()} model=${llm.DEFAULT_OLLAMA_MODEL()}`);
-  console.log(`[aix-agent-host] auth=${AUTH_TOKEN ? 'bearer-token' : 'OPEN (no token set)'}`);
+  console.log(`[aix-agent-host] auth=bearer-token (constant-time compare)`);
   console.log(`[aix-agent-host] agents: ${KNOWN_AGENTS.join(', ')}`);
 });
