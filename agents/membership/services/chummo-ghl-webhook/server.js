@@ -27,6 +27,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const { timingSafeEqual } = require('crypto');
 
 const ROOT = process.env.AIXMOS_AGENT_NETWORK_ROOT
   ? path.resolve(process.env.AIXMOS_AGENT_NETWORK_ROOT)
@@ -38,7 +39,13 @@ const { loadAixmosEnv } = require(path.join(ROOT, 'lib', 'env'));
 loadAixmosEnv();
 
 const PORT = parseInt(process.env.PORT || '4099', 10);
+// Bind localhost-only by default. Set HOST=0.0.0.0 explicitly if a tailnet
+// or compose forward needs to reach this from another host. The prior
+// implicit 0.0.0.0 bind made the webhook reachable on any LAN-attached
+// network the host joined.
+const HOST = process.env.HOST || '127.0.0.1';
 const SHARED_SECRET = process.env.GHL_WEBHOOK_SHARED_SECRET || '';
+const SECRET_BUF = SHARED_SECRET ? Buffer.from(SHARED_SECRET, 'utf8') : null;
 const LOG_DIR = process.env.CHUMMO_WEBHOOK_LOG_DIR || path.join(__dirname, 'logs');
 if (!fs.existsSync(LOG_DIR)) fs.mkdirSync(LOG_DIR, { recursive: true });
 
@@ -88,9 +95,12 @@ async function readBody(req) {
 }
 
 function authed(req) {
-  if (!SHARED_SECRET) return false;
+  if (!SECRET_BUF) return false;
   const got = (req.headers['x-webhook-secret'] || '').toString();
-  return got === SHARED_SECRET;
+  const gotBuf = Buffer.from(got, 'utf8');
+  if (gotBuf.length !== SECRET_BUF.length) return false;
+  try { return timingSafeEqual(gotBuf, SECRET_BUF); }
+  catch { return false; }
 }
 
 function buildPrompt({ agent, channel, context }) {
@@ -188,8 +198,8 @@ const server = http.createServer(async (req, res) => {
   return json(res, 404, { error: 'not_found', path: url, method: req.method });
 });
 
-server.listen(PORT, () => {
-  log('info', 'started', { port: PORT, root: ROOT, agents: VALID_AGENTS.length, has_secret: !!SHARED_SECRET });
+server.listen(PORT, HOST, () => {
+  log('info', 'started', { host: HOST, port: PORT, root: ROOT, agents: VALID_AGENTS.length, has_secret: !!SHARED_SECRET });
   if (!SHARED_SECRET) {
     console.error('\nWARNING: GHL_WEBHOOK_SHARED_SECRET is not set — all requests will be rejected.\n');
   }
