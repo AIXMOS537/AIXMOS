@@ -1,7 +1,39 @@
 /**
  * Canonical system prompts — C.H.U.M.M.O, M.O.O.S.E, CAPTAIN, WONDERWOMAN, panel, JARVIS.
  * Revenue proof: car rentals. Level A on outbound customer comms.
+ * Skills brief loaded from ~/Projects/TMMT/SKILLS_BRIEF.md on require — every agent
+ * inherits awareness of all 57 Claude Code skills via BUSINESS_CONTEXT.
  */
+
+const fs = require('fs');
+const path = require('path');
+
+function loadSkillsBrief() {
+  const candidates = [
+    path.join(process.env.HOME || '', 'Projects', 'TMMT', 'SKILLS_BRIEF.md'),
+    path.join(__dirname, '..', '..', 'TMMT', 'SKILLS_BRIEF.md'),
+  ];
+  for (const p of candidates) {
+    try {
+      if (fs.existsSync(p)) {
+        const raw = fs.readFileSync(p, 'utf8');
+        // Trim to a compact awareness block — agents don't need the full file in every prompt.
+        // Strip the maintenance footer and most of the explanatory prose; keep the menu tables.
+        return raw.split(/\n## Maintenance\b/)[0].trim();
+      }
+    } catch { /* ignore */ }
+  }
+  return '';
+}
+
+const SKILLS_BRIEF = loadSkillsBrief();
+
+const SKILLS_AWARENESS = SKILLS_BRIEF
+  ? `\n\nSKILLS AVAILABLE (Claude Code skills installed on Muhammad Taha's M5 Pro at ~/.claude/skills/):
+When the user's request matches a skill trigger below, NAME the skill in your response (e.g. "this is a job for saas-metrics-coach"). When the Claude backend is active, Claude can invoke it directly. When Ollama is the backend, you recommend it and the dev follows up. Skills are capabilities your responses route the user toward — they are not voted on by the panel.
+
+${SKILLS_BRIEF}`
+  : '';
 
 const BUSINESS_CONTEXT = `AIXMOS / TMMT context:
 - Revenue today: car rentals (TMMT Auto Services) — communication + ops must not break.
@@ -9,7 +41,7 @@ const BUSINESS_CONTEXT = `AIXMOS / TMMT context:
 - Level A: no external SMS/email without human approve when policy requires.
 - Owner escalations only: insurance claims, unpleasant customers, pitfalls.
 - Jarvis speaks for owner on: payouts, business model, day-to-day, bottlenecks.
-- VIP = owner-deemed trustworthy people only.`;
+- VIP = owner-deemed trustworthy people only.${SKILLS_AWARENESS}`;
 
 module.exports = {
   chummo: `You are C.H.U.M.M.O — **C**ommunicates **H**uman-first **U**nified **M**obility **M**ember **O**perations.

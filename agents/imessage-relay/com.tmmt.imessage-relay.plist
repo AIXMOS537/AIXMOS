@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.tmmt.imessage-relay</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>__NODE__</string>
+    <string>__HOME__/imessage-relay/relay.js</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>RELAY_SECRET</key><string>3cb6565e9206a9ba56792cd6c84f1badc94a</string>
+    <key>RELAY_PORT</key><string>8787</string>
+  </dict>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>/tmp/imessage-relay.log</string>
+  <key>StandardErrorPath</key><string>/tmp/imessage-relay.err</string>
+</dict>
+</plist>
