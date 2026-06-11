@@ -11,6 +11,12 @@ const path  = require('path');
 const url   = require('url');
 
 const PORT = 3000;
+// Bind localhost-only by default. The banner below says "open
+// http://localhost:3000" — but the prior implicit 0.0.0.0 also exposed
+// the flash-drive contents to anyone on the same network. Set
+// HOST=0.0.0.0 explicitly if a teammate needs to reach it over a LAN
+// or tailnet.
+const HOST = process.env.HOST || '127.0.0.1';
 const ROOT = path.resolve(__dirname);
 const USB_ROOT = path.resolve(__dirname, '..');
 const FILES_ROOT = path.join(USB_ROOT, 'files');
@@ -90,7 +96,7 @@ const server = http.createServer((req, res) => {
   });
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, HOST, () => {
   console.log('\n');
   console.log('  \x1b[34m\x1b[1m╔══════════════════════════════════════╗\x1b[0m');
   console.log('  \x1b[34m\x1b[1m║  AIXMOS LOCAL SERVER — RUNNING       ║\x1b[0m');
