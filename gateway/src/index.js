@@ -15,6 +15,8 @@ const TIERS = {
 // TMMT-token cost per call by model. free = your own hardware = 0.
 const COST = { free: 0, haiku: 1, sonnet: 5, opus: 25 };
 const RANK = { free: 0, haiku: 1, sonnet: 2, opus: 3 };
+// Allowlist for the maxTier setting (any other value is rejected at write time).
+const VALID_TIERS = new Set(["free", "haiku", "sonnet", "opus"]);
 // TMMT TOKEN PACKS (buy with Stripe → auto-loaded into wallet). usd in cents. Bonus scales up.
 // Bumps maxTier so buying tokens also unlocks premium models. Adjust pricing freely.
 const PACKS = {
@@ -22,6 +24,65 @@ const PACKS = {
   pro:     { usd: 10000, tokens: 3000,  maxTier: "sonnet", label: "Pro — 3,000 TMMT tokens" },
   scale:   { usd: 50000, tokens: 18000, maxTier: "opus",   label: "Scale — 18,000 TMMT tokens" },
 };
+
+// Free tokens expire 90 days from issue if never recharged. Paid token packs
+// extend expiry by another 90 days (set on the next topup). This stops a
+// stolen secret from being usable indefinitely.
+const FREE_EXPIRY_MS = 90 * 24 * 60 * 60 * 1000;
+const PAID_EXPIRY_MS = 365 * 24 * 60 * 60 * 1000;
+
+// Agent / KV-key sanitizer. ALL identifiers that get concatenated into a KV
+// key — and that may later be rendered in HTML on the founder dashboard —
+// MUST pass through this. Closes the XSS chain where a staff user POSTs
+// `{agent: "<script>...</script>"}` → bump('stat:agent:<script>...')` →
+// founder page renders that key via innerHTML.
+function sanitizeId(s) {
+  if (typeof s !== "string") return "";
+  // Only [a-zA-Z0-9_-], max 64 chars.
+  const m = s.match(/^[a-zA-Z0-9_-]{1,64}$/);
+  return m ? m[0] : "";
+}
+
+// Constant-time string compare for shared secrets passed in headers.
+async function constantEq(a, b) {
+  if (typeof a !== "string" || typeof b !== "string" || a.length !== b.length) return false;
+  // Web Crypto has no built-in constant-time compare. Hash both sides and
+  // bytewise-compare the digests — gives O(constant) compare time relative
+  // to the input.
+  const enc = new TextEncoder();
+  const [da, db] = await Promise.all([
+    crypto.subtle.digest("SHA-256", enc.encode(a)),
+    crypto.subtle.digest("SHA-256", enc.encode(b)),
+  ]);
+  const ua = new Uint8Array(da), ub = new Uint8Array(db);
+  let diff = 0;
+  for (let i = 0; i < ua.length; i++) diff |= ua[i] ^ ub[i];
+  return diff === 0;
+}
+
+function safeHtmlEscape(s) {
+  return String(s).replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]
+  );
+}
+
+// Strict default response headers. CSP blocks inline-script injection in
+// pages where we still use inline JS (the gateway is mostly self-contained)
+// and frame-ancestors blocks clickjacking.
+function htmlHeaders(extra) {
+  return {
+    "content-type": "text/html;charset=utf-8",
+    // CSP: scripts/styles from self + inline (we use nonceless inline JS in
+    // the pages below). Connect to self only. img: self + data: + Stripe.
+    "content-security-policy":
+      "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "DENY",
+    "referrer-policy": "no-referrer",
+    "permissions-policy": "camera=(), microphone=(), geolocation=()",
+    ...(extra || {}),
+  };
+}
 
 // lightweight metric counter (founder dashboard)
 async function bump(env, k, by = 1) {
@@ -88,32 +149,41 @@ export default {
       const tsScript = TS_KEY ? '<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>' : '';
       const tsWidget = TS_KEY ? `<div class="cf-turnstile" data-sitekey="${TS_KEY}" style="margin:8px auto"></div>` : '';
       const html = `<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1">
-<title>${BRAND} — your AI operating brain</title>${tsScript}<style>
+<title>${safeHtmlEscape(BRAND)} — your AI operating brain</title>${tsScript}<style>
 body{font-family:system-ui,sans-serif;background:#0b0b0f;color:#eee;margin:0;display:flex;min-height:100vh;align-items:center;justify-content:center}
 .card{max-width:520px;padding:40px;text-align:center}h1{font-size:2rem;margin:.2em 0}p{color:#aaa;line-height:1.5}
 input,button{font-size:1rem;padding:12px 14px;border-radius:10px;border:1px solid #333;margin:6px}
 input{background:#15151c;color:#fff;width:60%}button{background:#5b8cff;color:#fff;border:0;cursor:pointer;font-weight:600}
 #out{margin-top:18px;text-align:left;background:#15151c;padding:14px;border-radius:10px;display:none;white-space:pre-wrap;font-size:.85rem}
 small{color:#777}</style></head><body><div class=card>
-<h1>${BRAND}</h1><p>Your AI operating brain — runs your ops, agents, and automations. <b>Free to start.</b> Add TMMT tokens to unlock premium models & agents.</p>
-<div><input id=email type=email placeholder="you@email.com"><button onclick=go()>Get free access</button></div>
+<h1>${safeHtmlEscape(BRAND)}</h1><p>Your AI operating brain — runs your ops, agents, and automations. <b>Free to start.</b> Add TMMT tokens to unlock premium models &amp; agents.</p>
+<div><input id=email type=email placeholder="you@email.com"><button id=goBtn>Get free access</button></div>
 ${tsWidget}
 <div id=out></div><small>Free tier runs on our edge AI. No card required.</small>
 <script>let SEC='';
+function el(t,attrs,kids){const n=document.createElement(t);if(attrs)for(const k in attrs)n.setAttribute(k,attrs[k]);if(kids)for(const c of kids)n.appendChild(typeof c==='string'?document.createTextNode(c):c);return n;}
 async function go(){const e=document.getElementById('email').value;const o=document.getElementById('out');o.style.display='block';o.textContent='Creating your free account…';
 const tk=(window.turnstile&&turnstile.getResponse)?turnstile.getResponse():'';
 const r=await fetch('/signup',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:e,turnstile:tk})});const d=await r.json();
-if(d.secret){SEC=d.secret;o.innerHTML='✅ You\\'re in! Save your key:<br><code style="color:#5b8cff">'+d.secret+'</code><br><br>Unlock premium models + agents with TMMT tokens:<br><button onclick="buy(\\'starter\\')">Card $25</button> <button onclick="buy(\\'pro\\')">Card $100</button> <button onclick="buy(\\'scale\\')">Card $500</button><br><button onclick="buyCrypto(\\'pro\\')">₿ Pay with crypto</button>';}else{o.textContent='Error: '+(d.error||'try again');}}
+o.textContent='';
+if(d.secret){SEC=d.secret;
+o.appendChild(document.createTextNode('✅ You\\'re in! Save your key:'));o.appendChild(el('br'));
+const code=el('code',{style:'color:#5b8cff'},[d.secret]);o.appendChild(code);o.appendChild(el('br'));o.appendChild(el('br'));
+o.appendChild(document.createTextNode('Unlock premium models + agents with TMMT tokens:'));o.appendChild(el('br'));
+for(const p of ['starter','pro','scale']){const b=el('button',null,['Card '+({starter:'$25',pro:'$100',scale:'$500'})[p]]);b.onclick=()=>buy(p);o.appendChild(b);o.appendChild(document.createTextNode(' '));}
+o.appendChild(el('br'));const cb=el('button',null,['₿ Pay with crypto']);cb.onclick=()=>buyCrypto('pro');o.appendChild(cb);
+} else { o.textContent='Error: '+(d.error||'try again'); } }
+document.getElementById('goBtn').addEventListener('click',go);
 async function buy(p){const r=await fetch('/buy',{method:'POST',headers:{'content-type':'application/json','x-aixmos-auth':SEC},body:JSON.stringify({pack:p})});const d=await r.json();if(d.url){location.href=d.url;}else{alert(d.error||'card payments not live yet — use crypto or contact us');}}
 async function buyCrypto(p){const r=await fetch('/pay/crypto',{method:'POST',headers:{'content-type':'application/json','x-aixmos-auth':SEC},body:JSON.stringify({pack:p})});const d=await r.json();if(d.url){location.href=d.url;}else{alert(d.error||'crypto not live yet');}}</script>
 </div></body></html>`;
-      return new Response(html, { headers: { "content-type": "text/html;charset=utf-8" } });
+      return new Response(html, { headers: htmlHeaders() });
     }
 
     // ── /me : customer portal — log in with key, see TMMT tokens + agents, chat, buy more. ──
     if (url.pathname === "/me" && req.method === "GET") {
       const html = `<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1">
-<title>${BRAND}</title><style>
+<title>${safeHtmlEscape(BRAND)}</title><style>
 body{font-family:system-ui,sans-serif;background:#0b0b0f;color:#eee;margin:0;padding:20px;max-width:640px;margin:auto}
 h2{margin:.2em 0}.bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;background:#15151c;padding:12px;border-radius:12px;margin:12px 0}
 .pill{background:#1f1f2b;padding:6px 12px;border-radius:20px;font-size:.85rem}.pill b{color:#5b8cff}
@@ -121,85 +191,121 @@ input,select,textarea,button{font-size:1rem;padding:11px;border-radius:10px;bord
 textarea{width:100%;min-height:80px}button{background:#5b8cff;border:0;font-weight:700;cursor:pointer}
 #chat{background:#15151c;border-radius:12px;padding:14px;margin:12px 0;white-space:pre-wrap;min-height:60px}
 .row{display:flex;gap:8px;margin:8px 0}small{color:#777}.buy button{margin:4px}</style></head>
-<body><h2>${BRAND}</h2>
-<div class=bar><input id=key type=password placeholder="your access key" style="flex:1"><button onclick=login()>Connect</button></div>
+<body><h2>${safeHtmlEscape(BRAND)}</h2>
+<div class=bar><input id=key type=password placeholder="your access key" style="flex:1"><button id=connectBtn>Connect</button></div>
 <div id=panel style=display:none>
  <div class=bar><span class=pill>TMMT tokens: <b id=tok>–</b></span><span class=pill>Model: <b id=tier>–</b></span><span class=pill>Agents: <b id=agents>–</b></span></div>
  <div class=row><select id=agent style="flex:1"></select></div>
  <textarea id=prompt placeholder="Ask AIXMOS…"></textarea>
- <div class=row><button onclick=send() style="flex:1">Send</button></div>
+ <div class=row><button id=sendBtn style="flex:1">Send</button></div>
  <div id=chat>Connect and ask anything. Free runs on edge AI; premium agents use TMMT tokens.</div>
  <div class=buy><small>Need more tokens?</small><br>
-  <button onclick="buy('starter')">Card $25</button><button onclick="buy('pro')">Card $100</button><button onclick="buy('scale')">Card $500</button>
-  <button onclick="buyCrypto('pro')">₿ Crypto</button></div>
+  <button data-pack=starter>Card $25</button><button data-pack=pro>Card $100</button><button data-pack=scale>Card $500</button>
+  <button id=cryptoBtn>₿ Crypto</button></div>
 </div>
-<script>let K=localStorage.getItem('aixkey')||'';if(K){document.getElementById('key').value=K;login();}
+<script>
+// Customer key uses sessionStorage (clears on tab close) instead of
+// localStorage so a phishing/XSS in another tab can't steal it across
+// sessions. Lower convenience, much lower blast radius if any future
+// pages on the same origin pick up an inline-script issue.
+let K=sessionStorage.getItem('aixkey')||'';
+if(K){document.getElementById('key').value=K;login();}
 async function api(path,opt){opt=opt||{};opt.headers=Object.assign({'x-aixmos-auth':K,'content-type':'application/json'},opt.headers||{});return (await fetch(path,opt)).json();}
-async function login(){K=document.getElementById('key').value;localStorage.setItem('aixkey',K);const w=await api('/wallet');if(w.name===undefined){alert('invalid key');return;}
+async function login(){K=document.getElementById('key').value;sessionStorage.setItem('aixkey',K);const w=await api('/wallet');if(w.name===undefined){alert('invalid key');return;}
 document.getElementById('panel').style.display='block';document.getElementById('tok').textContent=w.tmmt_tokens_left??'free';document.getElementById('tier').textContent=w.plan_model_ceiling;
-const ag=w.agents_unlocked||[];document.getElementById('agents').textContent=ag.length?ag.join(', '):'tmmt-brain';
-const sel=document.getElementById('agent');sel.innerHTML='<option value="">auto</option>'+ag.map(a=>'<option>'+a+'</option>').join('');}
+const ag=Array.isArray(w.agents_unlocked)?w.agents_unlocked:[];
+document.getElementById('agents').textContent=ag.length?ag.join(', '):'tmmt-brain';
+const sel=document.getElementById('agent');
+while(sel.firstChild)sel.removeChild(sel.firstChild);
+const autoOpt=document.createElement('option');autoOpt.value='';autoOpt.textContent='auto';sel.appendChild(autoOpt);
+for(const a of ag){const o=document.createElement('option');o.value=a;o.textContent=a;sel.appendChild(o);}}
 async function send(){const p=document.getElementById('prompt').value;const c=document.getElementById('chat');c.textContent='…';
 const body={prompt:p};const a=document.getElementById('agent').value;if(a)body.agent=a;
 const d=await api('/',{method:'POST',body:JSON.stringify(body)});
 c.textContent=(d.text)||(d.content&&d.content[0]&&d.content[0].text)||(d.error||JSON.stringify(d));
 const w=await api('/wallet');document.getElementById('tok').textContent=w.tmmt_tokens_left??'free';}
 async function buy(p){const d=await api('/buy',{method:'POST',body:JSON.stringify({pack:p})});if(d.url)location.href=d.url;else alert(d.error||'card not live yet — try crypto');}
-async function buyCrypto(p){const d=await api('/pay/crypto',{method:'POST',body:JSON.stringify({pack:p})});if(d.url)location.href=d.url;else alert(d.error||'crypto not live yet');}</script>
+async function buyCrypto(p){const d=await api('/pay/crypto',{method:'POST',body:JSON.stringify({pack:p})});if(d.url)location.href=d.url;else alert(d.error||'crypto not live yet');}
+document.getElementById('connectBtn').addEventListener('click',login);
+document.getElementById('sendBtn').addEventListener('click',send);
+for(const b of document.querySelectorAll('button[data-pack]'))b.addEventListener('click',()=>buy(b.dataset.pack));
+document.getElementById('cryptoBtn').addEventListener('click',()=>buyCrypto('pro'));
+</script>
 </body></html>`;
-      return new Response(html, { headers: { "content-type": "text/html;charset=utf-8" } });
+      return new Response(html, { headers: htmlHeaders() });
     }
 
     // ── ADMIN console (phone-friendly): load TMMT tokens after ANY payment. Needs your admin key (entered here). ──
     if (url.pathname === "/admin" && req.method === "GET") {
       const html = `<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1">
-<title>${BRAND} — Load Tokens</title><style>
+<title>${safeHtmlEscape(BRAND)} — Load Tokens</title><style>
 body{font-family:system-ui,sans-serif;background:#0b0b0f;color:#eee;margin:0;padding:24px;max-width:460px;margin:auto}
 h2{margin-top:0}label{display:block;margin:14px 0 4px;color:#aaa;font-size:.85rem}
 input,select,button{width:100%;font-size:1rem;padding:12px;border-radius:10px;border:1px solid #333;background:#15151c;color:#fff;box-sizing:border-box}
 button{background:#5b8cff;border:0;font-weight:700;margin-top:18px;cursor:pointer}#msg{margin-top:14px;white-space:pre-wrap}small{color:#777}</style></head>
-<body><h2>${BRAND} · Load Tokens</h2><small>After a Zelle/CashApp/PayPal/crypto/cash payment, load the customer's TMMT tokens.</small>
-<label>Your admin key</label><input id=adm type=password placeholder="admin secret (saved on this device)">
+<body><h2>${safeHtmlEscape(BRAND)} · Load Tokens</h2><small>After a Zelle/CashApp/PayPal/crypto/cash payment, load the customer's TMMT tokens.</small>
+<label>Your admin key (NOT remembered — enter each session)</label><input id=adm type=password placeholder="admin secret">
 <label>Customer email</label><input id=email type=email placeholder="customer@email.com">
 <label>TMMT tokens to add</label><input id=tok type=number value=3000>
 <label>Unlock model up to</label><select id=tier><option>free</option><option>haiku</option><option selected>sonnet</option><option>opus</option></select>
-<button onclick=load()>Load tokens</button><div id=msg></div>
-<script>const A=localStorage.getItem('aixadm');if(A)document.getElementById('adm').value=A;
-async function load(){const adm=document.getElementById('adm').value;localStorage.setItem('aixadm',adm);
+<button id=loadBtn>Load tokens</button><div id=msg></div>
+<script>
+// Admin key was previously cached in localStorage. That made an XSS
+// anywhere on this origin a one-shot admin theft. Now: admin enters
+// the key every session. sessionStorage would survive page reloads
+// within the tab, but for the admin console the safer default is no
+// persistence at all.
+async function load(){const adm=document.getElementById('adm').value;
 const m=document.getElementById('msg');m.textContent='Loading…';
 const r=await fetch('/admin/topup',{method:'POST',headers:{'content-type':'application/json','x-aixmos-auth':adm},
 body:JSON.stringify({email:document.getElementById('email').value,tokens:parseInt(document.getElementById('tok').value),maxTier:document.getElementById('tier').value})});
-const d=await r.json();m.textContent=d.ok?('✅ Loaded. New balance: '+d.wallet+' tokens'):('❌ '+(d.error||'failed — check admin key / that the customer signed up'));}</script>
+const d=await r.json();m.textContent=d.ok?('✅ Loaded. New balance: '+d.wallet+' tokens'):('❌ '+(d.error||'failed — check admin key / that the customer signed up'));}
+document.getElementById('loadBtn').addEventListener('click',load);
+</script>
 </body></html>`;
-      return new Response(html, { headers: { "content-type": "text/html;charset=utf-8" } });
+      return new Response(html, { headers: htmlHeaders() });
     }
 
     // ── /founder : your business at a glance (page prompts admin key, reads /founder/data). ──
     if (url.pathname === "/founder" && req.method === "GET") {
       const html = `<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1">
-<title>${BRAND} · Founder</title><style>
+<title>${safeHtmlEscape(BRAND)} · Founder</title><style>
 body{font-family:system-ui,sans-serif;background:#0b0b0f;color:#eee;margin:0;padding:22px;max-width:640px;margin:auto}
 h2{margin:.2em 0}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0}
 .kpi{background:#15151c;border-radius:14px;padding:18px}.kpi b{font-size:1.8rem;color:#5b8cff;display:block}.kpi span{color:#aaa;font-size:.8rem}
 input,button{font-size:1rem;padding:11px;border-radius:10px;border:1px solid #333;background:#15151c;color:#fff}
 button{background:#5b8cff;border:0;font-weight:700;cursor:pointer}#ag{background:#15151c;border-radius:14px;padding:14px;margin-top:12px}</style></head>
-<body><h2>${BRAND} · Founder</h2>
-<div><input id=adm type=password placeholder="admin key" style="width:60%"><button onclick=go()>View</button></div>
+<body><h2>${safeHtmlEscape(BRAND)} · Founder</h2>
+<div><input id=adm type=password placeholder="admin key (enter each session)" style="width:60%"><button id=viewBtn>View</button></div>
 <div id=dash style=display:none><div class=grid>
 <div class=kpi><b id=signups>–</b><span>Free signups</span></div>
 <div class=kpi><b id=cust>–</b><span>Accounts</span></div>
 <div class=kpi><b id=tok>–</b><span>TMMT tokens sold</span></div>
 <div class=kpi><b id=calls>–</b><span>Premium calls</span></div></div>
 <div id=ag></div></div>
-<script>const A=localStorage.getItem('aixadm');if(A)document.getElementById('adm').value=A;
-async function go(){const a=document.getElementById('adm').value;localStorage.setItem('aixadm',a);
+<script>
+async function go(){const a=document.getElementById('adm').value;
 const r=await fetch('/founder/data',{headers:{'x-aixmos-auth':a}});if(!r.ok){alert('bad admin key');return;}const d=await r.json();
 document.getElementById('dash').style.display='block';
-signups.textContent=d.signups;cust.textContent=d.customers;tok.textContent=d.tmmt_tokens_sold.toLocaleString();calls.textContent=d.paid_calls;
-const e=Object.entries(d.agents_used).sort((a,b)=>b[1]-a[1]);
-document.getElementById('ag').innerHTML='<b>Top agents/models</b><br>'+(e.length?e.map(x=>x[0]+': '+x[1]).join('<br>'):'none yet');}
-if(A)go();</script></body></html>`;
-      return new Response(html, { headers: { "content-type": "text/html;charset=utf-8" } });
+document.getElementById('signups').textContent=d.signups;
+document.getElementById('cust').textContent=d.customers;
+document.getElementById('tok').textContent=Number(d.tmmt_tokens_sold||0).toLocaleString();
+document.getElementById('calls').textContent=d.paid_calls;
+const e=Object.entries(d.agents_used||{}).sort((a,b)=>b[1]-a[1]);
+const wrap=document.getElementById('ag');
+while(wrap.firstChild)wrap.removeChild(wrap.firstChild);
+const h=document.createElement('b');h.textContent='Top agents/models';wrap.appendChild(h);wrap.appendChild(document.createElement('br'));
+if(e.length){
+  for(const [name,n] of e){
+    // textContent (not innerHTML) — the agent name was historically a server-
+    // recorded label that we now sanitize at write time, but defense in depth
+    // says never trust the rendering side either.
+    const row=document.createElement('div');row.textContent=name+': '+n;wrap.appendChild(row);
+  }
+}else{wrap.appendChild(document.createTextNode('none yet'));}}
+document.getElementById('viewBtn').addEventListener('click',go);
+</script></body></html>`;
+      return new Response(html, { headers: htmlHeaders() });
     }
 
     // ── PUBLIC: self-serve free signup — issues a free account on the spot. ──
@@ -230,13 +336,20 @@ if(A)go();</script></body></html>`;
       const secret = "ax_free_" + crypto.randomUUID().replace(/-/g, "");
       const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(secret));
       const hash = [...new Uint8Array(buf)].map(x => x.toString(16).padStart(2, "0")).join("");
-      const cfg = { name: email, brand: "free", maxTier: "free", monthly: 0,
-        agents: ["tmmt-brain"], persona: `${BRAND} free assistant. Helpful, brief.`, tier: "free_signup" };
+      const now = Date.now();
+      const cfg = {
+        name: email, brand: "free", maxTier: "free", monthly: 0,
+        agents: ["tmmt-brain"], persona: `${BRAND} free assistant. Helpful, brief.`, tier: "free_signup",
+        // Expiry: 90 days from issue. Renews on any token topup to 1 year out.
+        // Stops a leaked/copied secret from being valid forever.
+        iat: now,
+        expires_at: new Date(now + FREE_EXPIRY_MS).toISOString(),
+      };
       await env.AIXMOS_KV.put(`cust:${hash}`, JSON.stringify(cfg));
       await env.AIXMOS_KV.put(`wallet:${hash}`, "0");
       await env.AIXMOS_KV.put(`emailidx:${email.toLowerCase()}`, hash);   // load tokens later by email
       await bump(env, "stat:signups");
-      return Response.json({ ok: true, secret, plan: "free", note: "Free edge AI. Buy TMMT tokens to unlock premium models + agents." });
+      return Response.json({ ok: true, secret, plan: "free", expires_at: cfg.expires_at, note: "Free edge AI. Buy TMMT tokens to unlock premium models + agents." });
     }
 
     // ── PUBLIC: Stripe webhook — payment confirmed → auto-load TMMT tokens into the buyer's wallet. ──
@@ -252,7 +365,7 @@ if(A)go();</script></body></html>`;
       const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(env.STRIPE_WEBHOOK_SECRET), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
       const macBuf = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`${t}.${raw}`));
       const expected = [...new Uint8Array(macBuf)].map(b => b.toString(16).padStart(2, "0")).join("");
-      if (expected !== v1) return new Response("sig mismatch", { status: 400 });
+      if (!(await constantEq(expected, v1))) return new Response("sig mismatch", { status: 400 });
       const event = JSON.parse(raw);
       if (event.type === "checkout.session.completed" || event.type === "payment_intent.succeeded") {
         const md = (event.data?.object?.metadata) || {};
@@ -262,8 +375,12 @@ if(A)go();</script></body></html>`;
           // optional: a pack can also raise the model ceiling/agents
           if (md.maxTier || md.agents) {
             const c = JSON.parse((await env.AIXMOS_KV.get(`cust:${md.hash}`)) || "{}");
-            if (md.maxTier) c.maxTier = md.maxTier;
-            if (md.agents) c.agents = md.agents.split(",").filter(Boolean);
+            if (md.maxTier && VALID_TIERS.has(md.maxTier)) c.maxTier = md.maxTier;
+            if (md.agents) {
+              c.agents = md.agents.split(",").map((a) => sanitizeId(a)).filter(Boolean);
+            }
+            // Extend expiry on every paid topup.
+            c.expires_at = new Date(Date.now() + PAID_EXPIRY_MS).toISOString();
             await env.AIXMOS_KV.put(`cust:${md.hash}`, JSON.stringify(c));
           }
         }
@@ -276,7 +393,10 @@ if(A)go();</script></body></html>`;
     //    Auth = shared secret header `x-pay-secret`. Body: { email|secret|hash, tokens|amount_usd, maxTier?, agents? }.
     if (url.pathname === "/pay/webhook" && req.method === "POST") {
       if (!env.PAY_WEBHOOK_SECRET) return new Response("not configured", { status: 503 });
-      if (req.headers.get("x-pay-secret") !== env.PAY_WEBHOOK_SECRET) return new Response("bad secret", { status: 401 });
+      const provided = req.headers.get("x-pay-secret") || "";
+      if (!(await constantEq(provided, env.PAY_WEBHOOK_SECRET))) {
+        return new Response("bad secret", { status: 401 });
+      }
       const b = await req.json().catch(() => ({}));
       let h = b.hash;
       if (!h && b.secret) {
@@ -292,9 +412,21 @@ if(A)go();</script></body></html>`;
         if (p) { tokens = p.tokens; maxTier = maxTier || p.maxTier; }
       }
       if (!h || !tokens) return Response.json({ error: "need {email|secret|hash} and {tokens|amount_usd}" }, { status: 400 });
+      // Validate maxTier against the allowlist BEFORE persisting (remote lockdown).
+      if (maxTier && !VALID_TIERS.has(maxTier)) {
+        return Response.json({ error: "invalid maxTier" }, { status: 400 });
+      }
+      // Atomic topup via the per-account Durable Object ledger (no KV race → no double-spend).
       const { balance } = await ledgerOp(env, h, { op: "topup", amount: tokens });
       await bump(env, "stat:tokens_sold", tokens);
-      if (maxTier) { const c = JSON.parse((await env.AIXMOS_KV.get(`cust:${h}`)) || "{}"); c.maxTier = maxTier; if (b.agents) c.agents = String(b.agents).split(",").filter(Boolean); await env.AIXMOS_KV.put(`cust:${h}`, JSON.stringify(c)); }
+      if (maxTier || b.agents) {
+        const c = JSON.parse((await env.AIXMOS_KV.get(`cust:${h}`)) || "{}");
+        if (maxTier) c.maxTier = maxTier;
+        if (b.agents) c.agents = String(b.agents).split(",").map((a) => sanitizeId(a)).filter(Boolean);
+        // Extend expiry on paid topup.
+        c.expires_at = new Date(Date.now() + PAID_EXPIRY_MS).toISOString();
+        await env.AIXMOS_KV.put(`cust:${h}`, JSON.stringify(c));
+      }
       return Response.json({ ok: true, wallet: balance });
     }
 
@@ -306,14 +438,20 @@ if(A)go();</script></body></html>`;
       const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(env.COINBASE_WEBHOOK_SECRET), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
       const mac = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(raw));
       const expected = [...new Uint8Array(mac)].map(x => x.toString(16).padStart(2, "0")).join("");
-      if (expected !== sig) return new Response("sig mismatch", { status: 400 });
+      if (!(await constantEq(expected, sig))) return new Response("sig mismatch", { status: 400 });
       const ev = JSON.parse(raw);
       if (ev.event?.type === "charge:confirmed" || ev.event?.type === "charge:resolved") {
         const md = ev.event?.data?.metadata || {};
         const tokens = parseInt(md.tokens || "0", 10);
         if (md.hash && tokens > 0) {
+          // Atomic topup via the DO ledger (no KV race → no double-spend).
           await ledgerOp(env, md.hash, { op: "topup", amount: tokens });
-          if (md.maxTier) { const c = JSON.parse((await env.AIXMOS_KV.get(`cust:${md.hash}`)) || "{}"); c.maxTier = md.maxTier; await env.AIXMOS_KV.put(`cust:${md.hash}`, JSON.stringify(c)); }
+          if (md.maxTier && VALID_TIERS.has(md.maxTier)) {
+            const c = JSON.parse((await env.AIXMOS_KV.get(`cust:${md.hash}`)) || "{}");
+            c.maxTier = md.maxTier;
+            c.expires_at = new Date(Date.now() + PAID_EXPIRY_MS).toISOString();
+            await env.AIXMOS_KV.put(`cust:${md.hash}`, JSON.stringify(c));
+          }
         }
       }
       return Response.json({ received: true });
@@ -350,12 +488,22 @@ if(A)go();</script></body></html>`;
       const raw = await env.AIXMOS_KV.get(`cust:${hash}`);
       if (raw) {
         const c = JSON.parse(raw);
-        if (!c.expires || Date.parse(c.expires) > Date.now()) {
-          ctx = { name: c.name || "Customer", role: `cust_${c.brand || "x"}`, admin: false,
-                  maxTier: c.maxTier || "free", monthly: c.monthly || 100,
-                  hash,                          // ledger key: PURCHASED TMMT-token balance (DO-backed)
-                  agents: Array.isArray(c.agents) ? c.agents : [],  // which brain/agents this tier unlocks
-                  persona: c.persona || `AIXMOS for ${c.brand || "a client"}. Brief, decisive.` };
+        const stillValid = !c.expires_at || Date.parse(c.expires_at) > Date.now();
+        if (!stillValid && c.expires_at) {
+          // Expired token → 401 (same status as unknown so a caller can't enumerate live vs expired).
+          return new Response("Unauthorized (expired)", { status: 401 });
+        }
+        if (stillValid) {
+          ctx = {
+            name: c.name || "Customer",
+            role: `cust_${sanitizeId(c.brand) || "x"}`,
+            admin: false,
+            maxTier: VALID_TIERS.has(c.maxTier) ? c.maxTier : "free",
+            monthly: typeof c.monthly === "number" ? c.monthly : 100,
+            hash,                          // ledger key: PURCHASED TMMT-token balance (DO-backed, atomic)
+            agents: Array.isArray(c.agents) ? c.agents.map((a) => sanitizeId(a)).filter(Boolean) : [],
+            persona: c.persona || `AIXMOS for ${c.brand || "a client"}. Brief, decisive.`,
+          };
         }
       }
     }
@@ -438,12 +586,21 @@ if(A)go();</script></body></html>`;
       if (!h && b.email) h = await env.AIXMOS_KV.get(`emailidx:${b.email.toLowerCase()}`);   // load by email
       const add = parseInt(b.tokens || "0", 10);
       if (!h || !add) return Response.json({ error: "need {secret|hash, tokens}" }, { status: 400 });
+      // Validate maxTier against the allowlist BEFORE persisting (remote lockdown).
+      if (b.maxTier && !VALID_TIERS.has(b.maxTier)) {
+        return Response.json({ error: "invalid maxTier" }, { status: 400 });
+      }
+      // Atomic topup via the DO ledger (no KV race → no double-spend).
       const { balance } = await ledgerOp(env, h, { op: "topup", amount: add });
       await bump(env, "stat:tokens_sold", add);
       if (b.maxTier || b.agents) {
         const c = JSON.parse((await env.AIXMOS_KV.get(`cust:${h}`)) || "{}");
         if (b.maxTier) c.maxTier = b.maxTier;
-        if (b.agents) c.agents = Array.isArray(b.agents) ? b.agents : String(b.agents).split(",").filter(Boolean);
+        if (b.agents) {
+          const incoming = Array.isArray(b.agents) ? b.agents : String(b.agents).split(",");
+          c.agents = incoming.map((a) => sanitizeId(a)).filter(Boolean);
+        }
+        c.expires_at = new Date(Date.now() + PAID_EXPIRY_MS).toISOString();
         await env.AIXMOS_KV.put(`cust:${h}`, JSON.stringify(c));
       }
       return Response.json({ ok: true, wallet: balance });
@@ -462,7 +619,13 @@ if(A)go();</script></body></html>`;
       const custList = await env.AIXMOS_KV.list({ prefix: "cust:", limit: 1000 });
       const agList = await env.AIXMOS_KV.list({ prefix: "stat:agent:", limit: 100 });
       const agents = {};
-      for (const k of agList.keys) agents[k.name.replace("stat:agent:", "")] = await g(k.name);
+      for (const k of agList.keys) {
+        // Defense in depth: even though we sanitize the agent name at write
+        // time, defensively re-sanitize on read so a pre-fix value already
+        // sitting in KV can't ride through to the HTML dashboard.
+        const clean = sanitizeId(k.name.replace("stat:agent:", ""));
+        if (clean) agents[clean] = await g(k.name);
+      }
       return Response.json({
         signups: await g("stat:signups"),
         tmmt_tokens_sold: await g("stat:tokens_sold"),
@@ -499,9 +662,12 @@ if(A)go();</script></body></html>`;
       let want = incoming.tier && RANK[incoming.tier] !== undefined ? incoming.tier : ctx.maxTier;
       if (RANK[want] > RANK[ctx.maxTier]) want = ctx.maxTier;
 
+      // Sanitize the requested agent name BEFORE any use — defense against the
+      // XSS-into-founder-dashboard chain (used here for gating and below for the stat key).
+      const requestedAgent = sanitizeId(incoming.agent || "");
       // Agent gating FIRST (before any debit): requested agent must be unlocked by this tier.
-      if (incoming.agent && ctx.hash && ctx.agents.length && !ctx.agents.includes(incoming.agent))
-        return Response.json({ error: `Agent '${incoming.agent}' not in your plan. Upgrade tier to unlock.` }, { status: 403 });
+      if (requestedAgent && ctx.hash && ctx.agents.length && !ctx.agents.includes(requestedAgent))
+        return Response.json({ error: `Agent not in your plan. Upgrade tier to unlock.` }, { status: 403 });
 
       // ACCESS GATE: free for everyone; the brain/agents cost TMMT tokens. The debit is ATOMIC
       // via the per-account Durable Object (no KV race → no double-spend, no quota bypass).
@@ -519,6 +685,7 @@ if(A)go();</script></body></html>`;
           if (res.ok) staffUsed = res.used; else { tier = "free"; downgraded = true; }
         }
       }
+      // (Requested-agent sanitize + gating already enforced above, before the debit, via ctx.hash.)
 
       // ── FREE LANE — public free tier on Cloudflare Workers AI (scales, keeps home brain private).
       //    Staff/internal can route to private Ollama by setting OLLAMA_URL (Tailscale).
@@ -550,7 +717,10 @@ if(A)go();</script></body></html>`;
 
       // ── PAID LANE → Anthropic. TMMT tokens already debited ATOMICALLY at the access gate above. ──
       await bump(env, "stat:paid_calls");
-      await bump(env, `stat:agent:${incoming.agent || tier}`);
+      // Use the SANITIZED agent name (or fall back to tier) for the KV key.
+      // Without this, the unsafe incoming string ends up in `stat:agent:<...>`
+      // and renders into the founder dashboard.
+      await bump(env, `stat:agent:${requestedAgent || tier}`);
 
       const payload = {
         model: TIERS[tier],
