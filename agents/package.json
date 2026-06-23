@@ -26,7 +26,9 @@
     "sticks": "node sticks.js",
     "brief": "node briefing.js",
     "contacts": "node contacts.js",
-    "scheduler": "node scheduler.js"
+    "scheduler": "node scheduler.js",
+    "projectx": "node projectx-feed.js",
+    "projectx:feed": "node projectx-feed.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.68.0"
