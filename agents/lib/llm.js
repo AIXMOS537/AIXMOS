@@ -90,13 +90,12 @@ async function callGateway({ system, prompt, maxTokens, tier }) {
   const secret = process.env.AIXMOS_GATEWAY_SECRET;
   if (!secret) throw new Error('AIXMOS_GATEWAY_SECRET is not set (keep it in ~/.config/tmmt/*.env)');
 
-  // The gateway applies the per-secret persona as the system prompt server-side.
-  // We still pass `system` as a leading system message so callers that rely on
-  // a task-specific system prompt keep working; the gateway prepends its persona.
-  const messages = [
-    ...(system ? [{ role: 'system', content: system }] : []),
-    { role: 'user', content: prompt },
-  ];
+  // The gateway sets the system prompt server-side (per-secret persona) and
+  // forwards `messages` straight to Anthropic on the paid lane — where a
+  // `system`-role entry would 400 (Anthropic messages accept only user/assistant).
+  // So fold any caller `system` into the user turn as leading context instead.
+  const userContent = system ? `${system}\n\n${prompt}` : prompt;
+  const messages = [{ role: 'user', content: userContent }];
   let res;
   try {
     res = await fetch(base, {
