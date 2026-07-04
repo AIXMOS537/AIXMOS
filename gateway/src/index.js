@@ -595,7 +595,9 @@ document.getElementById('viewBtn').addEventListener('click',go);
         return Response.json({ error: "Bad request" }, { status: 400 });
 
       // ABUSE GUARD: cap input size so nobody can run up token cost with a giant prompt.
-      const inText = JSON.stringify(incoming.messages || incoming.prompt || "");
+      // Count the optional caller system prompt against the cap too.
+      const inText = JSON.stringify(incoming.messages || incoming.prompt || "") +
+        (typeof incoming.system === "string" ? incoming.system : "");
       if (inText.length > 24000)
         return Response.json({ error: "Input too large (max ~24k chars)." }, { status: 413 });
 
@@ -624,6 +626,14 @@ document.getElementById('viewBtn').addEventListener('click',go);
       if (requestedAgent && ctx.walletKey && ctx.agents.length && !ctx.agents.includes(requestedAgent))
         return Response.json({ error: `Agent not in your plan. Upgrade tier to unlock.` }, { status: 403 });
 
+      // Optional caller-supplied system prompt: APPENDED to the per-secret persona.
+      // The persona stays first and authoritative — a caller can add task/schema
+      // instructions but can never override the server-side persona/guardrail. This
+      // lets structured-output callers (e.g. TMMT's schema-driven agents) route through
+      // the gateway without losing their system prompt. Absent → behavior is unchanged.
+      const callerSystem = typeof incoming.system === "string" ? incoming.system.slice(0, 8000) : "";
+      const effectiveSystem = callerSystem ? `${ctx.persona}\n\n${callerSystem}` : ctx.persona;
+
       // ── FREE LANE — public free tier on Cloudflare Workers AI (scales, keeps home brain private).
       //    Staff/internal can route to private Ollama by setting OLLAMA_URL (Tailscale).
       if (tier === "free") {
@@ -634,7 +644,7 @@ document.getElementById('viewBtn').addEventListener('click',go);
         if (fUsed >= FREE_DAILY)
           return Response.json({ error: "Daily free limit reached. Buy TMMT tokens to keep going." }, { status: 429 });
         await env.AIXMOS_KV.put(fKey, String(fUsed + 1), { expirationTtl: 172800 });
-        const messages = [{ role: "system", content: ctx.persona }, ...(incoming.messages || [{ role: "user", content: incoming.prompt || "" }])];
+        const messages = [{ role: "system", content: effectiveSystem }, ...(incoming.messages || [{ role: "user", content: incoming.prompt || "" }])];
         // 1) private Ollama (only if you wire OLLAMA_URL for internal/Tailscale)
         if (env.OLLAMA_URL) {
           const r = await fetch(`${env.OLLAMA_URL.replace(/\/$/, "")}/api/chat`, {
@@ -672,7 +682,7 @@ document.getElementById('viewBtn').addEventListener('click',go);
       const payload = {
         model: TIERS[tier],
         max_tokens: Math.min(incoming.max_tokens || 1024, 2048),
-        system: ctx.persona,
+        system: effectiveSystem,
         messages: incoming.messages || [{ role: "user", content: incoming.prompt || "" }],
       };
       const r = await fetch("https://api.anthropic.com/v1/messages", {
