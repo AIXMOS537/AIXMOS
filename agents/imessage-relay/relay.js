@@ -20,10 +20,27 @@
 
 const http = require('http');
 const { execFile } = require('child_process');
+const { timingSafeEqual } = require('crypto');
 
 const PORT = parseInt(process.env.RELAY_PORT || '8787', 10);
-const BIND = process.env.RELAY_BIND || '0.0.0.0';
+// Default localhost-only. The prior 0.0.0.0 default exposed iMessage send
+// to every interface the Mac was attached to (LAN, hotspots, etc), and the
+// doc-comment "keep it behind Tailscale" was advice not enforcement. Set
+// RELAY_BIND=0.0.0.0 explicitly only if Tailscale ACLs gate it.
+const BIND = process.env.RELAY_BIND || '127.0.0.1';
 const SECRET = process.env.RELAY_SECRET || '';
+const SECRET_BUF = SECRET ? Buffer.from(SECRET, 'utf8') : null;
+
+// Fail-closed at startup. The prior implementation's auth check was
+// `if (SECRET && req.headers... !== SECRET)` — when RELAY_SECRET was
+// unset, the conditional short-circuited and EVERY request to /send
+// was accepted. A wide-open backdoor that sent iMessages from the
+// host's Apple ID. Now: server refuses to start without a secret.
+if (!SECRET || SECRET.length < 16) {
+  console.error('FATAL: RELAY_SECRET must be set and at least 16 characters.');
+  console.error('       generate one with:  openssl rand -hex 32');
+  process.exit(1);
+}
 
 // AppleScript: try iMessage first, fall back to the SMS service if available.
 const SCRIPT = `
@@ -67,7 +84,14 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'GET' && req.url === '/health') return json(200, { ok: true, service: 'imessage-relay' });
 
   if (req.method === 'POST' && req.url === '/send') {
-    if (SECRET && req.headers['x-relay-secret'] !== SECRET) return json(401, { ok: false, error: 'bad secret' });
+    const provided = (req.headers['x-relay-secret'] || '').toString();
+    const provBuf = Buffer.from(provided, 'utf8');
+    let ok = false;
+    if (SECRET_BUF && provBuf.length === SECRET_BUF.length) {
+      try { ok = timingSafeEqual(provBuf, SECRET_BUF); }
+      catch { ok = false; }
+    }
+    if (!ok) return json(401, { ok: false, error: 'bad secret' });
     const body = await readBody(req);
     if (!body.to || !body.text) return json(400, { ok: false, error: 'to and text required' });
     try {
@@ -81,5 +105,5 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, BIND, () => {
-  console.log(`iMessage relay listening on ${BIND}:${PORT}  (secret ${SECRET ? 'ON' : 'OFF — set RELAY_SECRET!'})`);
+  console.log(`iMessage relay listening on ${BIND}:${PORT}  (secret ON, constant-time compare)`);
 });
