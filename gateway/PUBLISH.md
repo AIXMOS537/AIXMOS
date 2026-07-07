@@ -3,7 +3,7 @@
 **Recommended home: a PRIVATE GitHub repo** (you already have GitHub: `AIXMOS537`).
 Why this and not a shared drive: every OS clones it (both Windows PCs, both Macs), your
 iPhones view it in the GitHub app, it's **versioned so you can roll back**, it's **free**,
-and **Claude Code on any machine can clone and deploy straight from it.**
+and **AIXMOS Engine on any machine can clone and deploy straight from it.**
 
 > Split that keeps things clean: **code → GitHub**, **data/photos → NAS**. The *running*
 > Gateway is already reachable by every device once deployed — this is just the source kit's home.
@@ -14,8 +14,8 @@ and **Claude Code on any machine can clone and deploy straight from it.**
 
 ---
 
-## Option A — Let Claude Code publish it (easiest)
-Open Claude Code in this folder and paste:
+## Option A — Let AIXMOS Engine publish it (easiest)
+Open AIXMOS Engine in this folder and paste:
 
 > Create a new PRIVATE GitHub repo named aixmos-gateway under my account and push this
 > folder to it. It's already a git repo with a commit. Confirm the repo URL and that it's private.

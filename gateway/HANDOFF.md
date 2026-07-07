@@ -2,7 +2,7 @@
 
 **You deploy the Gateway ONCE**, from whichever machine is easiest. After that it lives on
 Cloudflare, and every other device (your other Mac, the PC, both iPhones) just *talks* to it —
-nothing else gets "deployed." Your Windows PC already has Claude Code, so it's the most ready.
+nothing else gets "deployed." Your Windows PC already has AIXMOS Engine, so it's the most ready.
 
 ---
 
@@ -16,15 +16,15 @@ Then unzip: double-click (Mac) or right-click → **Extract All** (Windows).
 ## Step 2 — One thing first: cap the money
 console.anthropic.com → set a **monthly spend limit + alert**. One minute. Do it before deploying.
 
-## Step 3a — Let Claude Code handle it (recommended)
-Open a terminal **inside the unzipped folder**, start Claude Code (`claude`), and paste this:
+## Step 3a — Let AIXMOS Engine handle it (recommended)
+Open a terminal **inside the unzipped folder**, start AIXMOS Engine (`claude`), and paste this:
 
 > Read README.md in this folder and deploy this Cloudflare Worker for me. Run deploy.sh.
 > Log me into Cloudflare when the browser opens. When it asks for secrets, set
 > ANTHROPIC_KEY and SECRET_PERSONAL — I'll paste the values privately. Then run the test
 > command from the README and show me the result. If anything errors, fix it and keep going.
 
-Claude Code reads the steps, runs them, deals with any hiccup, and tells you when it's live.
+AIXMOS Engine reads the steps, runs them, deals with any hiccup, and tells you when it's live.
 
 ## Step 3b — Or do it yourself (2 commands)
 In **Terminal** (Mac) or **Git Bash** (Windows), inside the folder:
@@ -50,5 +50,5 @@ Add those two `export` lines to your `~/.zshrc` (Mac) or `~/.bashrc` (Git Bash) 
 
 ---
 
-**Need:** Node.js (already on your machines from Claude Code — check `node -v`). Everything else installs itself via `npx`.
+**Need:** Node.js (already on your machines from AIXMOS Engine — check `node -v`). Everything else installs itself via `npx`.
 **Green light:** the test line returns a sentence. That's the whole hand-off.

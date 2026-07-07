@@ -1,19 +1,19 @@
 # AIXMOS Gateway — Ship It
 
 This folder is your AIXMOS **brain hub**. Deploy it once to Cloudflare (free), and every
-device you own — both Macs, your PC, both iPhones — plus your team can talk to Claude
+device you own — both Macs, your PC, both iPhones — plus your team can talk to AIXMOS
 through it, with your API key kept safe and your spending capped.
 
 ## In plain terms
 - The Gateway is a tiny program that runs on Cloudflare's free network.
-- It holds your Anthropic API key, so the key never sits on a phone or laptop.
-- Each person or device sends it a prompt + a password ("secret"); it replies with Claude's answer.
-- It picks which Claude model to use per role and caps how much each role can spend.
+- It holds your AIXMOS API key, so the key never sits on a phone or laptop.
+- Each person or device sends it a prompt + a password ("secret"); it replies with AIXMOS's answer.
+- It picks which AIXMOS model to use per role and caps how much each role can spend.
 
 ## What you need first (one-time, ~10 min)
-1. **Node.js** installed (you already have it from Claude Code). Check: `node -v`
+1. **Node.js** installed (you already have it from AIXMOS Engine). Check: `node -v`
 2. A free **Cloudflare account** — dash.cloudflare.com
-3. An **Anthropic API key** — console.anthropic.com → API Keys
+3. An **AIXMOS API key** — console.anthropic.com → API Keys
    → While there, set a **monthly spend limit + usage alert**. Do this before anything else.
 
 ## Ship it (3 steps, ~5 min)
@@ -44,7 +44,7 @@ Get a sentence back → you're live.
 
 ## Safe by default
 - Your API key lives only inside the Gateway, encrypted. It's never in these files or on a device.
-- Spending is capped twice: per-role daily caps in the code, and the monthly cap you set in the Anthropic console.
+- Spending is capped twice: per-role daily caps in the code, and the monthly cap you set in the AIXMOS console.
 - To cut someone off later: `npx wrangler secret put SECRET_VA` with a new value (or delete it). That one role/person is gone; nobody else is affected.
 - Nothing here stores a secret on disk; `.gitignore` keeps local config out of any git repo.
 

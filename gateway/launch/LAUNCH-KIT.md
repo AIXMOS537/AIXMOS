@@ -1,6 +1,6 @@
 # AIXMOS — Launch Kit
 
-Everything to launch the AI product to your waiting list. Free tier is LIVE today (no Anthropic
+Everything to launch the AI product to your waiting list. Free tier is LIVE today (no AIXMOS
 funding needed); premium flips on when you fund Anthropic.
 
 **Link to share:** https://aixmos-gateway.aixmos.workers.dev
@@ -39,6 +39,6 @@ funding needed); premium flips on when you fund Anthropic.
 - [ ] Free signup works (test it yourself once)
 - [ ] `/admin` loads tokens by email (test with your own free account)
 - [ ] Decide token prices (defaults in src/index.js `PACKS`)
-- [ ] (Premium) Fund Anthropic + set spend cap
+- [ ] (Premium) Fund AIXMOS + set spend cap
 - [ ] (Optional) Custom domain + BRAND_NAME
 - [ ] Pick ONE audience + ONE message, send to 5–10 people, watch `/founder`

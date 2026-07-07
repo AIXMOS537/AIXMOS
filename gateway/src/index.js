@@ -706,11 +706,24 @@ document.getElementById('viewBtn').addEventListener('click',go);
           const data = await r.json().catch(() => ({}));
           return Response.json({ lane: "free", model: env.OLLAMA_MODEL || "llama3.1", downgraded, text: data?.message?.content ?? data?.response ?? "", raw: data }, { status: r.ok ? 200 : 502 });
         }
-        // 2) public free tier → Cloudflare Workers AI
+        // 2) public free tier → Cloudflare Workers AI (fall back to your Claude Haiku if it errors)
         if (env.AI) {
-          const m = env.WORKERS_AI_MODEL || "@cf/meta/llama-3.1-8b-instruct";
-          const a = await env.AI.run(m, { messages, max_tokens: 512 });
-          return Response.json({ lane: "free", model: m, downgraded, text: a.response || "" });
+          try {
+            const m = env.WORKERS_AI_MODEL || "@cf/meta/llama-3.1-8b-instruct";
+            const a = await env.AI.run(m, { messages, max_tokens: 512 });
+            if (a && a.response) return Response.json({ lane: "free", model: m, downgraded, text: a.response });
+          } catch (e) { /* Workers AI unavailable on this account → fall through to Claude Haiku */ }
+        }
+        // fallback free brain → your own Claude Haiku (cheap; bounded by the daily free cap above) = your leash
+        if (env.ANTHROPIC_KEY) {
+          const r = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: { "x-api-key": env.ANTHROPIC_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+            body: JSON.stringify({ model: TIERS.haiku, max_tokens: 512, system: ctx.persona, messages: messages.filter((m) => m.role !== "system") }),
+          });
+          const j = await r.json().catch(() => ({}));
+          const text = (j.content && j.content[0] && j.content[0].text) || (j.error && j.error.message) || "";
+          return Response.json({ lane: "free", model: "haiku", downgraded, text }, { status: r.ok ? 200 : 502 });
         }
         return Response.json({ error: "Free lane not configured." }, { status: 503 });
       }

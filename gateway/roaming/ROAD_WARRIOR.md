@@ -27,7 +27,7 @@ So: full signal → cloud. Weak/home-only → your brain PC. **No signal → the
 | Your SOPs / playbooks / pricing | ✅ yes | keep `TMMT_Knowledge_Base` synced to the device |
 | Passwords / keys | ✅ yes | **1Password caches your vault locally** (works offline) |
 | TMMT OS, Supabase, GHL, Airtable, email | ❌ online | cloud apps — open when you have signal |
-| Premium Claude (Sonnet/Opus) | ❌ online | via the gateway |
+| Premium AIXMOS (Sonnet/Opus) | ❌ online | via the gateway |
 | Reach home hub / brain PC | ❌ online | Tailscale |
 
 **Offline workflow:** draft with the local model + your local SOPs → it queues → when signal returns, push to the cloud apps / sync to NAS + GitHub.

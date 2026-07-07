@@ -40,10 +40,10 @@ white-label (logo/domain/portal name), set those in their Airtable/portal config
 ## ⚠️ Fulfillment & legal (NOT handled by the script)
 - **Tier 5 vehicle / Tier 6 Amazon store** are real assets — **title transfer, insurance, sales/income
   tax, 1099/asset-gift reporting, account/ToS transfer.** Handle via fulfillment + your accountant/counsel.
-- **Reselling Claude AI access:** confirm you have the right **Anthropic commercial/reseller terms**;
-  self-hosted tiers run on *your* Anthropic key (your spend — watch the cap), handover tiers should move
-  to the **buyer's own Anthropic key** so their usage is their cost.
+- **Reselling AIXMOS AI access:** confirm you have the right **AIXMOS commercial/reseller terms**;
+  self-hosted tiers run on *your* AIXMOS key (your spend — watch the cap), handover tiers should move
+  to the **buyer's own AIXMOS key** so their usage is their cost.
 - **IP:** your code/configs are yours to license; Airtable/Anthropic/Cloudflare are the buyer's platforms
   (their accounts on handover tiers). Put terms in a simple resale agreement.
-- **Spend safety:** every self-hosted customer draws on your Anthropic balance — keep the monthly cap on,
+- **Spend safety:** every self-hosted customer draws on your AIXMOS balance — keep the monthly cap on,
   and watch `/usage`. Per-customer credits cap each one; auto-downgrade to free protects you.
