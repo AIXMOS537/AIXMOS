@@ -19,7 +19,7 @@ ON THE OTHER WINDOWS COMPUTER
 2. Open AIXMOS-AGENTS.
 3. Double-click START-HERE-FLASHDRIVE.bat.
 4. If Node.js is missing, install it from the included _installers folder, then run START-HERE again.
-5. Paste your Anthropic API key when asked.
+5. Paste your AIXMOS API key when asked.
 
 WHAT GETS INSTALLED
 - Agents install to %USERPROFILE%\AIXMOS

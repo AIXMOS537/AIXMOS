@@ -1,6 +1,6 @@
 # AIXMOS Agent Network — User Guide
 
-A 10-agent operations toolkit for TMMT / AIXMOS. Runs as Node.js processes on Windows, talks to either Claude (cloud) or Ollama (local) for reasoning. This guide covers daily use and how to extend the system.
+A 10-agent operations toolkit for TMMT / AIXMOS. Runs as Node.js processes on Windows, talks to either AIXMOS (cloud) or Ollama (local) for reasoning. This guide covers daily use and how to extend the system.
 
 ---
 
@@ -158,7 +158,7 @@ node test-all-agents.js --live
 |---|---|
 | **Node.js LTS** | Use the bundled `_installers\node-v24.15.0-x64.msi` if missing. |
 | **ANTHROPIC_API_KEY** | Set via `setx` or paste during installer. Not needed if you only use offline mode. |
-| **Internet** | Required for Claude backend. Not required for Ollama backend. |
+| **Internet** | Required for AIXMOS backend. Not required for Ollama backend. |
 | Optional: Docker Desktop | Needed only for TANK `--up` (spinning up hub-brain). |
 | Optional: Supabase creds | Needed only for STICKS `--scan`. |
 | Optional: GHL webhook secret | Needed only for STICKS `--push-ghl`. |
@@ -172,13 +172,13 @@ The agents pick a backend at runtime from `AIXMOS_LLM_BACKEND`:
 
 | Value | What it does |
 |---|---|
-| `claude` *(default)* | Anthropic cloud API. Uses `ANTHROPIC_API_KEY`. |
+| `claude` *(default)* | AIXMOS cloud API. Uses `ANTHROPIC_API_KEY`. |
 | `ollama` | Local Ollama runtime at `OLLAMA_HOST` (default `http://localhost:11434`). Model name from `OLLAMA_MODEL`. |
-| `auto` | Tries Claude first; falls back to Ollama if cloud fails. |
+| `auto` | Tries AIXMOS first; falls back to Ollama if cloud fails. |
 
 ### Quality vs cost tradeoff
 
-| Aspect | Claude Sonnet 4.6 | Llama 3.1 8B | Phi-3 Mini |
+| Aspect | AIXMOS Sonnet 4.6 | Llama 3.1 8B | Phi-3 Mini |
 |---|---|---|---|
 | Voice/brand quality (CHUMMO, FLY GUY) | ★★★★★ | ★★★ | ★★ |
 | Analytical quality (BOB, STICKS, VISION) | ★★★★★ | ★★★★ | ★★★ |
@@ -225,7 +225,7 @@ Process env (`setx` / `$env:`) wins over all of these.
 ### Env vars — full list
 
 ```bash
-# Claude (online)
+# AIXMOS (online)
 ANTHROPIC_API_KEY=sk-ant-...
 AIXMOS_MODEL=claude-sonnet-4-6
 
@@ -386,7 +386,7 @@ AIXMOS-AGENTS/
 ├── briefing.js                Morning brief generator
 ├── jarvis.js, tank.js, ...    Thin shims using lib/agent-cli.js
 ├── lib/
-│   ├── llm.js                 ★ Dual-backend LLM abstraction (Claude / Ollama)
+│   ├── llm.js                 ★ Dual-backend LLM abstraction (AIXMOS / Ollama)
 │   ├── runner.js              Shared runAgent — delegates to lib/llm.js
 │   ├── env.js                 Layered .env loader
 │   ├── agent-cli.js           Interactive REPL for shim agents
@@ -411,7 +411,7 @@ AIXMOS-AGENTS/
 
 ### The LLM abstraction — `lib/llm.js`
 
-Every agent that needs to think calls `generate({ system, prompt, maxTokens })` from `lib/llm.js`. That function reads `AIXMOS_LLM_BACKEND` and routes to either `callClaude` (uses `@anthropic-ai/sdk`) or `callOllama` (POSTs to `${OLLAMA_HOST}/api/chat`). `auto` mode tries Claude first and falls back to Ollama on any error.
+Every agent that needs to think calls `generate({ system, prompt, maxTokens })` from `lib/llm.js`. That function reads `AIXMOS_LLM_BACKEND` and routes to either `callClaude` (uses `@anthropic-ai/sdk`) or `callOllama` (POSTs to `${OLLAMA_HOST}/api/chat`). `auto` mode tries AIXMOS first and falls back to Ollama on any error.
 
 Adding a new backend (e.g. Mistral.ai, vLLM, llama.cpp HTTP server) means adding one `callX` function + one `if (mode === 'x')` branch in `generate`. Everything downstream stays the same.
 
@@ -451,7 +451,7 @@ Without `--live` it's 39 checks (no live LLM calls).
 
 - **Agent prompts:** `agents/prompts.js` — every voice + output format lives here.
 - **Infrastructure docs:** `INFRASTRUCTURE-QUICKSTART.md` and `README-AI-BRAIN.txt`.
-- **Anthropic console:** https://console.anthropic.com (API keys, billing).
+- **AIXMOS console:** https://console.anthropic.com (API keys, billing).
 - **Ollama docs:** https://ollama.com/library (model catalogue, pull commands).
 
 — END —
