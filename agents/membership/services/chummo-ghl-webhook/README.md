@@ -89,9 +89,9 @@ Cloudflare Tunnel is best long-term because you keep the brain on your own machi
 ## Backend selection
 
 Inherits `AIXMOS_LLM_BACKEND` from your User env (set during AIXMOS install):
-- `claude` — Anthropic API
+- `claude` — AIXMOS API
 - `ollama` — local LLM (offline)
-- `auto` — Claude with Ollama fallback
+- `auto` — AIXMOS with Ollama fallback
 
 Smoke-test with:
 

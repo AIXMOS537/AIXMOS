@@ -30,7 +30,7 @@
 </style>
 </head><body>
 <h1>AIXMOS Agent Network — User Guide</h1>
-<p>A 10-agent operations toolkit for TMMT / AIXMOS. Runs as Node.js processes on Windows, talks to either Claude (cloud) or Ollama (local) for reasoning. This guide covers daily use and how to extend the system.</p>
+<p>A 10-agent operations toolkit for TMMT / AIXMOS. Runs as Node.js processes on Windows, talks to either AIXMOS (cloud) or Ollama (local) for reasoning. This guide covers daily use and how to extend the system.</p>
 <hr/>
 <h2>1. Quick Start</h2>
 <p>You have a USB labelled <strong>CYBORG</strong> (drive letter varies — usually <code>D:</code> or <code>E:</code>). The agents live in <code>&amp;lt;USB&amp;gt;\AIXMOS-AGENTS\</code>.</p>
@@ -95,13 +95,13 @@ npm install
 setx ANTHROPIC_API_KEY "sk-ant-..."
 node test-all-agents.js --live</code></pre>
 <h3>Prerequisites</h3>
-<table><thead><tr><th>Required</th><th>Notes</th></tr></thead><tbody><tr><td><strong>Node.js LTS</strong></td><td>Use the bundled <code>_installers\node-v24.15.0-x64.msi</code> if missing.</td></tr><tr><td><strong>ANTHROPIC_API_KEY</strong></td><td>Set via <code>setx</code> or paste during installer. Not needed if you only use offline mode.</td></tr><tr><td><strong>Internet</strong></td><td>Required for Claude backend. Not required for Ollama backend.</td></tr><tr><td>Optional: Docker Desktop</td><td>Needed only for TANK <code>--up</code> (spinning up hub-brain).</td></tr><tr><td>Optional: Supabase creds</td><td>Needed only for STICKS <code>--scan</code>.</td></tr><tr><td>Optional: GHL webhook secret</td><td>Needed only for STICKS <code>--push-ghl</code>.</td></tr><tr><td>Optional: Ollama runtime</td><td>Needed only for offline LLM mode.</td></tr></tbody></table>
+<table><thead><tr><th>Required</th><th>Notes</th></tr></thead><tbody><tr><td><strong>Node.js LTS</strong></td><td>Use the bundled <code>_installers\node-v24.15.0-x64.msi</code> if missing.</td></tr><tr><td><strong>ANTHROPIC_API_KEY</strong></td><td>Set via <code>setx</code> or paste during installer. Not needed if you only use offline mode.</td></tr><tr><td><strong>Internet</strong></td><td>Required for AIXMOS backend. Not required for Ollama backend.</td></tr><tr><td>Optional: Docker Desktop</td><td>Needed only for TANK <code>--up</code> (spinning up hub-brain).</td></tr><tr><td>Optional: Supabase creds</td><td>Needed only for STICKS <code>--scan</code>.</td></tr><tr><td>Optional: GHL webhook secret</td><td>Needed only for STICKS <code>--push-ghl</code>.</td></tr><tr><td>Optional: Ollama runtime</td><td>Needed only for offline LLM mode.</td></tr></tbody></table>
 <hr/>
 <h2>4. Online vs Offline LLM mode</h2>
 <p>The agents pick a backend at runtime from <code>AIXMOS_LLM_BACKEND</code>:</p>
-<table><thead><tr><th>Value</th><th>What it does</th></tr></thead><tbody><tr><td><code>claude</code> <em>(default)</em></td><td>Anthropic cloud API. Uses <code>ANTHROPIC_API_KEY</code>.</td></tr><tr><td><code>ollama</code></td><td>Local Ollama runtime at <code>OLLAMA_HOST</code> (default <code>http://localhost:11434</code>). Model name from <code>OLLAMA_MODEL</code>.</td></tr><tr><td><code>auto</code></td><td>Tries Claude first; falls back to Ollama if cloud fails.</td></tr></tbody></table>
+<table><thead><tr><th>Value</th><th>What it does</th></tr></thead><tbody><tr><td><code>claude</code> <em>(default)</em></td><td>AIXMOS cloud API. Uses <code>ANTHROPIC_API_KEY</code>.</td></tr><tr><td><code>ollama</code></td><td>Local Ollama runtime at <code>OLLAMA_HOST</code> (default <code>http://localhost:11434</code>). Model name from <code>OLLAMA_MODEL</code>.</td></tr><tr><td><code>auto</code></td><td>Tries AIXMOS first; falls back to Ollama if cloud fails.</td></tr></tbody></table>
 <h3>Quality vs cost tradeoff</h3>
-<table><thead><tr><th>Aspect</th><th>Claude Sonnet 4.6</th><th>Llama 3.1 8B</th><th>Phi-3 Mini</th></tr></thead><tbody><tr><td>Voice/brand quality (CHUMMO, FLY GUY)</td><td>★★★★★</td><td>★★★</td><td>★★</td></tr><tr><td>Analytical quality (BOB, STICKS, VISION)</td><td>★★★★★</td><td>★★★★</td><td>★★★</td></tr><tr><td>Speed per response</td><td>2–5s</td><td>10–25s (CPU) / 2–8s (GPU)</td><td>3–10s (CPU)</td></tr><tr><td>Disk size</td><td>none</td><td>~4.7 GB</td><td>~2.3 GB</td></tr><tr><td>Internet</td><td>required</td><td>none after pull</td><td>none after pull</td></tr><tr><td>First-time setup</td><td>API key only</td><td>install Ollama + <code>ollama pull llama3.1:8b</code></td><td>install Ollama + <code>ollama pull phi3:mini</code></td></tr></tbody></table>
+<table><thead><tr><th>Aspect</th><th>AIXMOS Sonnet 4.6</th><th>Llama 3.1 8B</th><th>Phi-3 Mini</th></tr></thead><tbody><tr><td>Voice/brand quality (CHUMMO, FLY GUY)</td><td>★★★★★</td><td>★★★</td><td>★★</td></tr><tr><td>Analytical quality (BOB, STICKS, VISION)</td><td>★★★★★</td><td>★★★★</td><td>★★★</td></tr><tr><td>Speed per response</td><td>2–5s</td><td>10–25s (CPU) / 2–8s (GPU)</td><td>3–10s (CPU)</td></tr><tr><td>Disk size</td><td>none</td><td>~4.7 GB</td><td>~2.3 GB</td></tr><tr><td>Internet</td><td>required</td><td>none after pull</td><td>none after pull</td></tr><tr><td>First-time setup</td><td>API key only</td><td>install Ollama + <code>ollama pull llama3.1:8b</code></td><td>install Ollama + <code>ollama pull phi3:mini</code></td></tr></tbody></table>
 <p><strong>Recommendation:</strong> stay on <code>claude</code> for daily customer-facing work; switch to <code>ollama</code> only when offline. Set <code>AIXMOS_LLM_BACKEND=auto</code> for hands-free fallback.</p>
 <h3>Switching modes</h3>
 <pre class="code lang-powershell"><code># Permanent (User env, survives reboot)
@@ -120,7 +120,7 @@ $env:AIXMOS_LLM_BACKEND = "claude"</code></pre>
 <ol><li><code>&amp;lt;install&amp;gt;\.env</code></li><li><code>&amp;lt;install&amp;gt;\config\aixmos.env</code></li><li><code>&amp;lt;tmmt_os&amp;gt;\.env.local</code> (path from <code>agents/registry.json::infrastructure_paths.tmmt_os</code>)</li><li><code>&amp;lt;tmmt_os&amp;gt;\.env</code></li><li><code>&amp;lt;tmmt_os&amp;gt;\..\AUTOMATIONS\.env</code></li></ol>
 <p>Process env (<code>setx</code> / <code>$env:</code>) wins over all of these.</p>
 <h3>Env vars — full list</h3>
-<pre class="code lang-bash"><code># Claude (online)
+<pre class="code lang-bash"><code># AIXMOS (online)
 ANTHROPIC_API_KEY=sk-ant-...
 AIXMOS_MODEL=claude-sonnet-4-6
 
@@ -196,7 +196,7 @@ AIXMOS_DEBUG=1                   # prints LLM fallback messages</code></pre>
 ├── briefing.js                Morning brief generator
 ├── jarvis.js, tank.js, ...    Thin shims using lib/agent-cli.js
 ├── lib/
-│   ├── llm.js                 ★ Dual-backend LLM abstraction (Claude / Ollama)
+│   ├── llm.js                 ★ Dual-backend LLM abstraction (AIXMOS / Ollama)
 │   ├── runner.js              Shared runAgent — delegates to lib/llm.js
 │   ├── env.js                 Layered .env loader
 │   ├── agent-cli.js           Interactive REPL for shim agents
@@ -218,7 +218,7 @@ AIXMOS_DEBUG=1                   # prints LLM fallback messages</code></pre>
 ├── RUN-AGENT-TESTS.bat        Smoke test entry point
 └── test-all-agents.js         Smoke test (structure + live API)</code></pre>
 <h3>The LLM abstraction — <code>lib/llm.js</code></h3>
-<p>Every agent that needs to think calls <code>generate({ system, prompt, maxTokens })</code> from <code>lib/llm.js</code>. That function reads <code>AIXMOS_LLM_BACKEND</code> and routes to either <code>callClaude</code> (uses <code>@anthropic-ai/sdk</code>) or <code>callOllama</code> (POSTs to <code>${OLLAMA_HOST}/api/chat</code>). <code>auto</code> mode tries Claude first and falls back to Ollama on any error.</p>
+<p>Every agent that needs to think calls <code>generate({ system, prompt, maxTokens })</code> from <code>lib/llm.js</code>. That function reads <code>AIXMOS_LLM_BACKEND</code> and routes to either <code>callClaude</code> (uses <code>@anthropic-ai/sdk</code>) or <code>callOllama</code> (POSTs to <code>${OLLAMA_HOST}/api/chat</code>). <code>auto</code> mode tries AIXMOS first and falls back to Ollama on any error.</p>
 <p>Adding a new backend (e.g. Mistral.ai, vLLM, llama.cpp HTTP server) means adding one <code>callX</code> function + one <code>if (mode === 'x')</code> branch in <code>generate</code>. Everything downstream stays the same.</p>
 <h3>Per-agent flow</h3>
 <pre class="code"><code>user clicks WONDER-WOMAN.bat
@@ -237,6 +237,6 @@ AIXMOS_DEBUG=1                   # prints LLM fallback messages</code></pre>
 <p>Without <code>--live</code> it's 39 checks (no live LLM calls).</p>
 <hr/>
 <h2>12. Where to get help</h2>
-<ul><li><strong>Agent prompts:</strong> <code>agents/prompts.js</code> — every voice + output format lives here.</li><li><strong>Infrastructure docs:</strong> <code>INFRASTRUCTURE-QUICKSTART.md</code> and <code>README-AI-BRAIN.txt</code>.</li><li><strong>Anthropic console:</strong> https://console.anthropic.com (API keys, billing).</li><li><strong>Ollama docs:</strong> https://ollama.com/library (model catalogue, pull commands).</li></ul>
+<ul><li><strong>Agent prompts:</strong> <code>agents/prompts.js</code> — every voice + output format lives here.</li><li><strong>Infrastructure docs:</strong> <code>INFRASTRUCTURE-QUICKSTART.md</code> and <code>README-AI-BRAIN.txt</code>.</li><li><strong>AIXMOS console:</strong> https://console.anthropic.com (API keys, billing).</li><li><strong>Ollama docs:</strong> https://ollama.com/library (model catalogue, pull commands).</li></ul>
 <p>— END —</p>
 </body></html>

@@ -4,7 +4,7 @@ WINDOWS
 1. Copy this whole folder to your flash drive.
 2. On the target computer, open the folder.
 3. Double-click LOAD-ME-FIRST-WINDOWS.bat.
-4. If asked for an Anthropic API key, paste it in.
+4. If asked for an AIXMOS API key, paste it in.
 5. Use the Desktop launchers that get created:
    - AIXMOS.bat
    - chummo.bat

@@ -38,7 +38,7 @@ Open a NEW Terminal after install, then type:
 REQUIRED ENV VARS
 ================================================================
 
-  ANTHROPIC_API_KEY            for online mode (Claude API)
+  ANTHROPIC_API_KEY            for online mode (AIXMOS API)
   AIXMOS_LLM_BACKEND           claude | ollama | auto  (default: claude)
   OLLAMA_MODEL                 llama3.1:8b or phi3:mini (only if offline)
   GHL_WEBHOOK_SHARED_SECRET    only if running the CHUMMO-GHL webhook
