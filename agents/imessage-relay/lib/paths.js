@@ -16,6 +16,10 @@ const DRAFTS_DIR = path.join(ROOT, 'drafts');
 const CONFIG_FILE = path.join(ROOT, 'config.json');
 const LOCK_FILE = path.join(ROOT, 'live.lock');
 const EXAMPLE_CONFIG = path.join(__dirname, '..', 'config.example.json');
+// Family/team roster lives outside this app — the content-team pipeline owns
+// FAMILY_NUMBERS as its "never bot, never DM" list. We only read it to warn
+// if owner_handles (MASTER exec eligibility) ever overlaps with it.
+const FAMILY_ROSTER_FILE = path.join(HOME, '.config', 'tmmt', 'content-team.env');
 
 function ensureDirs() {
   fs.mkdirSync(DRAFTS_DIR, { recursive: true, mode: 0o700 });
@@ -71,6 +75,24 @@ function loadOwnerHandles(overlayHandles) {
   return [...new Set([...fromConfig, ...fromEnv])];
 }
 
+/**
+ * Read FAMILY_NUMBERS out of the content-team pipeline's env file, if present.
+ * Shell-style `KEY="a,b,c"` or `KEY=a,b,c`. Never throws — a missing/odd file
+ * just means "not discoverable," not a crash.
+ */
+function loadFamilyHandles() {
+  let raw;
+  try {
+    raw = fs.readFileSync(FAMILY_ROSTER_FILE, 'utf8');
+  } catch {
+    return { found: false, handles: [] };
+  }
+  const m = raw.match(/^\s*FAMILY_NUMBERS\s*=\s*"([^"]*)"/m) || raw.match(/^\s*FAMILY_NUMBERS\s*=\s*(\S*)/m);
+  const val = m ? String(m[1] || '').trim() : '';
+  const handles = val ? val.split(',').map((s) => s.trim()).filter(Boolean) : [];
+  return { found: true, handles };
+}
+
 function loadConfig() {
   const base = defaultConfig();
   const overlay = loadJson(CONFIG_FILE, {});
@@ -102,8 +124,10 @@ module.exports = {
   CONFIG_FILE,
   LOCK_FILE,
   EXAMPLE_CONFIG,
+  FAMILY_ROSTER_FILE,
   ensureDirs,
   loadJson,
   loadConfig,
   defaultConfig,
+  loadFamilyHandles,
 };

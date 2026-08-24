@@ -6,6 +6,7 @@ const { loadConfig, ensureDirs, ROOT, KILL_FILE } = require('./paths');
 const { probeFda } = require('./chatdb');
 const { probeLiteLLM, probeOllama } = require('./llm-local');
 const { isKilled } = require('./gates');
+const { familyOwnerOverlap } = require('./policy');
 const { handleInbound } = require('./pipeline');
 const { readNewInbound, advanceCursor } = require('./chatdb');
 const { sendViaMessages } = require('./send-imessage');
@@ -31,10 +32,14 @@ async function statusPayload() {
   const fda = probeFda();
   const litellm = await probeLiteLLM(config.llm.litellm_url);
   const ollama = await probeOllama(config.llm.ollama_url);
+  const familyOverlap = familyOwnerOverlap(config.owner_handles);
   return {
     ok: true,
     service: 'text-my-mac',
     cursor_not_required: true,
+    family_owner_overlap_checked: familyOverlap.checked,
+    family_owner_overlap_count: familyOverlap.overlaps.length,
+    family_owner_overlap_note: familyOverlap.note || null,
     auto_send_assistant: config.auto_send_assistant === true,
     auto_field: config.auto_field !== false,
     safe_mode: config.safe_mode !== false,
@@ -135,9 +140,28 @@ async function processLiveOnce() {
   return { ok: true, processed: results.length, sent, results };
 }
 
+function warnFamilyOwnerOverlap(config) {
+  const overlap = familyOwnerOverlap(config.owner_handles);
+  if (!overlap.checked) {
+    console.log(`family/owner overlap check: ${overlap.note}`);
+    return;
+  }
+  if (overlap.overlaps.length) {
+    console.warn(
+      `WARNING: owner_handles has ${overlap.overlaps.length} entr${overlap.overlaps.length === 1 ? 'y' : 'ies'} ` +
+      'that also appear on the FAMILY_NUMBERS roster (~/.config/tmmt/content-team.env). ' +
+      'A family number in owner_handles would be eligible for MASTER exec. Review ' +
+      '~/.config/tmmt/owner-handles.env and imessage-assistant/config.json owner_handles.'
+    );
+  } else {
+    console.log(`family/owner overlap check: clean (0 of ${overlap.familyCount} family handles overlap owner_handles)`);
+  }
+}
+
 async function liveLoop() {
   console.log('LIVE poller: T1 assistant auto-send. T2 draft. T3 never. Cursor not required.');
   console.log('Kill: touch ~/.config/tmmt/imessage-assistant/KILL   or   me kill');
+  warnFamilyOwnerOverlap(loadConfig());
   for (;;) {
     if (isKilled()) {
       console.log('kill switch on — sleeping');
@@ -155,4 +179,4 @@ async function liveLoop() {
   }
 }
 
-module.exports = { statusPayload, startHealthServer, processLiveOnce, liveLoop };
+module.exports = { statusPayload, startHealthServer, processLiveOnce, liveLoop, warnFamilyOwnerOverlap };

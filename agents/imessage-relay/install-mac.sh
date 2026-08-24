@@ -1,34 +1,28 @@
 #!/usr/bin/env bash
-# Run ON THE MAC, from inside the copied imessage-relay folder:
-#     bash install-mac.sh
-# Installs the relay as a launchd service that auto-starts and stays up.
-set -e
+# Install Text-My-Mac so it runs at login. Cursor is not required.
+# Remaining macOS tap: Full Disk Access → /usr/local/bin/node  (Cmd+Shift+G)
+set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
-NODE="$(command -v node || true)"
-[ -z "$NODE" ] && { echo "Node not found. Install it: brew install node"; exit 1; }
+NODE="/usr/local/bin/node"
+[ -x "$NODE" ] || NODE="$(command -v node)"
+[ -n "$NODE" ] || { echo "Node not found."; exit 1; }
 
-# Relay must live at ~/imessage-relay (the plist points there). Copy if needed.
-DEST="$HOME/imessage-relay"
-if [ "$HERE" != "$DEST" ]; then
-  mkdir -p "$DEST"
-  cp "$HERE/relay.js" "$DEST/relay.js"
-  cp "$HERE/com.tmmt.imessage-relay.plist" "$DEST/com.tmmt.imessage-relay.plist"
-fi
-
-PLIST_SRC="$DEST/com.tmmt.imessage-relay.plist"
 PLIST_DEST="$HOME/Library/LaunchAgents/com.tmmt.imessage-relay.plist"
 mkdir -p "$HOME/Library/LaunchAgents"
+cp "$HERE/com.tmmt.imessage-relay.plist" "$PLIST_DEST"
+chmod 600 "$PLIST_DEST"
 
-# Fill in this machine's node path + home, then install.
-sed -e "s|__NODE__|$NODE|g" -e "s|__HOME__|$HOME|g" "$PLIST_SRC" > "$PLIST_DEST"
+chmod +x "$HERE/bin/run-live.sh" "$HERE/bin/bind-via-terminal.command" 2>/dev/null || true
 
-launchctl unload "$PLIST_DEST" 2>/dev/null || true
-launchctl load "$PLIST_DEST"
+UIDN="$(id -u)"
+launchctl bootout "gui/$UIDN/com.tmmt.imessage-relay" 2>/dev/null || true
+launchctl bootstrap "gui/$UIDN" "$PLIST_DEST"
+launchctl kickstart -k "gui/$UIDN/com.tmmt.imessage-relay" 2>/dev/null || true
 
-echo "Installed + loaded. Testing health..."
-sleep 1
-curl -s localhost:8787/health && echo "" || echo "(no response yet — check /tmp/imessage-relay.err)"
-echo ""
-echo "NOTE: macOS will ask to let node control 'Messages' the first time it sends."
-echo "Approve it: System Settings > Privacy & Security > Automation."
+echo "Loaded com.tmmt.imessage-relay"
+echo "If logs say EPERM on chat.db:"
+echo "  System Settings → Privacy → Full Disk Access → + → Cmd+Shift+G → /usr/local/bin/node"
+echo "  Then: me on"
+echo "Or open Terminal.app (not Cursor) and run:  me bind"
+echo "Mock: $NODE $HERE/assistant.js --mock-test"
