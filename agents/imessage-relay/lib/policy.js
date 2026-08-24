@@ -1,5 +1,7 @@
 'use strict';
 
+const { loadFamilyHandles } = require('./paths');
+
 const T3_RE = /\b(mom|dad|mama|baba|mother|father|sister|brother|aunt|uncle|grandma|grandpa|nana|family|kid|kids|son|daughter|wife|husband|child support|alimony|zelle|venmo|cashapp|cash app|paypal|wire transfer|routing number|iban|swift code|ssn|social security|ein\b|w-?2\b|lawsuit|lawyer|attorney|court date|subpoena|evict|eviction|nda\b|retainer|owe[sd]?\b|invoice|bank account|crypto wallet|bitcoin|child|minor)\b/i;
 
 const T1_RE = /\b(rick|status|what'?s on|help me|draft|remind|summarize|briefing|queue|to-?do|owner gate|calendar|schedule|text my mac|ping)\b/i;
@@ -73,6 +75,25 @@ function t3CannedDraft() {
   return 'FLAGGED T3 (family / money / legal). No auto-reply. Human review required. Draft never send.';
 }
 
+/**
+ * Startup guard, not an enforcement gate: warns (never throws/blocks) if any
+ * MASTER-exec-eligible owner_handles entry also appears on the content-team
+ * pipeline's FAMILY_NUMBERS roster (~/.config/tmmt/content-team.env). A family
+ * number should never be able to trigger runOwnerExec.
+ */
+function familyOwnerOverlap(ownerHandles) {
+  const roster = loadFamilyHandles();
+  if (!roster.found) {
+    return {
+      checked: false,
+      overlaps: [],
+      note: 'no family/team roster discoverable at ~/.config/tmmt/content-team.env — skipped',
+    };
+  }
+  const overlaps = (ownerHandles || []).filter((h) => inList(h, roster.handles));
+  return { checked: true, overlaps, familyCount: roster.handles.length };
+}
+
 module.exports = {
   T3_RE,
   T1_RE,
@@ -83,4 +104,5 @@ module.exports = {
   looksAssistant,
   classify,
   t3CannedDraft,
+  familyOwnerOverlap,
 };
