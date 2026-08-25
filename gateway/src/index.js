@@ -36,7 +36,7 @@ const PAID_EXPIRY_MS = 365 * 24 * 60 * 60 * 1000;
 // MUST pass through this. Closes the XSS chain where a staff user POSTs
 // `{agent: "<script>...</script>"}` → bump('stat:agent:<script>...')` →
 // founder page renders that key via innerHTML.
-function sanitizeId(s) {
+export function sanitizeId(s) {
   if (typeof s !== "string") return "";
   // Only [a-zA-Z0-9_-], max 64 chars.
   const m = s.match(/^[a-zA-Z0-9_-]{1,64}$/);
@@ -44,7 +44,7 @@ function sanitizeId(s) {
 }
 
 // Constant-time string compare for shared secrets passed in headers.
-async function constantEq(a, b) {
+export async function constantEq(a, b) {
   if (typeof a !== "string" || typeof b !== "string" || a.length !== b.length) return false;
   // Web Crypto has no built-in constant-time compare. Hash both sides and
   // bytewise-compare the digests — gives O(constant) compare time relative
@@ -60,7 +60,7 @@ async function constantEq(a, b) {
   return diff === 0;
 }
 
-function safeHtmlEscape(s) {
+export function safeHtmlEscape(s) {
   return String(s).replace(/[&<>"']/g, (c) =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]
   );
@@ -654,7 +654,9 @@ document.getElementById('viewBtn').addEventListener('click',go);
         return Response.json({ error: "Bad request" }, { status: 400 });
 
       // ABUSE GUARD: cap input size so nobody can run up token cost with a giant prompt.
-      const inText = JSON.stringify(incoming.messages || incoming.prompt || "");
+      // Count the optional caller system prompt against the cap too.
+      const inText = JSON.stringify(incoming.messages || incoming.prompt || "") +
+        (typeof incoming.system === "string" ? incoming.system : "");
       if (inText.length > 24000)
         return Response.json({ error: "Input too large (max ~24k chars)." }, { status: 413 });
 
@@ -687,6 +689,14 @@ document.getElementById('viewBtn').addEventListener('click',go);
       }
       // (Requested-agent sanitize + gating already enforced above, before the debit, via ctx.hash.)
 
+      // Optional caller-supplied system prompt: APPENDED to the per-secret persona.
+      // The persona stays first and authoritative — a caller can add task/schema
+      // instructions but can never override the server-side persona/guardrail. This
+      // lets structured-output callers (e.g. TMMT's schema-driven agents) route through
+      // the gateway without losing their system prompt. Absent → behavior is unchanged.
+      const callerSystem = typeof incoming.system === "string" ? incoming.system.slice(0, 8000) : "";
+      const effectiveSystem = callerSystem ? `${ctx.persona}\n\n${callerSystem}` : ctx.persona;
+
       // ── FREE LANE — public free tier on Cloudflare Workers AI (scales, keeps home brain private).
       //    Staff/internal can route to private Ollama by setting OLLAMA_URL (Tailscale).
       if (tier === "free") {
@@ -695,7 +705,7 @@ document.getElementById('viewBtn').addEventListener('click',go);
         const cap = await ledgerOp(env, meter, { op: "freecap", day, limit: FREE_DAILY });
         if (!cap.ok)
           return Response.json({ error: "Daily free limit reached. Buy TMMT tokens to keep going." }, { status: 429 });
-        const messages = [{ role: "system", content: ctx.persona }, ...(incoming.messages || [{ role: "user", content: incoming.prompt || "" }])];
+        const messages = [{ role: "system", content: effectiveSystem }, ...(incoming.messages || [{ role: "user", content: incoming.prompt || "" }])];
         // 1) private Ollama (only if you wire OLLAMA_URL for internal/Tailscale)
         if (env.OLLAMA_URL) {
           const r = await fetch(`${env.OLLAMA_URL.replace(/\/$/, "")}/api/chat`, {
@@ -738,7 +748,7 @@ document.getElementById('viewBtn').addEventListener('click',go);
       const payload = {
         model: TIERS[tier],
         max_tokens: Math.min(incoming.max_tokens || 1024, 2048),
-        system: ctx.persona,
+        system: effectiveSystem,
         messages: incoming.messages || [{ role: "user", content: incoming.prompt || "" }],
       };
       const r = await fetch("https://api.anthropic.com/v1/messages", {

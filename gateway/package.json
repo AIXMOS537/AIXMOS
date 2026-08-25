@@ -5,6 +5,10 @@
   "scripts": {
     "deploy": "bash deploy.sh",
     "tail": "npx wrangler tail",
+    "test": "vitest run",
     "usage": "echo 'Open https://YOUR.workers.dev/usage with your admin secret header'"
+  },
+  "devDependencies": {
+    "vitest": "^3.0.0"
   }
 }
