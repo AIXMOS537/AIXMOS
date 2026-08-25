@@ -36,7 +36,7 @@ const PAID_EXPIRY_MS = 365 * 24 * 60 * 60 * 1000;
 // MUST pass through this. Closes the XSS chain where a staff user POSTs
 // `{agent: "<script>...</script>"}` → bump('stat:agent:<script>...')` →
 // founder page renders that key via innerHTML.
-function sanitizeId(s) {
+export function sanitizeId(s) {
   if (typeof s !== "string") return "";
   // Only [a-zA-Z0-9_-], max 64 chars.
   const m = s.match(/^[a-zA-Z0-9_-]{1,64}$/);
@@ -44,7 +44,7 @@ function sanitizeId(s) {
 }
 
 // Constant-time string compare for shared secrets passed in headers.
-async function constantEq(a, b) {
+export async function constantEq(a, b) {
   if (typeof a !== "string" || typeof b !== "string" || a.length !== b.length) return false;
   // Web Crypto has no built-in constant-time compare. Hash both sides and
   // bytewise-compare the digests — gives O(constant) compare time relative
@@ -60,7 +60,7 @@ async function constantEq(a, b) {
   return diff === 0;
 }
 
-function safeHtmlEscape(s) {
+export function safeHtmlEscape(s) {
   return String(s).replace(/[&<>"']/g, (c) =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]
   );
