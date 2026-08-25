@@ -173,34 +173,68 @@ def airtable_request(url, body, api_key):
         raise RuntimeError(f"Airtable HTTP error: {exc.code} {exc.reason}\n{payload}")
 
 
-def create_airtable_records(base_id, table_name, rows, api_key, dry_run=False):
+def allowed_airtable_tables():
+    """Live writes are only allowed against tables named in AIRTABLE_TABLE_ALLOWLIST
+    (comma-separated). Unset/empty means no table has been approved for live writes yet —
+    fail closed rather than let a typo'd --table silently write to the wrong table."""
+    raw = os.environ.get("AIRTABLE_TABLE_ALLOWLIST", "")
+    names = {name.strip() for name in raw.split(",") if name.strip()}
+    return names or None
+
+
+def require_table_allowlisted(table_name):
+    allowed = allowed_airtable_tables()
+    if not allowed:
+        raise SystemExit(
+            "Refusing live Airtable write: AIRTABLE_TABLE_ALLOWLIST is not set. "
+            "Set it to a comma-separated list of approved table names to enable --live writes."
+        )
+    if table_name not in allowed:
+        raise SystemExit(
+            f"Refusing live Airtable write: table '{table_name}' is not in AIRTABLE_TABLE_ALLOWLIST "
+            f"({', '.join(sorted(allowed))})."
+        )
+
+
+def confirm_live_write(table_name, row_count, assume_yes):
+    if assume_yes:
+        return
+    print(f"About to WRITE {row_count} row(s) into Airtable table '{table_name}'.")
+    reply = input("Type the table name to confirm, or anything else to abort: ").strip()
+    if reply != table_name:
+        raise SystemExit("Confirmation did not match table name — aborting, no records written.")
+
+
+def create_airtable_records(base_id, table_name, rows, api_key, dry_run=True, assume_yes=False):
     if not rows:
         print(f"No rows found for table '{table_name}'.")
         return
+    if dry_run:
+        print(f"Dry run: would send {len(rows)} record(s) to '{table_name}' in {(len(rows) + 9) // 10} batch(es).")
+        return
+    require_table_allowlisted(table_name)
+    confirm_live_write(table_name, len(rows), assume_yes)
     quoted_table = urllib.parse.quote(table_name, safe="")
     url = f"https://api.airtable.com/v0/{base_id}/{quoted_table}"
     for index in range(0, len(rows), 10):
         batch = rows[index:index + 10]
         body = {"records": [{"fields": record} for record in batch], "typecast": True}
-        if dry_run:
-            print(f"Dry run: would send {len(batch)} records to {table_name}.")
-            continue
         response = airtable_request(url, body, api_key)
         created = response.get("records", [])
-        print(f"Imported {len(created)} records into '{table_name}'.")
+        print(f"Imported {len(created)} records into '{table_name}' (batch {index // 10 + 1}).")
 
 
-def import_airtable_template(template_name, base_id, api_key, table_name=None, dry_run=False):
+def import_airtable_template(template_name, base_id, api_key, table_name=None, dry_run=True, assume_yes=False):
     path = find_airtable_template(template_name)
     rows = read_csv_template(path)
     actual_table = table_name or path.stem.replace("_", " ")
     print(f"Importing '{path.name}' into Airtable table '{actual_table}'.")
     if dry_run:
         print(f"Found {len(rows)} rows. Sample record:\n{json.dumps(rows[0], indent=2) if rows else '{}'}")
-    create_airtable_records(base_id, actual_table, rows, api_key, dry_run=dry_run)
+    create_airtable_records(base_id, actual_table, rows, api_key, dry_run=dry_run, assume_yes=assume_yes)
 
 
-def sync_airtable_templates(base_id, api_key, dry_run=False):
+def sync_airtable_templates(base_id, api_key, dry_run=True, assume_yes=False):
     templates = list_airtable_templates()
     if not templates:
         print("No Airtable CSV templates found.")
@@ -209,7 +243,7 @@ def sync_airtable_templates(base_id, api_key, dry_run=False):
         rows = read_csv_template(path)
         table_name = path.stem.replace("_", " ")
         print(f"Syncing {path.name} -> {table_name} ({len(rows)} rows)")
-        create_airtable_records(base_id, table_name, rows, api_key, dry_run=dry_run)
+        create_airtable_records(base_id, table_name, rows, api_key, dry_run=dry_run, assume_yes=assume_yes)
 
 
 def http_request(url, method="GET", body=None, headers=None):
@@ -347,7 +381,9 @@ def main():
     parser.add_argument("--base-id", help="Airtable base ID")
     parser.add_argument("--table", help="Airtable or Supabase table name")
     parser.add_argument("--template", help="Airtable CSV template name for import or preview")
-    parser.add_argument("--dry-run", action="store_true", help="Show what would happen without making changes")
+    parser.add_argument("--dry-run", action="store_true", help="Deprecated no-op: dry run is now the default, use --live to write")
+    parser.add_argument("--live", action="store_true", help="Actually write records (default: dry run). Table must be in AIRTABLE_TABLE_ALLOWLIST")
+    parser.add_argument("--yes", action="store_true", help="Skip interactive confirmation for --live writes")
     parser.add_argument("--airtable-tables", help="Comma-separated Airtable table names for snapshot or fetch")
     parser.add_argument("--supabase-tables", help="Comma-separated Supabase table names for snapshot or fetch")
     parser.add_argument("--vercel-endpoints", help="Comma-separated Vercel endpoint URLs for snapshot or call")
@@ -418,13 +454,16 @@ def main():
             if not airtable_api_key or not base_id:
                 print("Airtable API key and base ID are required for import-template")
                 sys.exit(1)
-            import_airtable_template(args.template, base_id, airtable_api_key, table_name=args.table, dry_run=args.dry_run)
+            import_airtable_template(
+                args.template, base_id, airtable_api_key, table_name=args.table,
+                dry_run=not args.live, assume_yes=args.yes,
+            )
             return
         if args.target == "sync-templates":
             if not airtable_api_key or not base_id:
                 print("Airtable API key and base ID are required for sync-templates")
                 sys.exit(1)
-            sync_airtable_templates(base_id, airtable_api_key, dry_run=args.dry_run)
+            sync_airtable_templates(base_id, airtable_api_key, dry_run=not args.live, assume_yes=args.yes)
             return
         if args.target == "get-table":
             if not args.table:

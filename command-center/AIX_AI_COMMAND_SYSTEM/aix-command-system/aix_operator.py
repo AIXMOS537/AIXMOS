@@ -183,6 +183,41 @@ def airtable_base_id() -> str:
     return base
 
 
+def allowed_airtable_tables() -> set[str] | None:
+    """Live writes are only allowed against tables named in AIRTABLE_TABLE_ALLOWLIST
+    (comma-separated). Unset/empty means no table has been approved for live writes yet —
+    fail closed rather than let a typo'd --table silently create/pollute the wrong table."""
+    raw = os.environ.get("AIRTABLE_TABLE_ALLOWLIST", "")
+    names = {name.strip() for name in raw.split(",") if name.strip()}
+    return names or None
+
+
+def require_table_allowlisted(table_name: str) -> None:
+    allowed = allowed_airtable_tables()
+    if not allowed:
+        eprint(
+            "Refusing live Airtable write: AIRTABLE_TABLE_ALLOWLIST is not set. "
+            "Set it to a comma-separated list of approved table names to enable --live writes."
+        )
+        sys.exit(1)
+    if table_name not in allowed:
+        eprint(
+            f"Refusing live Airtable write: table '{table_name}' is not in AIRTABLE_TABLE_ALLOWLIST "
+            f"({', '.join(sorted(allowed))})."
+        )
+        sys.exit(1)
+
+
+def confirm_live_write(table_name: str, row_count: int, assume_yes: bool) -> None:
+    if assume_yes:
+        return
+    eprint(f"About to WRITE {row_count} row(s) into Airtable table '{table_name}'.")
+    reply = input("Type the table name to confirm, or anything else to abort: ").strip()
+    if reply != table_name:
+        eprint("Confirmation did not match table name — aborting, no records written.")
+        sys.exit(1)
+
+
 def airtable_get_table_id(table_name: str) -> str | None:
     base_id = airtable_base_id()
     url = f"{AIRTABLE_META}/{base_id}/tables"
@@ -196,9 +231,13 @@ def airtable_get_table_id(table_name: str) -> str | None:
     return None
 
 
-def airtable_ensure_table(table_name: str, field_names: list[str]) -> None:
+def airtable_ensure_table(table_name: str, field_names: list[str], dry_run: bool) -> None:
     if airtable_get_table_id(table_name):
         return
+    if dry_run:
+        print(f"[DRY RUN] would create table '{table_name}' with fields: {', '.join(field_names)}")
+        return
+    require_table_allowlisted(table_name)
     base_id = airtable_base_id()
     url = f"{AIRTABLE_META}/{base_id}/tables"
     fields = [{"name": name, "type": "singleLineText"} for name in field_names]
@@ -215,9 +254,16 @@ def airtable_ensure_table(table_name: str, field_names: list[str]) -> None:
     print(f"Created table: {table_name}")
 
 
-def airtable_create_records(table_name: str, rows: list[dict[str, str]]) -> int:
+def airtable_create_records(
+    table_name: str, rows: list[dict[str, str]], dry_run: bool, assume_yes: bool = False
+) -> int:
     if not rows:
         return 0
+    if dry_run:
+        print(f"[DRY RUN] would import {len(rows)} row(s) into table '{table_name}' (no write performed)")
+        return len(rows)
+    require_table_allowlisted(table_name)
+    confirm_live_write(table_name, len(rows), assume_yes)
     base_id = airtable_base_id()
     encoded_table = urllib.parse.quote(table_name, safe="")
     url = f"{AIRTABLE_API}/{base_id}/{encoded_table}"
@@ -233,9 +279,10 @@ def airtable_create_records(table_name: str, rows: list[dict[str, str]]) -> int:
             body=json.dumps({"records": records}).encode("utf-8"),
         )
         if status >= 400:
-            eprint("Failed to import records:", data)
+            eprint(f"Failed to import batch {i // batch_size + 1} ({len(chunk)} rows):", data)
             sys.exit(1)
         created += len(data.get("records", chunk))
+        print(f"  batch {i // batch_size + 1}: wrote {len(chunk)} row(s), {created}/{len(rows)} total")
     return created
 
 
@@ -278,22 +325,30 @@ def cmd_airtable_import_template(args: argparse.Namespace) -> None:
     path = template_path(args.template)
     table_name = args.table or args.template
     fields, rows = read_csv_template(path)
-    airtable_ensure_table(table_name, fields)
-    count = airtable_create_records(table_name, rows)
-    print(f"Imported {count} rows into table '{table_name}' from {path.name}")
+    dry_run = not args.live
+    airtable_ensure_table(table_name, fields, dry_run=dry_run)
+    count = airtable_create_records(table_name, rows, dry_run=dry_run, assume_yes=args.yes)
+    verb = "Would import" if dry_run else "Imported"
+    print(f"{verb} {count} rows into table '{table_name}' from {path.name}")
+    if dry_run:
+        print("(dry run — pass --live to actually write; table must be in AIRTABLE_TABLE_ALLOWLIST)")
 
 
-def cmd_airtable_sync_templates(_: argparse.Namespace) -> None:
+def cmd_airtable_sync_templates(args: argparse.Namespace) -> None:
     names = list_csv_templates()
     if not names:
         print("No CSV templates found.")
         return
+    dry_run = not args.live
     for name in names:
         path = template_path(name)
         fields, rows = read_csv_template(path)
-        airtable_ensure_table(name, fields)
-        count = airtable_create_records(name, rows)
-        print(f"{name}: imported {count} rows")
+        airtable_ensure_table(name, fields, dry_run=dry_run)
+        count = airtable_create_records(name, rows, dry_run=dry_run, assume_yes=args.yes)
+        verb = "would import" if dry_run else "imported"
+        print(f"{name}: {verb} {count} rows")
+    if dry_run:
+        print("(dry run — pass --live to actually write; each table must be in AIRTABLE_TABLE_ALLOWLIST)")
 
 
 def cmd_airtable_get_table(args: argparse.Namespace) -> None:
@@ -418,9 +473,14 @@ def build_parser() -> argparse.ArgumentParser:
     import_t = airtable_sub.add_parser("import-template")
     import_t.add_argument("--template", required=True)
     import_t.add_argument("--table", help="Target Airtable table name (default: template name)")
+    import_t.add_argument("--live", action="store_true", help="Actually write records (default: dry run)")
+    import_t.add_argument("--yes", action="store_true", help="Skip interactive confirmation for --live writes")
     import_t.set_defaults(func=cmd_airtable_import_template)
 
-    airtable_sub.add_parser("sync-templates").set_defaults(func=cmd_airtable_sync_templates)
+    sync_t = airtable_sub.add_parser("sync-templates")
+    sync_t.add_argument("--live", action="store_true", help="Actually write records (default: dry run)")
+    sync_t.add_argument("--yes", action="store_true", help="Skip interactive confirmation for --live writes")
+    sync_t.set_defaults(func=cmd_airtable_sync_templates)
 
     get_t = airtable_sub.add_parser("get-table")
     get_t.add_argument("--table", required=True)
