@@ -8,8 +8,8 @@ Gateway you're deploying.
 | Lane | Model | Cost to you | Who |
 |---|---|---|---|
 | 🆓 **free** | your own Ollama (brain PC) | **$0** | most employees |
-| 💵 **haiku** | Claude Haiku (cloud) | ~pennies | staff who occasionally need cloud |
-| 💎 **sonnet / opus** | Claude (cloud) | metered | you + 1–2 trusted people |
+| 💵 **haiku** | AIXMOS Haiku (cloud) | ~pennies | staff who occasionally need cloud |
+| 💎 **sonnet / opus** | AIXMOS (cloud) | metered | you + 1–2 trusted people |
 
 ## TMMT tokens (credits)
 Every person has a **monthly allowance** and each cloud call **debits** by model:

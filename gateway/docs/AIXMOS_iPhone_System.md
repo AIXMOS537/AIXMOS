@@ -1,13 +1,13 @@
 # AIXMOS for iPhone — Complete System (Secure Build)
 **Device:** iPhone 16 Pro (iOS 26 — full Apple Intelligence + API)
-**Architecture:** Shortcuts = body · Claude = brain · Siri = trigger · Gateway = secret-keeper
+**Architecture:** Shortcuts = body · AIXMOS = brain · Siri = trigger · Gateway = secret-keeper
 **Status:** Fully designed and security-hardened. You deploy + supply keys; nothing left to figure out.
 
 ---
 
 ## ⓪ CHOOSE YOUR SETUP (30-second decision)
 - **Secure Gateway (recommended).** A tiny free Cloudflare Worker holds your API key. The phone never carries a secret. Best for anything you'll reuse, replicate, or hand to a team. ~10 min one-time setup. → Do sections ①–④.
-- **Direct (quick, personal-device-only).** Key lives inside the shortcut. Fine for a single private phone you never share the shortcut from. → Skip section ③; in ④ call Anthropic directly (noted inline).
+- **Direct (quick, personal-device-only).** Key lives inside the shortcut. Fine for a single private phone you never share the shortcut from. → Skip section ③; in ④ call AIXMOS directly (noted inline).
 
 Given you build infrastructure for operators/VAs, use the Gateway.
 
@@ -24,12 +24,12 @@ Given you build infrastructure for operators/VAs, use the Gateway.
 | `GHL_WEBHOOK_URL` | GHL → Workflow → Inbound Webhook | `https://...` | Gateway (or phone) |
 | `LOT_LOCATION` | address for the location automation | a place | phone |
 
-Anthropic billing is pay-as-you-go, **separate** from your Claude subscription. Use least-privilege tokens (scope Airtable to the one base).
+AIXMOS billing is pay-as-you-go, **separate** from your AIXMOS subscription. Use least-privilege tokens (scope Airtable to the one base).
 
 ---
 
 ## ② THE MODEL (one paragraph)
-Siri or a Personal Automation fires a shortcut. The shortcut POSTs to your **Gateway**, which attaches the real API key and forwards to Claude, then returns the answer. The phone holds only a shared-secret password, not the key. The same Gateway can later proxy Airtable and GHL too, so **zero secrets ever sit on the device**.
+Siri or a Personal Automation fires a shortcut. The shortcut POSTs to your **Gateway**, which attaches the real API key and forwards to AIXMOS, then returns the answer. The phone holds only a shared-secret password, not the key. The same Gateway can later proxy Airtable and GHL too, so **zero secrets ever sit on the device**.
 
 ---
 
@@ -176,7 +176,7 @@ Records go to Airtable; the condition photos go to your private NAS; the Airtabl
 - **`max_tokens` caps each call;** keep it at 1024 unless a flow needs more.
 - **Least-privilege tokens.** Scope the Airtable PAT to the single base, read+write only. (You can also move `AIRTABLE_TOKEN` and `GHL_WEBHOOK_URL` behind the Gateway so the phone holds zero secrets.)
 - **Confirm before writes.** Keep "Ask Before Running" ON for Rental/GHL automations until tested; they hit live systems.
-- **Rotate** the Anthropic key and `SHARED_SECRET` if a device is lost; update the Gateway secret, done — no shortcut edits needed.
+- **Rotate** the AIXMOS key and `SHARED_SECRET` if a device is lost; update the Gateway secret, done — no shortcut edits needed.
 - **Version your shortcuts.** Export each to Files after it works, so a bad edit is recoverable.
 
 ## ⑫ REFERENCE

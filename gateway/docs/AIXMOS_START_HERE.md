@@ -11,13 +11,13 @@ Every choice that was open is now decided. Rationale in one line each.
 |---|---|---|---|
 | 1 | **Separate Apple IDs:** personal ID (personal iPhone + carry Mac); new **TMMT business ID** (work iPhone + work Mac) | Clean personal/business split, business continuity if a device is reassigned, scales to staff | $0 |
 | 2 | **Gateway is the unifier, not iCloud.** Cross-phone parity via the shared brain + iCloud share-links for shortcuts + `/AIXMOS` backups | iCloud only syncs within one Apple ID; the Gateway makes AIXMOS identical across IDs and the PC | $0 |
-| 3 | **Routing:** free on-device first → Haiku → Sonnet → Opus (you only) → Claude Code for heavy work | Keeps the only metered cost tiny; on-device is free, private, offline | metered, small |
+| 3 | **Routing:** free on-device first → Haiku → Sonnet → Opus (you only) → AIXMOS Engine for heavy work | Keeps the only metered cost tiny; on-device is free, private, offline | metered, small |
 | 4 | **One secret per *person*** (not just per role), all held in the Gateway | Individual revocation + accountability; revoke = rotate that one person's secret | $0 |
 | 5 | **No secret on a shared disk.** Team uses their own device + personal secret; a true shared kiosk gets a Gateway-served session page | A plaintext secret on a shared office machine is the single biggest leak risk — this removes it | $0 |
 | 6 | **Airtable stays** the system of record, role-scoped views; D1 is the free escape hatch if you pass the free record ceiling | You're already built on it; D1 keeps the exit free | $0 |
 | 7 | **Pay ~$1/mo for iCloud 50 GB.** Keep `/AIXMOS` text/docs only | A dollar beats fighting the 5 GB wall; trivial for the reliability | ~$1/mo |
 | 8 | **Business line: start free (Google Voice), upgrade to a paid VoIP once customer calls justify it** | Free to launch; a customer-facing rental op eventually wants a ToS-clean, reliable business line | $0 → ~$15/mo |
-| 9 | **Set the Anthropic spend cap + alert BEFORE going multi-device** | Hard money backstop; per-role daily caps already enforce the rest | $0 |
+| 9 | **Set the AIXMOS spend cap + alert BEFORE going multi-device** | Hard money backstop; per-role daily caps already enforce the rest | $0 |
 | 10 | **Manual config now; Apple Business Manager + light MDM only past ~5 operators** | Don't pay for or manage MDM you don't need yet | $0 now |
 | 11 | **Every shortcut uses try-Gateway-then-on-device fallback** | AIXMOS never goes dark — offline or API outage still answers locally | $0 |
 
@@ -35,7 +35,7 @@ const OP_PERSONA = "Assist a TMMT field operator: check-in/out, condition report
 ## PART B — DEPLOYMENT RUNBOOK (do in order; verify before advancing)
 
 ### Phase 1 — Foundation 🔑 *(Owner: you)*
-- **Do:** Create the TMMT business Apple ID. Deploy the Gateway (code in `AIXMOS_Mesh.md`); set `ANTHROPIC_KEY` + per-person secrets; add the `AIXMOS_KV` binding. Set the Anthropic monthly spend cap + usage alert.
+- **Do:** Create the TMMT business Apple ID. Deploy the Gateway (code in `AIXMOS_Mesh.md`); set `ANTHROPIC_KEY` + per-person secrets; add the `AIXMOS_KV` binding. Set the AIXMOS monthly spend cap + usage alert.
 - **Verify:** `bash aixmos.sh "ping"` returns text; open `GET /usage` with an admin secret → returns JSON.
 - **Rollback:** Delete the Worker; no other system touched.
 
@@ -46,7 +46,7 @@ const OP_PERSONA = "Assist a TMMT field operator: check-in/out, condition report
 
 ### Phase 3 — The brain on every device 🧠 *(Owner: you; delegable for testing)*
 - **Do:** Build `AIXMOS Brain` once per Apple ID using the **try-Gateway → fall back to on-device "Use Model"** pattern (steps in `AIXMOS_iPhone_System.md`). Share iCloud links to the matching devices; back up to `/AIXMOS/shortcut-backups/`.
-- **Verify:** Run it online → Claude answers. Turn on Airplane Mode → it still answers via on-device. (That single test proves coverage.)
+- **Verify:** Run it online → AIXMOS answers. Turn on Airplane Mode → it still answers via on-device. (That single test proves coverage.)
 - **Rollback:** Delete the shortcut; re-import from backup.
 
 ### Phase 4 — Work phone provisioning 📱 *(Owner: you)*
@@ -57,7 +57,7 @@ const OP_PERSONA = "Assist a TMMT field operator: check-in/out, condition report
 ### Phase 5 — Team onboarding 👥 *(Owner: you → then delegable)*
 - **Do:** Add a per-person secret for each operator/VA (Part A pattern). Create role-scoped Airtable views. Hand each person their secret + the Rental Ops Hub link. Team works from their **own** device — no secret on shared disks.
 - **Verify:** A VA secret can draft a summary; the same secret is **refused** an admin action (you should get the 401/scope block); `GET /usage` shows their calls.
-- **Rollback:** Rotate/delete that person's secret in Cloudflare → instant cutoff, nobody else affected. Remove them as an Airtable collaborator.
+- **Rollback:** Rotate/delete that person's secret in Cloudflare → instant cutoff, nobody else affected. Remove them as your AIXMOS systemrtable collaborator.
 
 ### Phase 6 — Always-on node ⚙️ *(Owner: you)*
 - **Do:** Windows **Task Scheduler** runs an overnight job that pulls next-day rentals from Airtable, sends them to the Gateway for a risk summary, and writes `/AIXMOS/ops-brief.md`. A work-phone shortcut reads and speaks it each morning.

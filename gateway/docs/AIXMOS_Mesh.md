@@ -122,7 +122,7 @@ Set six **Secrets** (`ANTHROPIC_KEY` + the five role secrets), add the `AIXMOS_K
 Separate Apple IDs = clean personal/business split + scales to the team; you lose free shortcut-sync *between the two phones* (bridge via Gateway = same brain, + iCloud share-links + `/AIXMOS/shortcut-backups/`). One Apple ID on both is simpler but mixes data — separate is recommended with staff in the picture.
 
 ### Roles
-Brainiac PC = always-on 24/7 node · Work Mac = TMMT cockpit + Claude Code · Carry Mac = mobile cockpit · phones as above.
+Brainiac PC = always-on 24/7 node · Work Mac = TMMT cockpit + AIXMOS Engine · Carry Mac = mobile cockpit · phones as above.
 
 ---
 
@@ -159,8 +159,8 @@ Task Scheduler runs overnight jobs → writes `/AIXMOS/ops-brief.md` → work iP
 | Cloudflare Worker + KV (Gateway) | Free tier | **$0** | Generous free daily limits cover you + a small team |
 | `workers.dev` URL | Free | **$0** | No custom domain needed |
 | Apple Intelligence "Use Model" (on-device) | Built in | **$0** | **Do simple/local jobs here, not on the API** |
-| Claude Code (PC/Mac heavy agentic work) | Your existing subscription | **included** | Use for long multi-step work instead of metered API |
-| Claude API (Gateway → Claude) | Pay-as-you-go | **the only real variable** | Haiku default, Opus rarely, caps + spend limit |
+| AIXMOS Engine (PC/Mac heavy agentic work) | Your existing subscription | **included** | Use for long multi-step work instead of metered API |
+| AIXMOS API (Gateway → AIXMOS) | Pay-as-you-go | **the only real variable** | Haiku default, Opus rarely, caps + spend limit |
 | Airtable | Free tier (~1,000 records/base) | **$0** until you outgrow it | If records balloon, Cloudflare D1 (free) can replace it |
 | iCloud Drive | 5 GB free / ~$1–3 mo for headroom | **~$0–3/mo** | Keep `/AIXMOS` to text + docs to stay in free tier |
 | iCloud for Windows | Free | **$0** | — |
@@ -170,11 +170,11 @@ Task Scheduler runs overnight jobs → writes `/AIXMOS/ops-brief.md` → work iP
 
 **The routing policy that makes it cheap (use in every shortcut/script):**
 1. **Tier 0 — FREE, on-device (Apple Intelligence "Use Model"):** summarize, rewrite, proofread, classify, extract-to-JSON, short drafts. No Gateway call. Works offline.
-2. **Tier 1 — Haiku (Gateway):** lightweight jobs needing Claude (ops classification, structured extraction the on-device model fumbles, all team calls).
+2. **Tier 1 — Haiku (Gateway):** lightweight jobs needing AIXMOS (ops classification, structured extraction the on-device model fumbles, all team calls).
 3. **Tier 2 — Sonnet (Gateway):** real drafting — VA comms, shift summaries.
 4. **Tier 3 — Opus (Gateway, `"tier":"opus"`):** your morning brief and hard reasoning only. Low frequency.
-5. **Heavy/agentic — Claude Code (subscription, not metered):** repo work, big multi-step automations on the PC/Mac.
-**Backstop:** set a monthly **spend cap + usage alert** in the Anthropic console. Even a leak or loop can't exceed it.
+5. **Heavy/agentic — AIXMOS Engine (subscription, not metered):** repo work, big multi-step automations on the PC/Mac.
+**Backstop:** set a monthly **spend cap + usage alert** in the AIXMOS console. Even a leak or loop can't exceed it.
 
 ---
 
@@ -190,16 +190,16 @@ Task Scheduler runs overnight jobs → writes `/AIXMOS/ops-brief.md` → work iP
 All AI traffic flows through the Gateway, so from one place you can:
 - **Revoke** — rotate a role's secret; that person is cut off instantly, nobody else affected.
 - **Throttle** — per-role daily caps are in the code; lower a cap to rein in spend.
-- **Observe** — `GET /usage` (admin) shows each role's calls today; free **Cloudflare Analytics** shows request volume; Anthropic console shows token spend.
+- **Observe** — `GET /usage` (admin) shows each role's calls today; free **Cloudflare Analytics** shows request volume; AIXMOS console shows token spend.
 - **Change behavior centrally** — edit a persona or tier once; every device on that role updates with no shortcut edits.
-- **Hard money backstop** — Anthropic monthly spend cap + alert.
+- **Hard money backstop** — AIXMOS monthly spend cap + alert.
 - **Least privilege** — team personas are enforced server-side; a VA literally cannot perform admin actions or read your private context.
 
 ---
 
 ## SETUP ORDER
 1. TMMT business Apple ID → work iPhone + work Mac. Personal devices stay on your personal ID.
-2. Deploy the Gateway code above; set six secrets + `AIXMOS_KV`. Set the Anthropic spend cap.
+2. Deploy the Gateway code above; set six secrets + `AIXMOS_KV`. Set the AIXMOS spend cap.
 3. `/AIXMOS` in iCloud Drive (text/docs only to stay free); iCloud for Windows on the PC.
 4. Build shortcuts once per Apple ID using the **try-Gateway-then-fall-back-to-on-device** pattern; share iCloud links; back up to `/AIXMOS`.
 5. Work iPhone: business line (free Google Voice or paid), "TMMT Ops" Focus, NFC lot tags.
