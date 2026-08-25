@@ -67,7 +67,7 @@ function requireEnv(keys) {
  */
 function requireLLMBackend() {
   loadAixmosEnv();
-  const backend = (process.env.AIXMOS_LLM_BACKEND || 'claude').toLowerCase();
+  const backend = (process.env.AIXMOS_LLM_BACKEND || 'ollama').toLowerCase();
   if (backend === 'ollama' || backend === 'auto') return backend;
   if (!(process.env.ANTHROPIC_API_KEY || '').trim()) {
     throw new Error('ANTHROPIC_API_KEY is not set (AIXMOS_LLM_BACKEND=claude). Set the key or switch backend to ollama/auto in .env.');

@@ -1,8 +1,8 @@
 /**
  * Dual-backend LLM abstraction for AIXMOS agents.
  *
- *   AIXMOS_LLM_BACKEND=claude   (default) — Anthropic cloud API
- *   AIXMOS_LLM_BACKEND=ollama            — local Ollama runtime
+ *   AIXMOS_LLM_BACKEND=ollama   (default) — local Ollama runtime, FREE
+ *   AIXMOS_LLM_BACKEND=claude            — Anthropic cloud API (costs credits)
  *   AIXMOS_LLM_BACKEND=auto              — try Claude, fall back to Ollama
  *
  * Tunables:
@@ -18,10 +18,21 @@ try { Anthropic = require('@anthropic-ai/sdk'); } catch { /* optional in offline
 
 const DEFAULT_CLAUDE_MODEL = () => process.env.AIXMOS_MODEL || 'claude-sonnet-4-6';
 const DEFAULT_OLLAMA_MODEL = () => process.env.OLLAMA_MODEL || 'llama3.1:8b';
-const OLLAMA_HOST = () => (process.env.OLLAMA_HOST || 'http://localhost:11434').replace(/\/$/, '');
+// Normalize OLLAMA_HOST so it is always a *dialable* client URL.
+// The same env var doubles as the server's bind address (e.g. 0.0.0.0:11434
+// to listen on all interfaces for Tailscale/remote access), but 0.0.0.0 is
+// not a connectable host and a bare host:port has no scheme to parse.
+const OLLAMA_HOST = () => {
+  let raw = (process.env.OLLAMA_HOST || 'http://localhost:11434').trim();
+  if (!/^https?:\/\//i.test(raw)) raw = `http://${raw}`;       // add missing scheme
+  raw = raw.replace(/\/\/0\.0\.0\.0(?=[:/]|$)/, '//127.0.0.1'); // 0.0.0.0 -> loopback for dialing
+  return raw.replace(/\/$/, '');
+};
 
 function backend() {
-  return (process.env.AIXMOS_LLM_BACKEND || 'claude').toLowerCase();
+  // Default to FREE LOCAL (ollama) so no machine ever silently burns cloud
+  // credits. To use paid cloud, set AIXMOS_LLM_BACKEND=claude ON PURPOSE.
+  return (process.env.AIXMOS_LLM_BACKEND || 'ollama').toLowerCase();
 }
 
 async function callClaude({ system, prompt, maxTokens, model }) {
