@@ -13,3 +13,6 @@ __pycache__/
 
 outputs/
 *.log
+
+# Dependencies (never vendor these — see PRs #5/#6)
+node_modules/
