@@ -1,0 +1,10 @@
+# Obsidian local cache / per-device UI state (don't sync these)
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+.obsidian/cache
+.trash/
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini

@@ -1,0 +1,27 @@
+TMMT GO-KIT  —  Mobile Operation Unit
+=====================================
+
+WHAT THIS IS
+  A carry-anywhere kit. Plug this drive into ANY computer (Windows or Mac),
+  double-click GO.html, and you instantly get:
+    1) a live "All Systems Go" health check (is the operation up?), and
+    2) one-click launch into the TMMT cloud app + work tools.
+  No installing anything. Works in any web browser.
+
+HOW TO USE
+  1. Plug in the drive.
+  2. Open this folder.
+  3. Double-click  GO.html
+  4. Watch the status board turn green = everything operational.
+  5. Click "Launch TMMT Operation" to run the business.
+
+SAFE BY DESIGN
+  - WORK ONLY. No family/personal notes, no brain, no passwords or keys
+    are stored on this drive. Safe to plug into a demo or client machine.
+  - Logins still happen in the browser as normal (nothing saved here).
+
+KEEP IT FRESH
+  This is a copy of the master folder C:\Users\AIXMOS\TMMT-GOKIT on the
+  tablet. To update, recopy that folder onto the drive.
+
+That's it. Little kit, big impact.

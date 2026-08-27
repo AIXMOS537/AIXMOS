@@ -1,0 +1,25 @@
+---
+name: local-ai-ollama
+description: On-device local AI (Ollama) serving on localhost on the command-hub tablet
+metadata: 
+  node_type: memory
+  type: project
+  originSessionId: fa64a7db-9a61-4999-8854-1c74b83dbde4
+  modified: 2026-08-24T22:48:48.781Z
+---
+
+The command-hub tablet (DESKTOP-1IT6EL5, 2-core i7-6650U / 16 GB) runs a **local, offline AI** via **Ollama**, serving at `http://localhost:11434` (bound to 127.0.0.1 only — private, no cloud). Binary: `C:\Users\AIXMOS\AppData\Local\Programs\Ollama\ollama.exe`.
+
+- **Models (as of 2026-08-24 max-output provisioning):** `qwen7b-max` (Qwen2.5-7B-Instruct Q4_K_M, imported from the stick's `_PAYLOAD\01-BRAIN\models`, merged shards via llama-gguf-split; 9.2 tok/s verified) and `qwen3b-max` (from qwen2.5:3b; 19.6 tok/s verified) — both with `num_ctx 8192`, `num_predict -1` (unlimited output). Base `qwen2.5:3b` kept. Modelfiles in `C:\Users\AIXMOS\LocalModels\` (source GGUFs deleted after import; models live in the Ollama blob store).
+- **Server tuning (User env vars, set 2026-08-24):** `OLLAMA_FLASH_ATTENTION=1`, `OLLAMA_KV_CACHE_TYPE=q8_0`, `OLLAMA_KEEP_ALIVE=12h` (model stays hot), `OLLAMA_MAX_LOADED_MODELS=1`, `OLLAMA_NUM_PARALLEL=1`. With 7b loaded: 4.4 GB RAM still free.
+- **Removed:** `gemma4:26b` — deleted 2026-08-20, re-pulled 2026-08-23, deleted AGAIN 2026-08-24 (17 GB > 15.9 GB total RAM; can never load here). Rule of thumb: keep local models ≤ ~5 GB on this box.
+- **Re-pull mystery SOLVED (2026-08-24):** the puller was **`ollama launch claude` / `ollama launch opencode`** — Ollama's launch flow picked gemma4:26b from its recommendation cache (wants 19 GB VRAM, ignores this box's specs) and saved it into `~\.ollama\config.json` integrations + opencode's `~\.local\state\opencode\model.json`, re-pulling it on launch. **Fixed** by pinning both integrations to `qwen7b-max`/`qwen3b-max` in those two files. If gemma ever reappears: someone ran `ollama launch <x>` and accepted the recommended model — launch with `--model qwen7b-max` instead.
+- **Use:** Mission Control launcher (Desktop `TMMT.bat` → options A/B/C under LOCAL AI), or `ollama run qwen7b-max` / `qwen3b-max`, or POST to `http://localhost:11434/api/chat`. See [[tmmt-canon-repo]].
+- **Browser UI — "Project Crimson Shadow":** crimson-red + gold chat page at `http://localhost:8770`, backed by Ollama. Files in `C:\Users\AIXMOS\Automation\crimson-shadow\` (`index.html`, `crimson_shadow_server.py` = tiny local proxy so no CORS, `START-CRIMSON-SHADOW.bat`). **Auto-starts at logon** via scheduled task `CrimsonShadow-AtBoot` (pythonw, hidden, +30s delay so Ollama is up first — server only, no browser popup). Desktop shortcut `Project Crimson Shadow.lnk` (check-then-open: only starts a server if 8770 isn't already up). Built + verified end-to-end 2026-08-20.
+- **Persistent memory:** the server saves every turn to `crimson-shadow\memory\conversation.json` and feeds the last ~40 msgs (num_ctx 8192) back each reply, so it remembers past chats across reloads/restarts/reboots. Verified: recalled a fact after a full server restart. UI rehydrates history on load; "Clear view" only clears the screen, "Forget" wipes memory (`POST /api/forget`). Caveat: bounded by the model's context window — full log kept on disk, recent history fed in; not literally infinite recall.
+- **Live context layer** (`context_tools.py`): injects SAFE live signals into each reply's system prompt — local date/time+timezone, approximate location from public IP (ip-api.com), current weather (open-meteo.com), and machine stats (CPU/RAM/disk/battery via ctypes). Cached (geo 30min, weather 15min), fail-safe if offline. **Deliberately excludes** _VAULT/secrets/credentials/personal files. Note: weather/geo make outbound calls that expose the machine's public IP to those public APIs. Verified 2026-08-20: AI correctly reported live location/time/weather/RAM.
+- **Voice:** **text-to-speech** ("🔊 Voice" toggle) uses local OS voices — private, offline. **Speech-to-text is now FULLY LOCAL** via whisper.cpp — no cloud. Browser records mic → encodes 16 kHz mono WAV in-page → POST `/api/stt` → server runs `whisper\bin\Release\whisper-cli.exe` (BLAS CPU build, from ggml-org release b4938) with `whisper\models\ggml-base.en.bin` → returns text → auto-sends. ~4s per short clip. Needed the **VC++ 2015-2022 x64 redistributable** (was missing; installed 2026-08-20 via vc_redist.x64.exe, elevated) — whisper binaries fail with 0xC0000135 without it. whisper folder ~210 MB. Verified end-to-end (TTS-made WAV → correct transcript).
+- **Image generation: intentionally NOT built.** Real diffusion needs a GPU + PyTorch (no wheels for Python 3.14; machine has no GPU). User chose to skip rather than ship a toy. Self-training-on-own-output would cause model collapse anyway.
+- Pull/generate/delete were all done through the localhost REST API (the binary isn't on the tool-shell PATH).
+
+Note: `ollama` is a heavy background process — it showed up among top CPU consumers post-boot. Related: [[aixmos-kit-windows-bootstrap]], [[operator-os]], [[free-ram-atboot]], [[device-architecture]].
