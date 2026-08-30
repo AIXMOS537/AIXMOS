@@ -9,6 +9,8 @@ concurrency.
 npm install && npm test
 ```
 
+**Full writeup:** [How I stopped LLM costs from scaling with usage](WRITEUP.md) — the measurement that changed the design, the three lanes, and the concurrency bug that gave away 95 credits.
+
 ---
 
 ## The problem
