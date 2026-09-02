@@ -1,0 +1,9 @@
+# Runtime and vendored weights - regenerable or re-downloadable, and 211 MB of
+# whisper binaries do not belong in history.
+whisper/
+__pycache__/
+*.pyc
+
+# Conversation log. Local runtime data, and it can carry whatever was said to
+# the assistant - keep it out of any repo that might ever get a remote.
+memory/

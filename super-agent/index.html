@@ -1,0 +1,652 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Project Crimson Shadow</title>
+<style>
+  :root{
+    --bg:#120306; --bg2:#1c060b; --panel:#26090f; --panel2:#310b13;
+    --crimson:#c8102e; --crimson-bright:#e11d3a; --crimson-deep:#8b0000;
+    --gold:#e8b923; --gold-soft:#d4af37; --gold-dim:#9c7d20;
+    --text:#f5e6e0; --muted:#c8a9a2; --line:rgba(232,185,35,.22);
+    /* Theme accents */
+    --accent-crimson:#c8102e; --accent-gold:#e8b923; --accent-teal:#0d9488;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; font-family:"Segoe UI",system-ui,sans-serif; color:var(--text);
+    background:
+      radial-gradient(1200px 500px at 50% -10%, rgba(200,16,46,.28), transparent 60%),
+      linear-gradient(180deg,var(--bg2),var(--bg));
+    display:flex; flex-direction:column; height:100vh; overflow:hidden;
+  }
+  header{
+    padding:14px 22px; border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg, rgba(139,0,0,.55), rgba(38,9,15,.35));
+    display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+  }
+  .crest{
+    width:40px;height:40px;border-radius:50%;flex:0 0 auto;
+    background:radial-gradient(circle at 35% 30%, var(--crimson-bright), var(--crimson-deep));
+    border:2px solid var(--gold); box-shadow:0 0 18px rgba(200,16,46,.6), inset 0 0 10px rgba(0,0,0,.5);
+    display:grid;place-items:center; font-size:20px;
+  }
+  .title h1{margin:0;font-size:18px;letter-spacing:.5px;
+    background:linear-gradient(90deg,var(--gold),#fff3c4,var(--gold-soft));
+    -webkit-background-clip:text;background-clip:text;color:transparent;font-weight:700}
+  .title p{margin:2px 0 0;font-size:11px;color:var(--muted);letter-spacing:2px;text-transform:uppercase}
+  .spacer{flex:1}
+  .status{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+  .dot{width:9px;height:9px;border-radius:50%;background:#5a5a5a}
+  .dot.on{background:#39d353;box-shadow:0 0 10px #39d353}
+  .dot.off{background:var(--crimson-bright);box-shadow:0 0 10px var(--crimson-bright)}
+
+  /* Compact header menu */
+  .menu{position:relative}
+  .menu-btn{
+    background:var(--panel2);color:var(--text);border:1px solid var(--line);
+    border-radius:8px;padding:7px 11px;font-size:13px;cursor:pointer;font-family:inherit;
+  }
+  .menu-btn:hover{border-color:var(--gold)}
+  .menu-pop{
+    position:absolute; right:0; top:calc(100% + 6px); min-width:220px;
+    background:var(--panel2); border:1px solid var(--line); border-radius:10px;
+    box-shadow:0 10px 30px rgba(0,0,0,.5); padding:6px; display:none; z-index:50;
+  }
+  .menu.open .menu-pop{display:block}
+  .menu-row{
+    display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:8px;
+    cursor:pointer; font-size:13px;
+  }
+  .menu-row:hover{background:var(--panel)}
+  .menu-row select{
+    background:var(--panel); color:var(--text); border:1px solid var(--line);
+    border-radius:6px; padding:4px 8px; font-size:12px; font-family:inherit;
+  }
+  .menu-row .lbl{flex:1;color:var(--muted);font-size:12px;letter-spacing:1px;text-transform:uppercase}
+  .menu-row.on .lbl{color:var(--gold)}
+  .menu-danger{color:var(--crimson-bright)}
+  .menu-danger:hover{background:rgba(200,16,46,.15)}
+
+  /* Theme preset styles - applied to <html> via data-theme attribute */
+  [data-theme="crimson"]{
+    --accent:var(--accent-crimson);
+  }
+  [data-theme="gold"]{
+    --accent:var(--accent-gold);
+  }
+  [data-theme="teal"]{
+    --accent:var(--accent-teal);
+  }
+
+  main{flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:16px}
+  main::-webkit-scrollbar{width:10px}
+  main::-webkit-scrollbar-thumb{background:var(--crimson-deep);border-radius:6px}
+  .msg{max-width:78%;padding:12px 16px;border-radius:14px;line-height:1.5;white-space:pre-wrap;word-wrap:break-word;font-size:14.5px;animation:rise .25s ease}
+  @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .user{align-self:flex-end;background:linear-gradient(180deg,var(--crimson),var(--crimson-deep));
+    border:1px solid rgba(232,185,35,.35);border-bottom-right-radius:4px;box-shadow:0 4px 14px rgba(139,0,0,.4)}
+  .bot{align-self:flex-start;background:var(--panel);border:1px solid var(--line);border-bottom-left-radius:4px}
+  .bot .who{color:var(--gold);font-size:11px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px;font-weight:600}
+  .cursor{display:inline-block;width:8px;height:16px;background:var(--gold);margin-left:2px;vertical-align:text-bottom;animation:blink 1s steps(2) infinite}
+  @keyframes blink{50%{opacity:0}}
+  .empty{margin:auto;text-align:center;color:var(--muted);max-width:520px; padding:0 16px}
+  .empty .big{font-size:44px;margin-bottom:10px}
+  .empty .lede{font-size:14px; color:var(--muted); margin-top:6px}
+  .chips{display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-top:12px; padding:0 4px}
+  .chip{
+    background:var(--panel2); color:var(--text); border:1px solid var(--line);
+    border-radius:999px; padding:6px 12px; font-size:12.5px; cursor:pointer; font-family:inherit;
+    transition:transform .08s ease, border-color .08s ease, background .08s ease;
+    white-space nowrap;
+  }
+  .chip:hover{border-color:var(--gold); background:var(--panel); transform:translateY(-1px)}
+  .chip:focus-visible{outline:2px solid var(--gold); outline-offset:2px; border-radius:999px}
+  .chip:active{transform:scale(.98)}
+
+  footer{padding:14px 22px 10px;border-top:1px solid var(--line);background:rgba(18,3,6,.7)}
+
+  .composer{max-width:900px; margin:0 auto}
+
+  /* The unified input bar */
+  .bar{
+    display:flex; align-items:flex-end; gap:10px;
+    background:var(--panel2); border:1px solid var(--line); border-radius:16px;
+    padding:6px 6px 6px 14px; transition:border-color .15s ease, box-shadow .15s ease;
+  }
+  .bar:focus-within{border-color:var(--gold); box-shadow:0 0 0 3px rgba(232,185,35,.15)}
+  /* Single-line textarea that grows with content.
+     Width fills the entire bar (border-box). height starts at 3em (~44px) to
+     fill the bar vertically, grows up to 9em (~130px). line-height:1.5 keeps
+     every wrapped line the same height so growth is proportional. */
+  textarea{
+    width:100%; resize:none; box-sizing:border-box;
+    height:3em;
+    min-height:3em;
+    max-height:9em;          /* cap at ~6 lines, then scroll inside */
+    padding:0;
+    background:transparent; color:var(--text); border:none; outline:none;
+    font-family:inherit; font-size:14.5px; line-height:1.5;
+    overflow-y:hidden;
+  }
+  textarea::-webkit-scrollbar{width:8px}
+  textarea::-webkit-scrollbar-thumb{background:var(--crimson-deep);border-radius:6px}
+  .send, .mic-btn{
+    flex:0 0 auto; border:none; cursor:pointer; font-family:inherit;
+    border-radius:12px; padding:10px 18px; font-size:14px; font-weight:700;
+  }
+  .send{
+    background:linear-gradient(180deg,var(--crimson-bright),var(--crimson-deep));
+    color:#fff; border:1px solid var(--gold); box-shadow:0 4px 14px rgba(200,16,46,.4);
+  }
+  .send:disabled{opacity:.45;cursor:default}
+  .send kbd{font-family:inherit;font-size:11px;opacity:.85;margin-left:6px;padding:1px 5px;border-radius:4px;background:rgba(0,0,0,.25)}
+
+  /* Send button collapses while listening so the mic owns the bar */
+  .bar.listening .send{display:none}
+
+  .mic-btn{
+    background:var(--panel); color:var(--text); border:1px solid var(--line);
+    padding:0; width:46px; height:46px; display:grid; place-items:center; font-size:20px;
+    flex:0 0 auto;
+    transition:background .12s ease, border-color .12s ease, box-shadow .12s ease, color .12s ease;
+    cursor:pointer;
+  }
+  .mic-btn:hover{border-color:var(--gold); box-shadow:0 0 12px rgba(232,185,35,.3)}
+  .mic-btn:active{background:var(--panel2)}
+  .mic-btn.listening{
+    background:linear-gradient(180deg,var(--crimson-bright),var(--crimson-deep));
+    border-color:var(--gold); color:#fff;
+    animation:pulse 1.0s infinite;
+    box-shadow:0 0 20px rgba(200,16,46,.5);
+  }
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(200,16,46,.5)}50%{box-shadow:0 0 0 12px rgba(200,16,46,0)}}
+  .mic-btn:focus-visible{outline:none; border-color:var(--gold); box-shadow:0 0 0 3px var(--gold)}
+  .mic-btn:focus-visible.listening{box-shadow:0 0 0 3px var(--gold)}
+
+  /* Live "voice orb" overlay rendered inside the textarea while listening */
+  .orb-overlay{
+    position:absolute; inset:0; display:none; align-items:center; gap:8px;
+    padding:0 12px; color:var(--gold); font-size:14px; font-style:italic;
+    pointer-events:none; background:linear-gradient(90deg, rgba(38,9,15,.5), rgba(38,9,15,.1));
+    border-radius:inherit;
+    transition:opacity .15s ease, display .1s ease;
+  }
+  .bar.listening .orb-overlay{display:flex; opacity:1}
+  .orb-overlay.hiding{opacity:0}
+  .orb-dots{display:inline-flex; gap:2px; align-items:center}
+  .orb-dots span{
+    width:2px; height:2px; border-radius:50%; background:var(--crimson-bright);
+    animation:orb 1.1s infinite ease-in-out;
+  }
+  .orb-dots span:nth-child(2){animation-delay:.13s}
+  .orb-dots span:nth-child(3){animation-delay:.26s}
+  .orb-dots span:nth-child(4){animation-delay:.39s}
+  @keyframes orb{0%,100%{transform:scale(.5);opacity:.3}50%{transform:scale(1.3);opacity:1}}
+  .orb-text{flex:1; font-size:13px; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .orb-text.full{white-space:pre-wrap; word-wrap:break-word; max-height:120px; overflow-y:auto; text-overflow:clip; font-size:13px}
+
+  /* Hands-free loop badge */
+  .handsfree{
+    display:none; align-items:center; gap:6px; font-size:12px; color:var(--bg);
+    background:var(--crimson); border:1px solid var(--crimson-bright); border-radius:999px;
+    padding:4px 10px; margin:0 auto 8px; width:fit-content; letter-spacing:1px; text-transform:uppercase;
+    font-weight:600;
+  }
+  .handsfree .hf-dot{width:6px;height:6px;border-radius:50%;background:var(--crimson-bright);box-shadow:0 0 6px var(--crimson-bright);animation:blink 1s steps(2) infinite}
+  .handsfree.on{display:flex}
+  .handsfree:hover{background:var(--crimson-bright); color:#2a1500}
+
+  .hint-line{max-width:900px; margin:8px auto 0; font-size:11px; color:var(--muted); text-align:center}
+  kbd.k{font-family:inherit; font-size:10.5px; padding:1px 5px; border-radius:4px;
+    background:var(--panel2); border:1px solid var(--line); color:var(--text)}
+</style>
+</head>
+<body>
+<header>
+  <div class="crest">&#9814;</div>
+  <div class="title">
+    <h1>Project Crimson Shadow</h1>
+    <p>Local &middot; Private &middot; Offline</p>
+  </div>
+  <div class="spacer"></div>
+  <div class="status">
+    <span id="dot" class="dot"></span>
+    <span id="status">connecting&hellip;</span>
+  </div>
+  <div class="menu" id="menu">
+    <button class="menu-btn" id="menuBtn" title="Settings">&#9881; Settings</button>
+    <div class="menu-pop">
+      <div class="menu-row">
+        <span class="lbl">Model</span>
+        <select id="model" title="Model"></select>
+      </div>
+      <div class="menu-row" id="ttsRow">
+        <span class="lbl">Speak replies</span>
+        <span style="font-size:12px;color:var(--muted)" id="ttsState">off</span>
+      </div>
+      <div class="menu-row" id="hfRow">
+        <span class="lbl">Hands-free loop</span>
+        <span style="font-size:12px;color:var(--muted)" id="hfState">off</span>
+      </div>
+      <div class="menu-row" id="themeRow">
+        <span class="lbl">Theme</span>
+        <span style="font-size:12px;color:var(--muted)" id="themeState">crimson</span>
+        <span style="display:inline-block;width:12px;height:12px;border-radius:50%;margin-left:6px;background:var(--accent-crimson);transition:background .15s ease"></span>
+      </div>
+      <div class="menu-row" id="clearRow">
+        <span class="lbl">Clear view</span>
+        <span style="font-size:12px;color:var(--muted)">memory kept</span>
+      </div>
+      <div class="menu-row menu-danger" id="forgetRow">
+        <span class="lbl">Forget everything</span>
+        <span style="font-size:12px">&#9888;</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main id="log">
+  <div class="empty" id="empty">
+    <div class="big">&#9814;</div>
+    <div><b style="color:var(--gold)">Crimson Shadow</b> is standing by.</div>
+    <div class="lede">Everything here runs on your machine. Nothing leaves this device.</div>
+    <div class="hint" style="margin-top:10px; font-size:12px; color:var(--muted);">
+      Select a model from the settings menu, or type a message above
+    </div>
+    <div class="chips" id="chips">
+      <button class="chip" data-prompt="Summarize the key points of the last article I asked about.">Summarize a document</button>
+      <button class="chip" data-prompt="Explain this code to me step by step: ">Explain this code</button>
+      <button class="chip" data-prompt="Help me brainstorm 5 creative names for ">Brainstorm names</button>
+      <button class="chip" data-prompt="Write a friendly follow-up email about ">Draft an email</button>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="composer">
+    <div class="handsfree" id="handsfree"><span class="hf-dot"></span> Hands-free &middot; listening after each reply</div>
+
+    <div class="bar" id="bar">
+      <div style="flex:1; position:relative;">
+        <textarea id="input" placeholder="Message Crimson Shadow&hellip;"></textarea>
+        <div class="orb-overlay" id="orb">
+          <span class="orb-dots" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
+          <span class="orb-text" id="orbText">Listening&hellip;</span>
+        </div>
+      </div>
+      <button class="send" id="send">Send <kbd>&#8629;</kbd></button>
+      <button class="mic-btn" id="mic" title="Hold to talk" aria-label="Toggle voice input">&#127908;</button>
+    </div>
+
+    <div class="hint-line">
+      <kbd class="k">Enter</kbd> send &middot; <kbd class="k">Shift</kbd>+<kbd class="k">Enter</kbd> newline &middot;
+      <kbd class="k">Space</kbd> (hold) push-to-talk &middot; <kbd class="k">Esc</kbd> stop &middot;
+      <kbd class="k">Ctrl</kbd>+<kbd class="k">M</kbd> mode toggle
+    </div>
+  </div>
+</footer>
+
+<script>
+const log = document.getElementById('log');
+const empty = document.getElementById('empty');
+const input = document.getElementById('input');
+const sendBtn = document.getElementById('send');
+const modelSel = document.getElementById('model');
+const dot = document.getElementById('dot');
+const statusEl = document.getElementById('status');
+const bar = document.getElementById('bar');
+const orb = document.getElementById('orb');
+const orbText = document.getElementById('orbText');
+const handsfree = document.getElementById('handsfree');
+let history = [];
+let streaming = false;
+let handsFree = false;     // continuous listen → reply → listen loop
+let pendingAutoSend = false;
+let scrollQueued = false;
+function scrollToBottom(){
+  if(scrollQueued) return;
+  scrollQueued = true;
+  requestAnimationFrame(()=>{ log.scrollTop = log.scrollHeight; scrollQueued = false; });
+}
+function resetView(){
+  log.innerHTML=''; log.appendChild(empty); empty.style.display='';
+}
+
+async function loadModels(){
+  try{
+    const r = await fetch('/api/tags');
+    const j = await r.json();
+    const models = (j.models||[]).map(m=>m.name);
+    modelSel.innerHTML = '';
+    models.forEach(n=>{ const o=document.createElement('option'); o.value=n; o.textContent=n; modelSel.appendChild(o); });
+    const pref = models.find(n=>n.startsWith('qwen2.5:3b')) || models[0];
+    if(pref) modelSel.value = pref;
+    dot.className='dot on'; statusEl.textContent='online';
+  }catch(e){
+    dot.className='dot off'; statusEl.textContent='Ollama offline';
+  }
+}
+
+async function loadMemory(){
+  try{
+    const r = await fetch('/api/memory');
+    const j = await r.json();
+    const msgs = j.messages||[];
+    history = msgs.slice();
+    if(msgs.length){
+      if(empty) empty.style.display='none';
+      msgs.forEach(m=> addMsg(m.role==='assistant'?'bot':'user', m.content));
+    }
+  }catch(e){/* no memory yet */}
+}
+
+function addMsg(role, text){
+  if(empty) empty.style.display='none';
+  const el = document.createElement('div');
+  el.className = 'msg ' + (role==='user'?'user':'bot');
+  if(role==='bot'){ const who=document.createElement('div'); who.className='who'; who.textContent='Crimson Shadow'; el.appendChild(who); }
+  const body = document.createElement('span'); body.className='body'; body.textContent=text; el.appendChild(body);
+  log.appendChild(el); scrollToBottom();
+  return body;
+}
+async function send(){
+  const text = input.value.trim();
+  if(!text || streaming) return;
+  input.value=''; autoGrow();
+  addMsg('user', text);
+  history.push({role:'user', content:text});
+
+  const body = addMsg('bot', '');
+  const cur = document.createElement('span'); cur.className='cursor'; body.after(cur);
+  streaming=true; sendBtn.disabled=true; sendBtn.innerHTML='&hellip;';
+
+  let acc='';
+  try{
+    const resp = await fetch('/api/chat',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ model: modelSel.value, content: text })
+    });
+    const reader = resp.body.getReader();
+    const dec = new TextDecoder();
+    let buf='';
+    while(true){
+      const {value,done} = await reader.read();
+      if(done) break;
+      buf += dec.decode(value,{stream:true});
+      let nl;
+      while((nl = buf.indexOf('\n')) >= 0){
+        const line = buf.slice(0,nl).trim(); buf = buf.slice(nl+1);
+        if(!line) continue;
+        try{
+          const j = JSON.parse(line);
+          if(j.message && j.message.content){ acc += j.message.content; body.textContent = acc; scrollToBottom(); }
+        }catch(_){}
+      }
+    }
+    history.push({role:'assistant', content:acc});
+    speak(acc);
+  }catch(e){
+    body.textContent = acc + '\n\n[connection error: '+e.message+']';
+  }finally{
+    cur.remove(); streaming=false; sendBtn.disabled=false; sendBtn.innerHTML='Send <kbd>&#8629;</kbd>';
+    if(handsFree && !recording){ startRecWatched(); }
+    else { input.focus(); }
+  }
+}
+
+function autoGrow(){
+  // Batch: requestAnimationFrame so multiple rapid inputs don't fight each other
+  window.requestAnimationFrame(()=>{
+    // Reset to baseline first so scrollHeight is measured from a known height
+    input.style.height = '';
+    // Force a reflow by accessing offsetHeight (the "read" trick)
+    const _ = input.offsetHeight;
+    const targetH = Math.min(input.scrollHeight, 9 * parseFloat(getComputedStyle(input).lineHeight) || 21.75);
+    input.style.height = targetH + 'px';
+    input.style.overflowY = (input.scrollHeight > 9 * (parseFloat(getComputedStyle(input).lineHeight) || 21.75)) ? 'auto' : 'hidden';
+  });
+}
+input.addEventListener('input', autoGrow);
+input.addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); send(); } });
+sendBtn.addEventListener('click', send);
+
+// Quick-prompt chips
+document.getElementById('chips').addEventListener('click', e=>{
+  const chip = e.target.closest('.chip'); if(!chip) return;
+  const p = chip.dataset.prompt || chip.textContent;
+  input.value = p; input.focus();
+  if(p.endsWith(' ') || p.endsWith(': ')){
+    // prompt expects user to add context — leave focus on input
+    autoGrow();
+  } else {
+    send();
+  }
+});
+document.getElementById('chips').addEventListener('keydown', e=>{
+  const chip = e.target.closest('.chip'); if(!chip) return;
+  if(e.key==='Enter' || e.key===' '){ e.preventDefault(); chip.click(); }
+});
+
+// Header menu (settings)
+const menu = document.getElementById('menu');
+document.getElementById('menuBtn').addEventListener('click', e=>{
+  e.stopPropagation();
+  menu.classList.toggle('open');
+});
+document.addEventListener('click', e=>{ if(menu.classList.contains('open') && !menu.contains(e.target)) menu.classList.remove('open'); });
+
+// Clear view only -- saved memory is kept
+document.getElementById('clearRow').addEventListener('click', ()=>{ resetView(); menu.classList.remove('open'); });
+// Forget -- permanently erase saved memory
+document.getElementById('forgetRow').addEventListener('click', async ()=>{
+  if(!confirm('Permanently erase Crimson Shadow\'s saved memory of all past chats?')) return;
+  try{ await fetch('/api/forget',{method:'POST'}); }catch(e){}
+  history=[]; resetView(); menu.classList.remove('open');
+});
+
+// Hands-free toggle (continuous conversation)
+const hfState = document.getElementById('hfState');
+document.getElementById('hfRow').addEventListener('click', ()=>{
+  handsFree = !handsFree;
+  hfState.textContent = handsFree ? 'on' : 'off';
+  document.getElementById('hfRow').classList.toggle('on', handsFree);
+  handsfree.classList.toggle('on', handsFree);
+  if(handsFree && !streaming && !recording){
+    // kick the loop off immediately
+    startRecWatched();
+  } else if(!handsFree && recording){
+    stopRecWatched();
+  }
+});
+
+// Theme customization
+const themeState = document.getElementById('themeState');
+const themeDot = document.querySelector('#themeRow span:last-child');
+document.getElementById('themeRow').addEventListener('click', ()=>{
+  const html = document.documentElement;
+  const current = html.getAttribute('data-theme');
+  const themes = ['crimson', 'gold', 'teal'];
+  const currentIndex = themes.indexOf(current);
+  const nextIndex = (currentIndex + 1) % themes.length;
+  const nextTheme = themes[nextIndex];
+  html.setAttribute('data-theme', nextTheme);
+  themeState.textContent = nextTheme;
+  // Update the color dot
+  const themeDot = document.querySelector('#themeRow span:last-child');
+  if(nextTheme === 'crimson') themeDot.style.background = 'var(--accent-crimson)';
+  if(nextTheme === 'gold') themeDot.style.background = 'var(--accent-gold)';
+  if(nextTheme === 'teal') themeDot.style.background = 'var(--accent-teal)';
+});
+
+// ---- Text-to-speech: the AI speaks (local OS voices, fully private) ----
+let ttsOn = false, voice = null;
+const ttsState = document.getElementById('ttsState');
+const hasTTS = 'speechSynthesis' in window;
+function pickVoice(){
+  const vs = speechSynthesis.getVoices();
+  voice = vs.find(v=>/^en/i.test(v.lang) && /female|zira|hazel|aria|jenny|samantha|eva/i.test(v.name))
+       || vs.find(v=>/^en/i.test(v.lang)) || vs[0] || null;
+}
+if(hasTTS){ pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
+document.getElementById('ttsRow').addEventListener('click', ()=>{
+  if(!hasTTS){ alert('This browser has no text-to-speech.'); return; }
+  ttsOn = !ttsOn;
+  ttsState.textContent = ttsOn ? 'on' : 'off';
+  document.getElementById('ttsRow').classList.toggle('on', ttsOn);
+  if(!ttsOn) speechSynthesis.cancel();
+});
+function speak(text){
+  if(!ttsOn || !text || !hasTTS) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  if(voice) u.voice = voice;
+  u.rate = 1.03; u.pitch = 1.0;
+  speechSynthesis.speak(u);
+}
+
+// ---- Speech-to-text: FULLY LOCAL via whisper.cpp (/api/stt) ----
+const micBtn = document.getElementById('mic');
+let mediaStream=null, audioCtx=null, procNode=null, srcNode=null, chunks=[], recording=false, sampleRate=48000;
+
+function encodeWav(samples, rate){
+  const buf = new ArrayBuffer(44 + samples.length*2), view = new DataView(buf);
+  const wr = (o,s)=>{ for(let i=0;i<s.length;i++) view.setUint8(o+i, s.charCodeAt(i)); };
+  wr(0,'RIFF'); view.setUint32(4,36+samples.length*2,true); wr(8,'WAVE'); wr(12,'fmt ');
+  view.setUint32(16,16,true); view.setUint16(20,1,true); view.setUint16(22,1,true);
+  view.setUint32(24,rate,true); view.setUint32(28,rate*2,true); view.setUint16(32,2,true); view.setUint16(34,16,true);
+  wr(36,'data'); view.setUint32(40,samples.length*2,true);
+  let o=44; for(let i=0;i<samples.length;i++){ let s=Math.max(-1,Math.min(1,samples[i])); view.setInt16(o, s<0?s*0x8000:s*0x7FFF, true); o+=2; }
+  return new Blob([view], {type:'audio/wav'});
+}
+function resampleTo16k(input, inRate){
+  if(inRate===16000) return input;
+  const ratio=inRate/16000, outLen=Math.round(input.length/ratio), out=new Float32Array(outLen);
+  for(let i=0;i<outLen;i++){ const idx=i*ratio, i0=Math.floor(idx), i1=Math.min(i0+1,input.length-1), f=idx-i0; out[i]=input[i0]*(1-f)+input[i1]*f; }
+  return out;
+}
+async function startRec(){
+  if(recording || streaming) return;
+  try{ mediaStream = await navigator.mediaDevices.getUserMedia({audio:true}); }
+  catch(e){ orbText.textContent = 'Mic blocked — check browser permissions'; return; }
+  audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  sampleRate = audioCtx.sampleRate;
+  srcNode = audioCtx.createMediaStreamSource(mediaStream);
+  procNode = audioCtx.createScriptProcessor(4096,1,1);
+  const zero = audioCtx.createGain(); zero.gain.value = 0;   // silent monitor (no echo)
+  chunks = [];
+  procNode.onaudioprocess = (e)=>{ chunks.push(new Float32Array(e.inputBuffer.getChannelData(0))); };
+  srcNode.connect(procNode); procNode.connect(zero); zero.connect(audioCtx.destination);
+  recording=true;
+  bar.classList.add('listening');
+  micBtn.classList.add('listening'); micBtn.textContent='⏹';
+  input.placeholder = 'Listening…';
+  input.value=''; autoGrow();
+  orbText.textContent = 'Listening…';
+  orbText.classList.remove('full');
+  if(ttsOn) speechSynthesis.cancel();
+}
+async function stopRec(){
+  if(!recording) return;
+  recording=false;
+  bar.classList.remove('listening');
+  micBtn.classList.remove('listening'); micBtn.textContent='🎤';
+  input.placeholder = 'Message Crimson Shadow…';
+  try{ procNode.disconnect(); srcNode.disconnect(); }catch(_){}
+  if(mediaStream) mediaStream.getTracks().forEach(t=>t.stop());
+  if(audioCtx) try{ await audioCtx.close(); }catch(_){}
+  let len=0; chunks.forEach(c=>len+=c.length);
+  if(len < sampleRate * 0.3){
+    // <0.3s → probably a misclick; don't burn a STT request
+    orbText.textContent = 'Listening…';
+    if(handsFree){ setTimeout(()=>{ if(handsFree && !streaming && !recording) startRecWatched(); }, 600); }
+    return;
+  }
+  const all=new Float32Array(len); let off=0; chunks.forEach(c=>{ all.set(c,off); off+=c.length; });
+  const wav = encodeWav(resampleTo16k(all, sampleRate), 16000);
+  orbText.textContent = 'Transcribing…';
+  try{
+    const r = await fetch('/api/stt',{method:'POST', headers:{'Content-Type':'audio/wav'}, body:wav});
+    const j = await r.json();
+    if(j.text && j.text.trim()){
+      const transcript = j.text.trim();
+      input.value = transcript; autoGrow();
+      // Show full transcript briefly in the orb, then send.
+      orbText.classList.add('full');
+      orbText.textContent = '“' + transcript + '”';
+      // If user is mid-edit, don't yank — just leave it in the box and refocus.
+      if(document.activeElement === input && input.selectionStart !== input.value.length){
+        bar.classList.remove('listening');
+        orbText.textContent = 'Listening…';
+        return;
+      }
+      send();
+    } else if(j.error){
+      orbText.textContent = 'STT: ' + j.error;
+      if(handsFree){ setTimeout(()=>{ if(handsFree && !streaming && !recording) startRecWatched(); }, 1200); }
+    } else {
+      orbText.textContent = 'Didn’t catch that — tap mic to try again';
+      if(handsFree){ setTimeout(()=>{ if(handsFree && !streaming && !recording) startRecWatched(); }, 1200); }
+    }
+  }catch(e){
+    orbText.textContent = 'STT error: ' + e.message;
+    if(handsFree){ setTimeout(()=>{ if(handsFree && !streaming && !recording) startRecWatched(); }, 1200); }
+  }
+}
+
+// Mic button: click to toggle
+if(navigator.mediaDevices && window.AudioContext){
+  micBtn.addEventListener('click', ()=>{ recording ? stopRecWatched() : startRecWatched(); });
+}else{
+  micBtn.disabled = true; micBtn.title = 'Microphone capture not available in this browser';
+}
+
+// Push-to-talk: hold Space to talk, release to send. Doesn't fire while
+// typing a space inside a non-empty textarea.
+let pttDown = false;
+window.addEventListener('keydown', e=>{
+  if(e.code === 'Escape' && recording){ e.preventDefault(); stopRecWatched(); return; }
+  if(e.code !== 'Space') return;
+  if(e.repeat) return;
+  const inTextarea = (e.target === input);
+  if(inTextarea && input.value.length > 0) return;
+  if(recording || streaming) return;
+  e.preventDefault();
+  pttDown = true;
+  startRecWatched();
+});
+window.addEventListener('keyup', e=>{
+  if(e.code !== 'Space') return;
+  if(!pttDown) return;
+  pttDown = false;
+  if(recording) stopRecWatched();
+});
+
+// Watched wrappers: cap each recording at 20s so a runaway mic doesn't
+// pin the page, and clear the timer cleanly on stop.
+let recWatchdog = null;
+function startRecWatched(){
+  startRec();
+  clearTimeout(recWatchdog);
+  recWatchdog = setTimeout(()=>{ if(recording) stopRec(); }, 20000);
+}
+function stopRecWatched(){
+  clearTimeout(recWatchdog);
+  stopRec();
+}
+
+loadModels();
+loadMemory();
+input.focus();
+// Settle the textarea height on first paint (after fonts load) so there's no
+// initial micro-scrollbar before the user types anything.
+if(document.fonts && document.fonts.ready){
+  document.fonts.ready.then(autoGrow);
+} else {
+  autoGrow();
+}
+</script>
+</body>
+</html>
