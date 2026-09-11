@@ -29,7 +29,19 @@ memory/          conversation, settings, learning data, media, kit, workspace   
 whisper/         whisper.cpp binary + ggml-base.en model         (gitignored)
 ```
 
-## Run
+## Install on any Windows PC (one file)
+`AIXMOS-Setup.exe` (see GitHub Releases, or build it with `python installer/build_installer.py`)
+carries everything except Ollama and the model: the app, vendored packages, whisper.cpp + model,
+ffmpeg/ffprobe, the AI Building Kit and an embeddable Python 3.14 runtime. Double-click it and it:
+1. extracts to `%LOCALAPPDATA%\AIXMOS` (no admin rights needed; `--dir` to change),
+2. wires the bundled Python so no system Python is required,
+3. installs Ollama silently if it is missing and pulls `qwen2.5:3b` (about 2 GB, one time),
+4. writes `Start AIXMOS.cmd` / `Stop AIXMOS.cmd`, a desktop shortcut and a per-user logon autostart,
+5. starts the server on port 8770 and opens the UI.
+Re-running upgrades the app and keeps `memory/` (conversation, settings, CRM, media).
+Flags: `--port N --no-ollama --no-model --no-autostart --no-launch --quiet`.
+
+## Run from source
 `START-PROJECT-AIXMOS.bat` (starts the server on 8770 if the port is silent, opens the UI).
 Manual: `python project_aixmos_server.py 8770`.
 

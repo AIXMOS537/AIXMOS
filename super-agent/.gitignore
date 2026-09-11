@@ -10,3 +10,11 @@ memory/
 
 # vendored pure-python deps (pip install --target vendor requests)
 vendor/
+
+# installer build artefacts (payload is hundreds of MB; the exe ships via Releases)
+installer/cache/
+installer/payload.zip
+installer/build/
+installer/*.spec
+installer/aixmos.ico
+dist/
