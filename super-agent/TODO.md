@@ -30,6 +30,20 @@ templates. Copied to memory/kit and repurposed as follows (least -> most demandi
 - [~] 9. Cutover: the new build is bound on :8770 as standby; a Session-0 process from the previous
        build still answers until it is ended from an elevated shell or the machine reboots
 
+## Phase 3 (2026-09-11) - one installable path for every client: DONE
+- [x] Single artefact: dist/AIXMOS-4THEPEOPLE (Windows one-file exe via native stub; mac-linux installer;
+       START-HERE; SHA256SUMS). PyInstaller AIXMOS-Setup.exe retired and removed from disk and the release.
+- [x] Roles at install: TMMT Operator / AIXMOS Movement / Both; operator playbooks + console for TMMT;
+       optional --tmmt-dev lane; MCP registration when Claude Code is present
+- [x] Genesis first boot: mission, intake, capability showcase with live status, first build plan;
+       mission context flows into chat and agent prompts
+- [x] Mac parity in the app: whisper from PATH, OS fonts, bash for agent commands, running interpreter
+- [x] Secret gate on every build; operator kit regenerated through the brain's gates
+- [x] Verified: exe scratch install (role both, 1247 vault passages incl. TMMT kit, ffmpeg/whisper/Ollama
+       online, Genesis + operator console served); mac scripts syntax-checked (not run on a Mac here)
+- [ ] Owner follow-ups: TMMT-TEAM-DRIVE\windows\bootstrap.ps1 still clones the decoy Metavibez4L/TMMT;
+       run the mac installer once on the M1 to confirm end to end
+
 Ops notes: qwen7b-max as the agent model crashed Ollama on this 2-core machine; the agent defaults
 to qwen2.5:3b (7B stays opt-in under Integrations). Agent steps take ~30-60 s each here.
 Not verifiable without keys/accounts: paid image/video providers, live email sending, OAuth sign-in.
