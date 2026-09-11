@@ -17,4 +17,6 @@ installer/payload.zip
 installer/build/
 installer/*.spec
 installer/aixmos.ico
+installer/stub/*.exe
+installer/build.log
 dist/

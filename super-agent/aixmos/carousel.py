@@ -56,14 +56,21 @@ def write(topic, audience="", layout="B_list", slides=6, extra=""):
 # ---------------------------------------------------------------- render ----
 def _font(name, size):
     from PIL import ImageFont
-    for cand in (name, "segoeui.ttf", "arial.ttf"):
-        p = os.path.join(os.environ.get("WINDIR", "C:\\Windows"), "Fonts", cand)
-        if os.path.isfile(p):
+    bold = "bold" in (name or "").lower() or (name or "").lower().endswith(("b.ttf", "bd.ttf"))
+    cands = [name] if (name and os.path.isabs(name)) else []
+    if os.name == "nt" and name:
+        cands.append(os.path.join(os.environ.get("WINDIR", "C:\\Windows"), "Fonts", name))
+    cands += [media.font_file(bold=bold), media.font_file(bold=False)]
+    for p in cands:
+        if p and os.path.isfile(p):
             try:
                 return ImageFont.truetype(p, size)
             except OSError:
                 pass
-    return ImageFont.load_default()
+    try:
+        return ImageFont.load_default(size=size)
+    except TypeError:
+        return ImageFont.load_default()
 
 def _hex(c, default):
     c = (c or "").strip()

@@ -123,3 +123,42 @@ def probe(path):
 
 def tools_status():
     return {"ffmpeg": bool(ffmpeg()), "ffprobe": bool(ffprobe()), "ffmpeg_path": ffmpeg() or ""}
+
+# ---- cross-platform helpers (Windows bundle, macOS/Linux installs) ---------
+def whisper_cli():
+    """Bundled whisper-cli.exe on Windows, otherwise whisper.cpp from PATH (brew install whisper-cpp)."""
+    bundled = os.path.join(settings.ROOT, "whisper", "bin", "Release", "whisper-cli.exe")
+    if os.path.isfile(bundled):
+        return bundled
+    for name in ("whisper-cli", "whisper-cpp", "whisper"):
+        p = shutil.which(name)
+        if p:
+            return p
+    return ""
+
+def whisper_model():
+    for p in (os.path.join(settings.ROOT, "whisper", "models", "ggml-base.en.bin"),
+              os.path.join(os.path.expanduser("~"), "AIXMOS", "whisper", "models", "ggml-base.en.bin"),
+              os.path.join(os.path.expanduser("~"), ".cache", "whisper", "ggml-base.en.bin")):
+        if os.path.isfile(p):
+            return p
+    return ""
+
+def whisper_ok():
+    return bool(whisper_cli() and whisper_model())
+
+def font_file(bold=False):
+    """A TrueType font that exists on this OS, for drawtext and carousel rendering."""
+    if os.name == "nt":
+        d = os.path.join(os.environ.get("WINDIR", "C:\\Windows"), "Fonts")
+        names = ("segoeuib.ttf", "arialbd.ttf", "calibrib.ttf") if bold else ("segoeui.ttf", "arial.ttf", "calibri.ttf")
+        cands = [os.path.join(d, n) for n in names]
+    else:
+        cands = ["/System/Library/Fonts/Supplemental/Arial Bold.ttf", "/Library/Fonts/Arial Bold.ttf", "/System/Library/Fonts/Supplemental/Helvetica.ttc",
+                 "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"] if bold else \
+                ["/System/Library/Fonts/Supplemental/Arial.ttf", "/Library/Fonts/Arial.ttf", "/System/Library/Fonts/Supplemental/Helvetica.ttc",
+                 "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"]
+    for c in cands:
+        if os.path.isfile(c):
+            return c
+    return ""

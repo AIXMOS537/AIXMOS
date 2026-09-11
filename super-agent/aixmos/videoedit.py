@@ -307,11 +307,7 @@ def plan(source_path, instruction, extras=None, use_llm=True):
 
 # --------------------------------------------------------------- execute ----
 def _fontfile():
-    for name in ("segoeui.ttf", "arial.ttf", "calibri.ttf"):
-        p = os.path.join(os.environ.get("WINDIR", "C:\\Windows"), "Fonts", name)
-        if os.path.isfile(p):
-            return p
-    return None
+    return media.font_file() or None
 
 def _esc_path(p):
     return p.replace("\\", "/").replace(":", "\\:").replace("'", "\\'")
@@ -329,14 +325,15 @@ def _even(x):
     x = int(round(x)); return x if x % 2 == 0 else x - 1
 
 def transcribe_srt(src, workdir, progress=None):
-    if not (os.path.isfile(WHISPER_CLI) and os.path.isfile(WHISPER_MODEL)):
+    cli, model = media.whisper_cli(), media.whisper_model()
+    if not (cli and model):
         raise RuntimeError("whisper.cpp is not installed, captions unavailable")
     wav = os.path.join(workdir, "cap.wav"); base = os.path.join(workdir, "cap")
     if progress: progress("captions: extracting audio")
     media.run_ffmpeg(["-i", src, "-vn", "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le", wav], timeout=600)
     if progress: progress("captions: transcribing (whisper.cpp)")
-    subprocess.run([WHISPER_CLI, "-m", WHISPER_MODEL, "-f", wav, "-osrt", "-of", base, "-np"],
-                   capture_output=True, timeout=1800, cwd=os.path.dirname(WHISPER_CLI), **media._no_window())
+    subprocess.run([cli, "-m", model, "-f", wav, "-osrt", "-of", base, "-np"],
+                   capture_output=True, timeout=1800, cwd=os.path.dirname(cli), **media._no_window())
     srt = base + ".srt"
     if not os.path.isfile(srt) or os.path.getsize(srt) < 10:
         raise RuntimeError("no speech found to caption")

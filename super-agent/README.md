@@ -29,17 +29,27 @@ memory/          conversation, settings, learning data, media, kit, workspace   
 whisper/         whisper.cpp binary + ggml-base.en model         (gitignored)
 ```
 
-## Install on any Windows PC (one file)
-`AIXMOS-Setup.exe` (see GitHub Releases, or build it with `python installer/build_installer.py`)
-carries everything except Ollama and the model: the app, vendored packages, whisper.cpp + model,
-ffmpeg/ffprobe, the AI Building Kit and an embeddable Python 3.14 runtime. Double-click it and it:
-1. extracts to `%LOCALAPPDATA%\AIXMOS` (no admin rights needed; `--dir` to change),
-2. wires the bundled Python so no system Python is required,
-3. installs Ollama silently if it is missing and pulls `qwen2.5:3b` (about 2 GB, one time),
-4. writes `Start AIXMOS.cmd` / `Stop AIXMOS.cmd`, a desktop shortcut and a per-user logon autostart,
-5. starts the server on port 8770 and opens the UI.
-Re-running upgrades the app and keeps `memory/` (conversation, settings, CRM, media).
-Flags: `--port N --no-ollama --no-model --no-autostart --no-launch --quiet`.
+## Install anywhere: the AIXMOS 4THEPEOPLE bundle (one path for every client)
+`python installer/build_installer.py` produces `dist/AIXMOS-4THEPEOPLE/` (also on GitHub Releases):
+
+| File | For |
+|---|---|
+| `AIXMOS-4THEPEOPLE-Setup.exe` | Windows 10/11, one file: native stub + payload (app, vendored packages, whisper.cpp + model, ffmpeg/ffprobe, the AI Building Kit and TMMT operator playbooks, embeddable Python 3.14) |
+| `mac-linux/AIXMOS-Install.command` (or `bash install.sh`) | macOS and Linux: installs to `~/AIXMOS`, creates a venv, installs Ollama, pulls the model |
+| `START-HERE.txt`, `SHA256SUMS.txt` | the two-minute instructions and checksums |
+
+Every install asks one question, **who is this machine for**: TMMT Operator, AIXMOS Movement, or Both.
+TMMT roles get the operator playbooks in the vault and the role-locked operator console; `--tmmt-dev`
+adds Git, Node, GitHub CLI, Claude Code and the canon app repo. Everyone gets the super agent, the
+vault, the CRM, media, mail and the first-boot **Genesis**: AIXMOS introduces itself, learns what you
+are building, shows every capability with live status and writes your first build plan.
+
+The Windows installer needs no admin rights (`%LOCALAPPDATA%\AIXMOS`), installs Ollama silently if it
+is missing, pulls `qwen2.5:3b` once (about 2 GB), writes Start/Stop launchers, a desktop shortcut and a
+per-user logon autostart, then opens the UI. Re-running upgrades the app and keeps `memory/`.
+Flags: `--role tmmt_operator|aixmos_member|both --tmmt-dev --dir PATH --port N --no-ollama --no-model
+--no-autostart --no-launch --no-shortcuts --no-mcp --quiet`. No secrets ship in the payload; a build
+gate refuses to package any live-looking key.
 
 ## Run from source
 `START-PROJECT-AIXMOS.bat` (starts the server on 8770 if the port is silent, opens the UI).

@@ -98,6 +98,10 @@ def build_system(content):
     prof = skills.profile_text()
     if prof and not persona:
         parts.append(prof)
+    from aixmos import genesis
+    mission = genesis.mission_context()
+    if mission:
+        parts.append(mission)
     if settings.pref("use_knowledge"):
         kb = knowledge.context_for(content, k=3, min_score=6.0, max_chars=2400)
         if kb:
@@ -110,7 +114,7 @@ def build_system(content):
 
 def capabilities():
     return {"image": settings.providers_for("image"), "video": settings.providers_for("video") + ["local"],
-            "video_edit": media.tools_status()["ffmpeg"], "captions": os.path.exists(WHISPER_CLI) and os.path.exists(WHISPER_MODEL),
+            "video_edit": media.tools_status()["ffmpeg"], "captions": media.whisper_ok(),
             "email_accounts": len(email_tools.list_accounts()), "ollama": bool(llm.list_models()),
             "knowledge": knowledge.stats(), "active_skill": settings.pref("active_skill") or "",
             "agent_model": agent.pick_model(), "port": settings.RUNTIME.get("port", 8770)}
@@ -361,7 +365,8 @@ class Handler(BaseHTTPRequestHandler):
 
     # -------------------------------------------------------------- stt ----
     def _stt(self):
-        if not (os.path.exists(WHISPER_CLI) and os.path.exists(WHISPER_MODEL)):
+        cli, model = media.whisper_cli(), media.whisper_model()
+        if not (cli and model):
             self._fail("whisper not installed", 503); return
         length = int(self.headers.get("Content-Length", 0) or 0)
         if length <= 0 or length > 25 * 1024 * 1024:
@@ -374,8 +379,8 @@ class Handler(BaseHTTPRequestHandler):
             with open(wav, "wb") as f:
                 f.write(audio)
             with STT_LOCK:
-                subprocess.run([WHISPER_CLI, "-m", WHISPER_MODEL, "-f", wav, "-nt", "-np", "-otxt", "-of", base],
-                               capture_output=True, timeout=180, cwd=os.path.dirname(WHISPER_CLI), **media._no_window())
+                subprocess.run([cli, "-m", model, "-f", wav, "-nt", "-np", "-otxt", "-of", base],
+                               capture_output=True, timeout=180, cwd=os.path.dirname(cli), **media._no_window())
             try:
                 with open(base + ".txt", "r", encoding="utf-8") as f:
                     text = f.read().strip()

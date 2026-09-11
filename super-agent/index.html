@@ -235,6 +235,57 @@
     box-shadow:0 10px 30px rgba(0,0,0,.6), 0 0 20px var(--accent-soft);max-width:420px;display:none}
   .toast.show{display:block;animation:rise .2s ease}
   .toast.err{border-color:var(--bad)}
+  /* ---------------- genesis: first boot ---------------- */
+  #genesis{position:fixed;inset:0;z-index:90;display:none;background:radial-gradient(1200px 700px at 50% 20%,var(--bg2),var(--bg) 70%);overflow:auto}
+  #genesis.show{display:block;animation:rise .25s ease}
+  .gx{max-width:980px;margin:0 auto;padding:34px 22px 60px}
+  .gx-top{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+  .gx-top .dots{display:flex;gap:6px;flex:1;justify-content:center}
+  .gx-top .dots i{width:34px;height:4px;border-radius:3px;background:var(--panel3)}
+  .gx-top .dots i.on{background:var(--accent);box-shadow:0 0 8px var(--glow)}
+  .gx-x{background:none;border:1px solid var(--line);color:var(--muted);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px}
+  .gx-x:hover{color:var(--text);border-color:var(--line2)}
+  .gx h2{font-size:28px;letter-spacing:.06em;margin:6px 0 4px;color:var(--text)}
+  .gx .sub{color:var(--muted);margin:0 0 20px;font-size:14px}
+  .gx-reactor{width:120px;height:120px;display:block;margin:10px auto 16px;filter:drop-shadow(0 0 18px var(--glow))}
+  .gx-lines{font-family:var(--mono);font-size:14.5px;line-height:1.75;color:var(--text);min-height:220px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px}
+  .gx-lines .ln{opacity:0;transform:translateY(4px);transition:all .35s ease}
+  .gx-lines .ln.on{opacity:1;transform:none}
+  .gx-lines .ln::before{content:"› ";color:var(--accent)}
+  .gx-principles{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-top:14px}
+  .gx-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+  .gx-card b{display:block;color:var(--accent);margin-bottom:4px;font-size:13.5px}
+  .gx-card span{color:var(--muted);font-size:12.5px;line-height:1.5}
+  .gx-roles{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+  .gx-role{cursor:pointer;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;color:var(--text);font:inherit;transition:all .15s}
+  .gx-role:hover{border-color:var(--line2)}
+  .gx-role.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent),0 0 18px var(--glow)}
+  .gx-role .ic{font-size:28px}.gx-role h3{margin:8px 0 6px;font-size:16px}.gx-role p{margin:0;color:var(--muted);font-size:13px;line-height:1.5}
+  .gx-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+  .gx-q label{display:block;font-size:12.5px;color:var(--muted);margin-bottom:5px}
+  .gx-q label .req{color:var(--accent)}
+  .gx-q textarea{width:100%;min-height:58px;resize:vertical;background:var(--panel2);border:1px solid var(--line);border-radius:10px;color:var(--text);padding:9px 11px;font:inherit;font-size:13.5px;box-sizing:border-box}
+  .gx-q textarea:focus{outline:none;border-color:var(--accent)}
+  .gx-pills{display:flex;gap:6px;flex-wrap:wrap}
+  .gx-pill{cursor:pointer;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:999px;padding:6px 12px;font-size:12.5px}
+  .gx-pill.sel{border-color:var(--accent);color:var(--accent)}
+  .gx-group{margin:18px 0 8px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+  .gx-caps{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:10px}
+  .gx-cap{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:13px 14px;display:flex;flex-direction:column;gap:6px}
+  .gx-cap .hd{display:flex;align-items:center;gap:8px}.gx-cap .hd b{flex:1;font-size:14px}
+  .gx-cap p{margin:0;color:var(--muted);font-size:12.5px;line-height:1.5;flex:1}
+  .gx-st{font-size:10.5px;font-family:var(--mono);padding:2px 7px;border-radius:999px;border:1px solid var(--line)}
+  .gx-st.ready{color:#3ddc97;border-color:rgba(61,220,151,.4)}.gx-st.setup{color:var(--warn);border-color:var(--warn)}.gx-st.indexing{color:var(--muted)}
+  .gx-try{align-self:flex-start;background:var(--accent-soft);border:1px solid var(--line2);color:var(--accent);border-radius:8px;padding:4px 10px;font-size:12px;cursor:pointer}
+  .gx-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:22px;flex-wrap:wrap;align-items:center}
+  .gx-btn{cursor:pointer;border-radius:10px;padding:10px 18px;font:inherit;font-size:14px;border:1px solid var(--line2);background:var(--panel2);color:var(--text)}
+  .gx-btn.go{background:var(--accent);border-color:var(--accent);color:var(--bg);font-weight:600;box-shadow:0 0 16px var(--glow)}
+  .gx-btn:disabled{opacity:.5;cursor:wait}
+  .gx-plan{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:6px 22px 16px;font-size:14px;line-height:1.65}
+  .gx-plan h1{font-size:20px}.gx-plan h2{font-size:16px;color:var(--accent);margin-top:18px}
+  .gx-plan code{font-family:var(--mono);background:var(--panel3);padding:1px 6px;border-radius:5px;font-size:12.5px}
+  .gx-spin{display:inline-block;width:14px;height:14px;border:2px solid var(--line2);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite;vertical-align:-2px;margin-right:8px}
+  @keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
@@ -1581,6 +1632,127 @@ checkBackend();
 loadModels().then(loadSettings); loadMemory(); loadImages(); loadVideos(); loadAccounts(); pollJobs(false); updateCurVid();
 input.focus();
 if(document.fonts && document.fonts.ready){ document.fonts.ready.then(autoGrow); } else { autoGrow(); }
+
+// ============================================================ genesis (first boot) ====
+// AIXMOS introduces itself, states the mission, learns who it serves and what they are building,
+// shows every capability with live status, and writes a first build plan. Reopen from the rail (🛰).
+const G = { data:null, step:0, role:'', answers:{}, plan:null };
+const gEsc = s => String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function gMd(md){
+  const lines = gEsc(md).split('\n'); let out='', list=null;
+  const inline = t => t.replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>');
+  const close = ()=>{ if(list){ out+='</'+list+'>'; list=null; } };
+  for(const l of lines){
+    let m;
+    if((m=l.match(/^(#{1,3})\s+(.*)/))){ close(); out+='<h'+m[1].length+'>'+inline(m[2])+'</h'+m[1].length+'>'; }
+    else if((m=l.match(/^\s*[-*]\s+(.*)/))){ if(list!=='ul'){ close(); out+='<ul>'; list='ul'; } out+='<li>'+inline(m[1])+'</li>'; }
+    else if((m=l.match(/^\s*\d+[.)]\s+(.*)/))){ if(list!=='ol'){ close(); out+='<ol>'; list='ol'; } out+='<li>'+inline(m[1])+'</li>'; }
+    else if(l.trim()){ close(); out+='<p>'+inline(l)+'</p>'; } else close();
+  }
+  close(); return out;
+}
+const gRoot = document.createElement('div'); gRoot.id='genesis'; document.body.appendChild(gRoot);
+function gShell(title, sub, body, actions){
+  const dots = [0,1,2,3,4].map(i=>'<i class="'+(i<=G.step?'on':'')+'"></i>').join('');
+  gRoot.innerHTML = '<div class="gx"><div class="gx-top"><span style="font-family:var(--mono);color:var(--accent);font-size:12px;letter-spacing:.2em">GENESIS</span>'
+    + '<div class="dots">'+dots+'</div><button class="gx-x" id="gxLater">Later ✕</button></div>'
+    + '<h2>'+title+'</h2><p class="sub">'+sub+'</p>'+body+'<div class="gx-actions">'+(actions||'')+'</div></div>';
+  $('#gxLater').onclick = gClose;
+}
+function gClose(){ gRoot.classList.remove('show'); if(location.hash==='#genesis') history.replaceState(null,'',location.pathname); }
+async function gOpen(step){
+  try{ G.data = await apiGet('/api/genesis'); }catch(e){ toast('Genesis unavailable: '+e.message, true); return; }
+  const st = G.data.state||{}; G.role = st.role||G.role; G.answers = Object.assign({}, st.answers||{});
+  G.plan = st.plan ? {plan:st.plan, skills:st.skills||[]} : null;
+  G.step = step==null ? 0 : step; gRoot.classList.add('show'); gRender();
+}
+function gRender(){ [gBoot,gRole,gIntake,gPowers,gPlan][G.step](); gRoot.scrollTop=0; }
+function gSpeak(text){ try{ const u=new SpeechSynthesisUtterance(text); u.rate=1.02; speechSynthesis.cancel(); speechSynthesis.speak(u); }catch(e){} }
+
+function gBoot(){
+  const M = G.data.mission, name = G.data.assistant||'AIXMOS';
+  const reactor = '<svg class="gx-reactor" viewBox="0 0 64 64"><circle cx="32" cy="32" r="29" fill="none" stroke="var(--accent)" stroke-width="1.2" opacity=".45"/>'
+    + '<circle class="spin" cx="32" cy="32" r="24" fill="none" stroke="var(--accent)" stroke-width="3" stroke-dasharray="11 7" stroke-linecap="round"/>'
+    + '<circle class="spin-rev" cx="32" cy="32" r="17" fill="none" stroke="var(--accent2)" stroke-width="2" stroke-dasharray="4 5"/>'
+    + '<polygon points="32,21 42.5,39 21.5,39" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/><circle class="core" cx="32" cy="32" r="5" fill="var(--accent)"/></svg>';
+  const who = G.answers.owner ? ', '+gEsc(G.answers.owner) : '';
+  gShell('Hello'+who+'. I am '+gEsc(name)+'.', gEsc(M.name)+' &middot; '+gEsc(M.tagline),
+    reactor + '<div class="gx-lines" id="gxLines">'+M.lines.map(l=>'<div class="ln">'+gEsc(l)+'</div>').join('')+'</div>'
+    + '<div class="gx-principles">'+M.principles.map(p=>'<div class="gx-card"><b>'+gEsc(p[0])+'</b><span>'+gEsc(p[1])+'</span></div>').join('')+'</div>',
+    '<button class="gx-btn" id="gxHear">&#128266; Hear it</button><button class="gx-btn go" id="gxNext">Let&rsquo;s begin &rarr;</button>');
+  const lns = $$('#gxLines .ln'); lns.forEach((l,i)=>setTimeout(()=>l.classList.add('on'), 350+i*900));
+  $('#gxHear').onclick = ()=>gSpeak('Hello. I am '+name+'. '+M.lines.join(' '));
+  $('#gxNext').onclick = ()=>{ try{speechSynthesis.cancel();}catch(e){} G.step=1; gRender(); };
+}
+function gRole(){
+  gShell('Who am I working for?', 'This decides which playbooks, tools and console I load for you. You can change it later.',
+    '<div class="gx-roles">'+G.data.roles.map(r=>'<button class="gx-role'+(G.role===r.id?' sel':'')+'" data-r="'+r.id+'"><div class="ic">'+r.icon+'</div><h3>'+gEsc(r.title)+'</h3><p>'+gEsc(r.desc)+'</p></button>').join('')+'</div>',
+    '<button class="gx-btn" id="gxBack">&larr; Back</button><button class="gx-btn go" id="gxNext"'+(G.role?'':' disabled')+'>Continue &rarr;</button>');
+  $$('.gx-role').forEach(b=>b.onclick=()=>{ G.role=b.dataset.r; gRender(); });
+  $('#gxBack').onclick=()=>{ G.step=0; gRender(); };
+  $('#gxNext').onclick=()=>{ G.step=2; gRender(); };
+}
+function gIntake(){
+  const qs = G.data.questions, prof = G.data.profile||{};
+  const body = '<div class="gx-form">'+qs.map(q=>{
+    const v = G.answers[q.id] || (q.profile && prof[q.profile]) || '';
+    const lab = '<label>'+gEsc(q.label)+(q.required?' <span class="req">*</span>':'')+'</label>';
+    if(q.choices) return '<div class="gx-q">'+lab+'<div class="gx-pills">'+q.choices.map(c=>'<button class="gx-pill'+(v===c?' sel':'')+'" data-q="'+q.id+'" data-v="'+gEsc(c)+'">'+gEsc(c)+'</button>').join('')+'</div></div>';
+    return '<div class="gx-q">'+lab+'<textarea data-q="'+q.id+'" placeholder="'+gEsc(q.ph||'')+'">'+gEsc(v)+'</textarea></div>';
+  }).join('')+'</div>';
+  gShell('Tell me what you are building.', 'The more you give me, the sharper the plan. Everything stays on this machine.', body,
+    '<button class="gx-btn" id="gxBack">&larr; Back</button><button class="gx-btn go" id="gxNext">Save &amp; show me what you can do &rarr;</button>');
+  $$('.gx-pill').forEach(b=>b.onclick=()=>{ G.answers[b.dataset.q]=b.dataset.v; $$('.gx-pill[data-q="'+b.dataset.q+'"]').forEach(x=>x.classList.toggle('sel', x===b)); });
+  $$('.gx-q textarea').forEach(t=>t.oninput=()=>{ G.answers[t.dataset.q]=t.value; });
+  $$('.gx-q textarea').forEach(t=>{ if(t.value) G.answers[t.dataset.q]=t.value; });
+  $('#gxBack').onclick=()=>{ G.step=1; gRender(); };
+  $('#gxNext').onclick=async()=>{
+    const miss = qs.filter(q=>q.required && !(G.answers[q.id]||'').trim());
+    if(miss.length){ toast('Please answer: '+miss.map(q=>q.label).join(' / '), true); return; }
+    try{ await apiPost('/api/genesis/intake',{role:G.role, answers:G.answers}); G.data = await apiGet('/api/genesis'); G.step=3; gRender(); }
+    catch(e){ toast('Could not save: '+e.message, true); }
+  };
+}
+function gPowers(){
+  const body = G.data.catalog.map(g=>'<div class="gx-group">'+gEsc(g.group)+'</div><div class="gx-caps">'+g.items.map((c,i)=>
+    '<div class="gx-cap"><div class="hd"><span style="font-size:18px">'+c.icon+'</span><b>'+gEsc(c.name)+'</b><span class="gx-st '+c.status+'">'+c.status+'</span></div>'
+    + '<p>'+gEsc(c.what)+'</p>'
+    + (c.try ? '<button class="gx-try" data-try="'+gEsc(c.try)+'">Try: '+gEsc(c.try.length>46?c.try.slice(0,46)+'…':c.try)+'</button>' : '')
+    + (c.name==='Operator console' && G.data.console ? '<button class="gx-try" data-open="/operator">Open console</button>' : '')
+    + '</div>').join('')+'</div>').join('');
+  gShell('Here is everything I can do for you.', '<b style="color:#3ddc97">ready</b> works now &middot; <b style="color:var(--warn)">setup</b> needs an account or key under Integrations &middot; press Try to see it live.', body,
+    '<button class="gx-btn" id="gxBack">&larr; Back</button><button class="gx-btn go" id="gxNext">Write my first build plan &rarr;</button>');
+  $$('.gx-try[data-try]').forEach(b=>b.onclick=()=>{ gClose(); showView('chat'); input.value=b.dataset.try; autoGrow(); send(); });
+  $$('.gx-try[data-open]').forEach(b=>b.onclick=()=>window.open(b.dataset.open,'_blank'));
+  $('#gxBack').onclick=()=>{ G.step=2; gRender(); };
+  $('#gxNext').onclick=()=>{ G.step=4; gRender(); };
+}
+async function gPlan(){
+  const done = p => {
+    const sk = (p.skills||[]);
+    gShell('Your first build plan.', 'Saved to our conversation too, so we can pick it straight up in chat.',
+      '<div class="gx-plan">'+gMd(p.plan)+'</div>'
+      + (sk.length ? '<p class="sub" style="margin-top:14px">Switch on a skill now: '+sk.map(s=>'<button class="gx-pill" data-sk="'+gEsc(s)+'">/skill '+gEsc(s)+'</button>').join(' ')+'</p>' : ''),
+      '<button class="gx-btn" id="gxRedo">Rewrite plan</button>'+(G.data.console?'<button class="gx-btn" id="gxConsole">Open operator console</button>':'')+'<button class="gx-btn go" id="gxDone">Enter the command deck &rarr;</button>');
+    let pick = '';
+    $$('.gx-pill[data-sk]').forEach(b=>b.onclick=()=>{ pick = pick===b.dataset.sk?'':b.dataset.sk; $$('.gx-pill[data-sk]').forEach(x=>x.classList.toggle('sel', x.dataset.sk===pick)); });
+    $('#gxRedo').onclick=()=>{ G.plan=null; gRender(); };
+    if($('#gxConsole')) $('#gxConsole').onclick=()=>window.open('/operator','_blank');
+    $('#gxDone').onclick=async()=>{ try{ await apiPost('/api/genesis/complete',{skill:pick}); }catch(e){} gClose(); showView('chat'); loadMemory(); toast(pick?('Skill on: '+pick):'Welcome aboard. Let’s build.'); };
+  };
+  if(G.plan){ done(G.plan); return; }
+  gShell('Planning your first build…', 'Reading your intake and the playbook vault, then drafting with the local model. About a minute or two on a small machine.',
+    '<div class="gx-plan"><p><span class="gx-spin"></span>Thinking it through…</p></div>', '');
+  try{ G.plan = await apiPost('/api/genesis/plan',{}); done(G.plan); }
+  catch(e){ gShell('Plan hit a snag.', gEsc(e.message), '', '<button class="gx-btn" id="gxBack">&larr; Back</button><button class="gx-btn go" id="gxRetry">Try again</button>');
+    $('#gxBack').onclick=()=>{ G.step=3; gRender(); }; $('#gxRetry').onclick=()=>gRender(); }
+}
+(function gBootstrap(){
+  const b = document.createElement('button'); b.className='nav'; b.innerHTML='&#128752;<span class="badge"></span><span class="tip">Mission &amp; intro</span>';
+  b.addEventListener('click', ()=>gOpen(0));
+  const sp = document.querySelector('.rail .spacer'); if(sp) sp.parentNode.insertBefore(b, sp);
+  apiGet('/api/genesis').then(d=>{ if(!(d.state||{}).done || location.hash==='#genesis') gOpen(0); }).catch(()=>{});
+})();
 </script>
 </body>
 </html>

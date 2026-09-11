@@ -1,30 +1,48 @@
 #!/usr/bin/env python3
 """
-build_installer.py -- packs Project AIXMOS into dist/AIXMOS-Setup.exe (one file).
+build_installer.py -- builds the AIXMOS 4THEPEOPLE bundle:
 
-  python installer/build_installer.py            # builds payload.zip, icon, then PyInstaller onefile
-  python installer/build_installer.py --payload  # only rebuild payload.zip
+  dist/AIXMOS-4THEPEOPLE/
+    AIXMOS-4THEPEOPLE-Setup.exe   Windows, ONE file: native C# stub + appended payload.zip
+    mac-linux/                    install.sh, AIXMOS-Install.command, aixmos-app.zip
+    START-HERE.txt, SHA256SUMS.txt
 
-Payload contents (all extracted to the install dir on the target machine):
+  python installer/build_installer.py                  # full build
+  python installer/build_installer.py --reuse-payload  # keep payload.zip, rebuild stub + bundle
+
+No PyInstaller, no SDK: the stub compiles with the csc.exe every Windows 10/11 ships
+(C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319). Payload contents:
   app files            project_aixmos_server.py, context_tools.py, index.html, aixmos/, README, TODO
-  vendor/              requests + pillow (cp314 wheels, matches the bundled runtime)
+  setup/installer.py   the provisioning script the stub hands off to
+  vendor/              requests + pillow (cp314 wheels, match the bundled runtime)
   whisper/             whisper-cli.exe + DLLs + ggml-base.en.bin
   bin/                 ffmpeg.exe + ffprobe.exe
-  memory/kit/          the AI Building Kit (markdown)
-  runtime/             python-3.14.x-embed-amd64 (unzipped)
-  aixmos.ico           tab icon rendered from the arc-reactor logo
-Needs: installer/cache/python-3.14.5-embed-amd64.zip (downloaded from python.org) and ffmpeg on this
-machine (winget Gyan.FFmpeg or ffmpeg on PATH). Requires: pip install pyinstaller pillow
+  memory/kit/          the AI Building Kit + tmmt-operator-kit (regenerated through the brain's
+                       allowlist / domain / PII gates on every build)
+  operator/            TMMT operator console (generated handout from CommandCenter)
+  runtime/             python-3.14.x-embed-amd64
+GATE: the build refuses to ship if any payload text file carries a live-looking secret.
 """
-import os, sys, glob, shutil, zipfile, subprocess, argparse
+import os, re, sys, glob, shutil, struct, hashlib, zipfile, subprocess, argparse
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HERE = os.path.dirname(os.path.abspath(__file__))
+HOME = os.path.expanduser("~")
 CACHE = os.path.join(HERE, "cache")
 PAYLOAD = os.path.join(HERE, "payload.zip")
 DIST = os.path.join(ROOT, "dist")
-APP_FILES = ["project_aixmos_server.py", "context_tools.py", "index.html", "README.md", "TODO.md", ".gitignore"]
+BUNDLE = os.path.join(DIST, "AIXMOS-4THEPEOPLE")
+EXE_NAME = "AIXMOS-4THEPEOPLE-Setup.exe"
+APP_FILES = ["project_aixmos_server.py", "context_tools.py", "index.html", "README.md", "TODO.md"]
 SKIP_DIRS = {"__pycache__", ".git", "node_modules"}
+BRAIN = os.path.join(HOME, "AIXMOS-Brain")
+OPERATOR_KIT = os.path.join(BRAIN, "dist", "operator-kit")
+OPERATOR_CONSOLE = os.path.join(HOME, "CommandCenter", "TeamDashboards", "_onboarding", "Dashboard-New-Operator.html")
+CSC = r"C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
+MAGIC = b"AIXMOS4P"
+SECRET_RX = re.compile(rb"(sb_secret_[A-Za-z0-9_-]{10,}|eyJhbGciOi[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}|sk-(?:ant-|proj-)?[A-Za-z0-9_-]{24,}|"
+                       rb"ghp_[A-Za-z0-9]{30,}|AKIA[0-9A-Z]{16}|xox[bpa]-[A-Za-z0-9-]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----)")
+TEXT_EXT = {".py", ".md", ".txt", ".json", ".html", ".js", ".css", ".csv", ".yml", ".yaml", ".sh", ".cmd", ".bat", ".ps1", ".env"}
 
 def find_ffmpeg():
     out = {}
@@ -49,8 +67,11 @@ def add_tree(z, src, arc, skip=SKIP_DIRS):
             z.write(full, os.path.join(arc, os.path.relpath(full, src)).replace("\\", "/"))
 
 def make_icon():
-    from PIL import Image, ImageDraw
-    sizes = [256, 128, 64, 48, 32, 16]
+    ico = os.path.join(HERE, "aixmos.ico")
+    try:
+        from PIL import Image, ImageDraw
+    except ImportError:
+        return ico if os.path.isfile(ico) else None
     base = Image.new("RGBA", (256, 256), (3, 8, 16, 255)); d = ImageDraw.Draw(base)
     c, c2 = (56, 224, 255, 255), (14, 165, 233, 255)
     d.ellipse([16, 16, 240, 240], outline=(56, 224, 255, 110), width=4)
@@ -59,59 +80,143 @@ def make_icon():
     d.arc([76, 76, 180, 180], start=0, end=360, fill=c2, width=6)
     d.polygon([(128, 82), (170, 156), (86, 156)], outline=c, width=7)
     d.ellipse([110, 110, 146, 146], fill=c)
-    ico = os.path.join(HERE, "aixmos.ico")
-    base.save(ico, format="ICO", sizes=[(s, s) for s in sizes])
+    base.save(ico, format="ICO", sizes=[(s, s) for s in (256, 128, 64, 48, 32, 16)])
     return ico
+
+def refresh_operator_kit():
+    """Regenerate the shippable half of the brain through its own allowlist/domain/PII gates."""
+    script = os.path.join(BRAIN, "build-operator-kit.ps1")
+    if os.path.isfile(script):
+        subprocess.run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script], check=True)
+    if not os.path.isdir(OPERATOR_KIT):
+        raise SystemExit("operator kit missing at %s" % OPERATOR_KIT)
+
+def add_app(z, win=True):
+    for f in APP_FILES:
+        p = os.path.join(ROOT, f)
+        if os.path.isfile(p):
+            z.write(p, f)
+    add_tree(z, os.path.join(ROOT, "aixmos"), "aixmos")
+    add_tree(z, os.path.join(ROOT, "memory", "kit"), "memory/kit")
+    add_tree(z, OPERATOR_KIT, "memory/kit/tmmt-operator-kit")
+    if os.path.isfile(OPERATOR_CONSOLE):
+        z.write(OPERATOR_CONSOLE, "operator/TMMT-Operator-Console.html")
+    z.writestr("memory/workspace/README.txt", "Agent workspace. Files the super agent creates land here.\n")
 
 def build_payload():
     py_zip = glob.glob(os.path.join(CACHE, "python-3.14*-embed-amd64.zip"))
     if not py_zip:
         raise SystemExit("put python-3.14.x-embed-amd64.zip in installer/cache (https://www.python.org/ftp/python/)")
     ff = find_ffmpeg()
+    refresh_operator_kit()
     ico = make_icon()
     if os.path.exists(PAYLOAD):
         os.remove(PAYLOAD)
     with zipfile.ZipFile(PAYLOAD, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as z:
-        for f in APP_FILES:
-            p = os.path.join(ROOT, f)
-            if os.path.isfile(p):
-                z.write(p, f)
-        add_tree(z, os.path.join(ROOT, "aixmos"), "aixmos")
+        add_app(z)
+        z.write(os.path.join(HERE, "installer.py"), "setup/installer.py")
         add_tree(z, os.path.join(ROOT, "vendor"), "vendor")
-        add_tree(z, os.path.join(ROOT, "whisper", "bin", "Release"), "whisper/bin/Release", SKIP_DIRS | set())
+        add_tree(z, os.path.join(ROOT, "whisper", "bin", "Release"), "whisper/bin/Release")
         z.write(os.path.join(ROOT, "whisper", "models", "ggml-base.en.bin"), "whisper/models/ggml-base.en.bin")
         for tool, p in ff.items():
             z.write(p, "bin/%s.exe" % tool)
-        add_tree(z, os.path.join(ROOT, "memory", "kit"), "memory/kit")
-        z.write(ico, "aixmos.ico")
+        if ico:
+            z.write(ico, "aixmos.ico")
         with zipfile.ZipFile(py_zip[0]) as pz:
             for name in pz.namelist():
                 z.writestr("runtime/" + name, pz.read(name))
-        z.writestr("memory/workspace/README.txt", "Agent workspace. Files the super agent creates land here.\n")
     print("payload.zip: %d MB" % (os.path.getsize(PAYLOAD) >> 20))
-    return ico
 
-def build_exe(ico):
-    os.makedirs(DIST, exist_ok=True)
-    cmd = [sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean", "--onefile", "--console",
-           "--name", "AIXMOS-Setup", "--icon", ico, "--add-data", PAYLOAD + os.pathsep + ".",
-           "--distpath", DIST, "--workpath", os.path.join(HERE, "build"), "--specpath", HERE,
-           os.path.join(HERE, "installer.py")]
-    print(" ".join(cmd))
+def refresh_setup_in_payload():
+    """--reuse-payload still ships the current installer.py and app code (small files), not stale copies."""
+    tmp = PAYLOAD + ".tmp"
+    fresh = {}
+    with zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as z:
+        add_app(z)
+        z.write(os.path.join(HERE, "installer.py"), "setup/installer.py")
+        fresh = set(z.namelist())
+        with zipfile.ZipFile(PAYLOAD) as old:
+            for i in old.infolist():
+                if i.filename not in fresh and not i.filename.startswith(("aixmos/", "memory/kit/", "operator/")):
+                    z.writestr(i, old.read(i.filename))
+    os.replace(tmp, PAYLOAD)
+
+def secret_gate(path):
+    bad = []
+    third_party = ("vendor/", "runtime/", "whisper/", "bin/")   # upstream packages; their test vectors are not our secrets
+    with zipfile.ZipFile(path) as z:
+        for i in z.infolist():
+            if i.filename.startswith(third_party):
+                continue
+            if os.path.splitext(i.filename)[1].lower() in TEXT_EXT or i.filename.endswith(".env"):
+                if SECRET_RX.search(z.read(i.filename)):
+                    bad.append(i.filename)
+            base = i.filename.rsplit("/", 1)[-1]
+            if base in ("settings.json", "conversation.json", "crm.json", ".env.local") or (base == ".env"):
+                bad.append(i.filename + " (forbidden file)")
+    if bad:
+        raise SystemExit("SECRET GATE: refusing to ship. Offending entries:\n  " + "\n  ".join(bad))
+    print("secret gate: clean")
+
+def build_stub(ico):
+    out = os.path.join(HERE, "stub", "AixmosSetup.stub.exe")
+    fw = os.path.dirname(CSC)
+    cmd = [CSC, "/nologo", "/optimize+", "/target:exe", "/platform:anycpu", "/out:" + out,
+           "/win32manifest:" + os.path.join(HERE, "stub", "app.manifest"),
+           "/r:" + os.path.join(fw, "System.IO.Compression.dll"), "/r:" + os.path.join(fw, "System.IO.Compression.FileSystem.dll")]
+    if ico and os.path.isfile(ico):
+        cmd.append("/win32icon:" + ico)
+    cmd.append(os.path.join(HERE, "stub", "AixmosSetup.cs"))
     subprocess.run(cmd, check=True)
-    exe = os.path.join(DIST, "AIXMOS-Setup.exe")
-    print("built:", exe, "%d MB" % (os.path.getsize(exe) >> 20))
+    return out
+
+def sha256(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+def build_bundle(stub):
+    if os.path.isdir(BUNDLE):
+        shutil.rmtree(BUNDLE)
+    os.makedirs(os.path.join(BUNDLE, "mac-linux"))
+    exe = os.path.join(BUNDLE, EXE_NAME)
+    size = os.path.getsize(PAYLOAD)
+    with open(exe, "wb") as o:
+        with open(stub, "rb") as s:
+            shutil.copyfileobj(s, o)
+        with open(PAYLOAD, "rb") as p:
+            shutil.copyfileobj(p, o, 1 << 22)
+        o.write(struct.pack("<q", size) + MAGIC)
+    ml = os.path.join(BUNDLE, "mac-linux")
+    with zipfile.ZipFile(os.path.join(ml, "aixmos-app.zip"), "w", zipfile.ZIP_DEFLATED) as z:
+        add_app(z, win=False)
+    secret_gate(os.path.join(ml, "aixmos-app.zip"))
+    for f in ("install.sh", "AIXMOS-Install.command"):
+        with open(os.path.join(HERE, "unix", f), "rb") as src, open(os.path.join(ml, f), "wb") as dst:
+            dst.write(src.read().replace(b"\r\n", b"\n"))   # LF, or bash chokes on macOS/Linux
+    shutil.copyfile(os.path.join(HERE, "bundle", "START-HERE.txt"), os.path.join(BUNDLE, "START-HERE.txt"))
+    sums = []
+    for dp, _, fn in os.walk(BUNDLE):
+        for f in sorted(fn):
+            full = os.path.join(dp, f)
+            sums.append("%s  %s" % (sha256(full), os.path.relpath(full, BUNDLE).replace("\\", "/")))
+    with open(os.path.join(BUNDLE, "SHA256SUMS.txt"), "w", encoding="utf-8") as f:
+        f.write("\n".join(sums) + "\n")
+    print("built: %s (%d MB)" % (exe, os.path.getsize(exe) >> 20))
+    print("bundle: %s" % BUNDLE)
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("--payload", action="store_true", help="only rebuild payload.zip")
-    ap.add_argument("--reuse-payload", action="store_true", help="skip payload.zip, only rebuild the exe")
+    ap.add_argument("--reuse-payload", action="store_true", help="keep the heavy payload, refresh app + setup files only")
     a = ap.parse_args()
     if a.reuse_payload and os.path.isfile(PAYLOAD):
-        ico = os.path.join(HERE, "aixmos.ico")
-        if not os.path.isfile(ico):
-            ico = make_icon()
+        refresh_operator_kit()
+        refresh_setup_in_payload()
+        ico = make_icon()
     else:
-        ico = build_payload()
-    if not a.payload:
-        build_exe(ico)
+        build_payload()
+        ico = os.path.join(HERE, "aixmos.ico")
+    secret_gate(PAYLOAD)
+    build_bundle(build_stub(ico))

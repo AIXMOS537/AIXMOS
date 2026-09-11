@@ -11,7 +11,7 @@ Everything binds to 127.0.0.1 only; the agent's shell/file tools stay inside the
 """
 import os, json, time, uuid, urllib.request
 from . import settings, media, jobs, llm, intents, imagegen, videogen, videoedit, email_tools
-from . import knowledge, skills, crm, carousel, agent
+from . import knowledge, skills, crm, carousel, agent, genesis
 
 OLLAMA = "http://localhost:11434"
 NUM_CTX = 8192
@@ -147,6 +147,15 @@ def route_get(h, p, g):
         h._json(j) if j else h._fail("no such run", 404)
     elif p == "/api/agent/tools":
         h._json({"tools": agent.tool_schemas(g("autonomy") or "full")})
+    elif p == "/api/genesis":
+        h._json(genesis.view(h.capabilities()))
+    elif p == "/operator":
+        path = genesis.operator_console()
+        if not path:
+            h._fail("no operator console on this install", 404)
+        else:
+            with open(path, "rb") as f:
+                h._send(200, "text/html; charset=utf-8", f.read())
     elif p == "/v1/models":
         openai_models(h)
     elif p == "/mcp":
@@ -231,6 +240,16 @@ def route_post(h, p):
         b = h._body(); h._json({"ok": agent.answer(b.get("id"), b.get("answer") or "")})
     elif p == "/api/agent/cancel":
         h._json({"ok": agent.cancel(h._body().get("id"))})
+    elif p == "/api/genesis/intake":
+        b = h._body(); h._json({"state": genesis.save_intake(b.get("role"), b.get("answers"))})
+    elif p == "/api/genesis/plan":
+        res = genesis.plan()
+        h.remember("assistant", res["plan"])
+        h._json(res)
+    elif p == "/api/genesis/complete":
+        h._json({"state": genesis.complete(h._body().get("skill") or None)})
+    elif p == "/api/genesis/reset":
+        h._json({"state": genesis.reset()})
     elif p == "/v1/chat/completions":
         openai_chat(h)
     elif p == "/mcp":

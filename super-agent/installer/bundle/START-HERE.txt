@@ -1,0 +1,42 @@
+==================================================================
+  PROJECT AIXMOS  //  4THEPEOPLE  —  one-shot installer
+  Turn any computer into a TMMT operator station and/or your own
+  private AI build partner. Plug in, run one thing, done.
+==================================================================
+
+WINDOWS 10 / 11  (everything is inside ONE file)
+------------------------------------------------------------------
+  1. Double-click  AIXMOS-4THEPEOPLE-Setup.exe
+     (Blue "Windows protected your PC" box?  More info -> Run anyway.
+      It is unsigned, not unsafe: it installs per-user and never asks for admin.)
+  2. Pick who this machine is for:
+        1) TMMT Operator    2) AIXMOS Movement    3) Both
+  3. Wait while it installs the local AI (about 2 GB, first time only).
+  4. AIXMOS opens in your browser, introduces itself, learns what you
+     are building and writes your first build plan.
+
+  Options (from a terminal):  --role tmmt_operator|aixmos_member|both
+    --tmmt-dev   also install Git, Node, GitHub CLI, Claude Code and the TMMT app repo
+    --dir PATH   --port N   --no-model   --no-autostart   --quiet
+
+MAC  /  LINUX
+------------------------------------------------------------------
+  Open the  mac-linux  folder and double-click  AIXMOS-Install.command
+  (or in Terminal:  bash install.sh ). Needs Python 3; installs Ollama.
+
+AFTER INSTALL
+------------------------------------------------------------------
+  Desktop shortcut "AIXMOS"  ->  http://localhost:8770
+  Re-run the installer any time to upgrade. Your memory, CRM, settings
+  and media are kept.
+
+WHAT IT NEEDS / WHAT IT NEVER DOES
+------------------------------------------------------------------
+  - Internet once, for Ollama + the model. After that the brain runs offline.
+  - 8 GB RAM recommended, ~4 GB free disk.
+  - It carries NO passwords, API keys or database keys. You add your own
+    accounts (email, image/video providers) inside the app when you want them.
+  - Nothing is sent, posted, paid or deployed without your click.
+  - TMMT app access (the private AIXMOS537/TMMT repo, the live database)
+    is granted per person by the owner. The installer cannot grant it.
+==================================================================

@@ -10,7 +10,7 @@ Autonomy levels:
   builder  + write files and run commands/python inside the allowed roots (default)
   full     + send email (needs a connected account and agent_allow_send)
 """
-import os, re, json, time, glob, shutil, threading, subprocess, urllib.parse
+import os, re, sys, json, time, glob, shutil, threading, subprocess, urllib.parse
 from . import settings, llm, jobs, media, knowledge, skills, crm, imagegen, videogen, videoedit, email_tools
 
 WORKSPACE = os.path.join(settings.MEMDIR, "workspace")
@@ -109,8 +109,10 @@ def t_run_command(a, ctx):
     cmd = str(a["command"])
     if re.search(r"\b(format|diskpart|shutdown|restart-computer|rm\s+-rf\s+/|del\s+/s\s+/q\s+c:\\|remove-item\s+-recurse.*c:\\\s*$)", cmd, re.I):
         raise PermissionError("refused: destructive system command")
+    shell_cmd = (["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", cmd]
+                 if os.name == "nt" else ["/bin/bash", "-lc", cmd])
     try:
-        return _run(["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", cmd], cwd, int(a.get("timeout") or 180))
+        return _run(shell_cmd, cwd, int(a.get("timeout") or 180))
     except subprocess.TimeoutExpired:
         return "command timed out"
 
@@ -121,7 +123,8 @@ def t_run_python(a, ctx):
     with open(tmp, "w", encoding="utf-8") as f:
         f.write(a["code"])
     try:
-        return _run([shutil.which("python") or "python", tmp], cwd, int(a.get("timeout") or 180))
+        py = sys.executable or shutil.which("python3") or shutil.which("python") or "python"
+        return _run([py, tmp], cwd, int(a.get("timeout") or 180))
     except subprocess.TimeoutExpired:
         return "python timed out"
     finally:
@@ -345,6 +348,9 @@ def run(goal, autonomy=None, extra_roots=None, model=None, max_steps=None, conte
         if kb: sysmsg += "\n\nRELEVANT VAULT KNOWLEDGE:\n" + kb
         prof = skills.profile_text()
         if prof: sysmsg += "\n\n" + prof
+        from . import genesis
+        mission = genesis.mission_context()
+        if mission: sysmsg += "\n\n" + mission
         msgs = [{"role": "system", "content": sysmsg}]
         if context: msgs.append({"role": "user", "content": "Context from the conversation:\n" + str(context)[:4000]})
         msgs.append({"role": "user", "content": "GOAL: " + goal})
