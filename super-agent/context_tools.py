@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-context_tools.py -- gathers SAFE live signals to ground Crimson Shadow's answers.
+context_tools.py -- gathers SAFE live signals to ground Project AIXMOS's answers.
 
 Included (safe): local date/time + timezone, approximate location from public IP,
 current weather for that location, and machine stats (CPU / RAM / disk / battery).

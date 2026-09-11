@@ -7,3 +7,6 @@ __pycache__/
 # Conversation log. Local runtime data, and it can carry whatever was said to
 # the assistant - keep it out of any repo that might ever get a remote.
 memory/
+
+# vendored pure-python deps (pip install --target vendor requests)
+vendor/
