@@ -129,37 +129,22 @@ def t_run_python(a, ctx):
         except OSError: pass
 
 def t_web_fetch(a, ctx):
-    import requests
-    url = a["url"]
-    if not re.match(r"^https?://", url):
-        url = "https://" + url
-    r = requests.get(url, timeout=30, headers={"User-Agent": "Mozilla/5.0 AIXMOS/2.0"})
-    ct = r.headers.get("Content-Type", "")
-    text = r.text
-    if "html" in ct or "<html" in text[:500].lower():
-        text = re.sub(r"(?is)<(script|style|nav|footer|svg).*?</\1>", " ", text)
-        text = re.sub(r"(?i)<br\s*/?>|</p>|</div>|</h\d>|</li>", "\n", text)
-        text = re.sub(r"<[^>]+>", " ", text)
-        text = re.sub(r"[ \t]+", " ", text); text = re.sub(r"\n\s*\n+", "\n\n", text)
-    return "HTTP %d %s\n%s" % (r.status_code, url, text.strip()[:int(a.get("max_chars") or 8000)])
+    from . import research
+    page = research.fetch(a["url"], max_chars=int(a.get("max_chars") or 8000))
+    return "HTTP %d %s%s\n%s" % (page["status"], page["url"], (" — " + page["title"]) if page["title"] else "", page["text"])
 
 def t_web_search(a, ctx):
-    import requests
-    q = a["query"]
-    r = requests.get("https://html.duckduckgo.com/html/", params={"q": q}, timeout=30, headers={"User-Agent": "Mozilla/5.0 AIXMOS/2.0"})
-    html = r.text
-    out = []
-    for m in re.finditer(r'<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>(.*?)</a>.*?(?:<a[^>]+class="result__snippet"[^>]*>(.*?)</a>)?', html, flags=re.S):
-        href = m.group(1)
-        mm = re.search(r"uddg=([^&]+)", href)
-        if mm:
-            href = urllib.parse.unquote(mm.group(1))
-        title = re.sub(r"<[^>]+>", "", m.group(2)).strip()
-        snip = re.sub(r"<[^>]+>", "", m.group(3) or "").strip()
-        out.append("- %s\n  %s\n  %s" % (title, href, snip[:200]))
-        if len(out) >= int(a.get("max_results") or 8):
-            break
-    return "\n".join(out) or "no results (search engine blocked or offline)"
+    from . import research
+    hits, errors = research.search(a["query"], n=int(a.get("max_results") or 8))
+    out = ["- %s\n  %s\n  %s" % (h["title"], h["url"], h["snippet"][:200]) for h in hits]
+    if errors and not hits:
+        return "no results (" + "; ".join(errors) + ")"
+    return "\n".join(out) + ("\n(engine: %s)" % (hits[0]["engine"] if hits else "")) if out else "no results"
+
+def t_research(a, ctx):
+    from . import research
+    rep = research.run(a["question"], depth=a.get("depth") or "normal", cross=bool(a.get("cross_reference", True)))
+    return rep["markdown"]
 
 def t_knowledge_search(a, ctx):
     hits = knowledge.search(a["query"], k=int(a.get("k") or 5), pack=a.get("pack"))
@@ -249,7 +234,8 @@ TOOLS = [
     ("run_command", "Run a PowerShell command inside the workspace (build, test, git, install). Returns exit code and output.", {"command": "string", "cwd": "string", "timeout": "integer"}, ["command"], t_run_command, "builder"),
     ("run_python", "Execute a Python snippet in the workspace and return its output.", {"code": "string", "cwd": "string", "timeout": "integer"}, ["code"], t_run_python, "builder"),
     ("web_fetch", "Fetch a URL and return its readable text.", {"url": "string", "max_chars": "integer"}, ["url"], t_web_fetch, "safe"),
-    ("web_search", "Search the web (DuckDuckGo) and return titles, links, snippets.", {"query": "string", "max_results": "integer"}, ["query"], t_web_search, "safe"),
+    ("web_search", "Search the web (Google when a key is configured, otherwise DuckDuckGo) and return titles, links, snippets.", {"query": "string", "max_results": "integer"}, ["query"], t_web_search, "safe"),
+    ("research", "Deep web research: search, read the top pages, and cross-reference the findings against the built-in vault. Returns a cited report with agreements, conflicts and gaps. Use for anything current, factual or contested.", {"question": "string", "depth": "string", "cross_reference": "boolean"}, ["question"], t_research, "safe"),
     ("knowledge_search", "Search the AI Building Kit vault (playbooks on agencies, outreach, content, sales, receptionist, apps, MCP, shipping).", {"query": "string", "k": "integer", "pack": "string"}, ["query"], t_knowledge_search, "safe"),
     ("remember", "Store a durable note for future runs.", {"note": "string", "tags": "array"}, ["note"], t_remember, "safe"),
     ("recall", "Search stored notes.", {"query": "string"}, ["query"], t_recall, "safe"),

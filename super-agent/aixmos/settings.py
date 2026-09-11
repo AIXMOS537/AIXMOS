@@ -36,6 +36,10 @@ PROVIDERS = {
                    "help": "dev.runwayml.com"},
     "luma":       {"label": "Luma Dream Machine", "fields": ["api_key"], "caps": ["video"],
                    "defaults": {"video_model": "ray-2"}, "help": "lumalabs.ai/dream-machine/api/keys"},
+    "google_search": {"label": "Google Search (Custom Search JSON API)", "fields": ["api_key", "cx"], "caps": ["search"],
+                      "defaults": {}, "help": "console.cloud.google.com -> enable Custom Search API -> key; programmablesearchengine.google.com -> engine that searches the entire web -> cx (Search engine ID). Without it, research falls back to DuckDuckGo."},
+    "serpapi":       {"label": "SerpAPI (Google results)", "fields": ["api_key"], "caps": ["search"],
+                      "defaults": {}, "help": "serpapi.com/manage-api-key"},
     "google_oauth":    {"label": "Google account sign-in (Gmail)", "fields": ["client_id", "client_secret"],
                         "caps": ["email"], "defaults": {},
                         "help": "console.cloud.google.com -> OAuth client (Web) with redirect http://localhost:8770/oauth/google"},
@@ -97,7 +101,7 @@ def configured(provider):
     if not meta["fields"]:
         return True
     cur = load()["providers"].get(provider) or {}
-    need = [f for f in meta["fields"] if f in SECRET_FIELDS or f == "client_id"]
+    need = [f for f in meta["fields"] if f in SECRET_FIELDS or f in ("client_id", "cx")]
     return all(cur.get(f) for f in need)
 
 def providers_for(cap):

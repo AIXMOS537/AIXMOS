@@ -7,8 +7,9 @@ VID_NOUNS = r"(?:video|clip|animation|movie|film|reel)"
 MAKE_VERBS = r"(?:generate|create|make|draw|render|paint|design|produce|show me|give me|build|imagine|visualize|visualise)"
 EDIT_WORDS = r"(?:trim|cut|crop|speed up|slow down|slow-mo|slowmo|mute|reverse|caption|subtitle|black and white|grayscale|greyscale|resize|rotate|flip|fade|brighter|darker|louder|quieter|gif|extract the audio|add text|overlay|watermark|stabili[sz]e|vertical|9:16|square|zoom|sepia|blur|sharpen|volume|loop)"
 BUILD_NOUNS = r"(?:script|app|application|project|website|landing page|cli|tool|program|dashboard|api|bot|scraper|automation|spreadsheet|report)"
-SLASH = r"^/(image|img|video|vid|edit|email|mail|agent|run|carousel|vault|kb|skill|use|lead|book)\s*(.*)$"
-ALIAS = {"img": "image", "vid": "video", "mail": "email", "run": "agent", "kb": "vault", "use": "skill"}
+SLASH = r"^/(image|img|video|vid|edit|email|mail|agent|run|carousel|vault|kb|skill|use|lead|book|research|google|web|search|factcheck|fact-check|xref)\s*(.*)$"
+ALIAS = {"img": "image", "vid": "video", "mail": "email", "run": "agent", "kb": "vault", "use": "skill",
+         "google": "research", "web": "research", "search": "research", "factcheck": "research", "fact-check": "research", "xref": "research"}
 
 def detect(text, has_video=False):
     t = (text or "").strip()
@@ -26,11 +27,18 @@ def detect(text, has_video=False):
             return {"kind": "edit", "instruction": rest}
         if kind == "agent":
             return {"kind": "agent", "goal": rest}
-        if kind in ("carousel", "vault", "skill", "lead", "book"):
+        if kind in ("carousel", "vault", "skill", "lead", "book", "research"):
             return {"kind": kind, "arg": rest}
         return {"kind": kind, "prompt": rest}
     if re.match(r"^agent\s*[:,-]\s*\S", low):
         return {"kind": "agent", "goal": re.sub(r"^agent\s*[:,-]\s*", "", t, flags=re.I).strip()}
+    # Web research / fact-check phrasing
+    m = re.match(r"^(?:please\s+|can you\s+|could you\s+)?(?:google|research|look up|lookup|search (?:the web|online|google) for|search for|fact[- ]?check|cross[- ]?reference|verify online|find out online)\s*[:,]?\s*(.+)$", t, flags=re.I | re.S)
+    if m and len(m.group(1).strip()) > 3:
+        return {"kind": "research", "arg": m.group(1).strip().rstrip("?.") + ("?" if t.strip().endswith("?") else "")}
+    if re.search(r"\b(on google|online|on the web|latest|current|as of (20\d\d|today|now)|recent|this (week|month|year)|news about|what does the internet say)\b", low) \
+       and re.search(r"\b(what|how|who|when|where|which|why|is|are|does|do|should|compare|vs|versus)\b", low):
+        return {"kind": "research", "arg": t.strip()}
     # Carousel before generic build phrasing
     if re.search(r"\b(make|create|write|build|generate)\s+(me\s+)?(a\s+|an\s+)?(instagram\s+|ig\s+)?carousel\b", low):
         return {"kind": "carousel", "arg": re.sub(r"^.*?carousel\s*(about|on|for)?\s*", "", t, flags=re.I).strip() or t}

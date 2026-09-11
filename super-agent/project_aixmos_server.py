@@ -31,7 +31,7 @@ sys.path.insert(0, DIR)
 sys.path.insert(1, os.path.join(DIR, "vendor"))   # pure-python deps (requests) vendored next to the server
 import context_tools  # safe live-context layer: time / location / weather / system stats
 from aixmos import settings, media, jobs, llm, intents, imagegen, videogen, videoedit, email_tools
-from aixmos import knowledge, skills, crm, carousel, agent, surfaces
+from aixmos import knowledge, skills, crm, carousel, agent, surfaces, research
 
 OLLAMA   = "http://localhost:11434"
 MEMDIR   = os.path.join(DIR, "memory")
@@ -343,6 +343,12 @@ class Handler(BaseHTTPRequestHandler):
                 if not out: raise ValueError("could not read a lead from that text")
                 lead = crm.upsert_lead(out)
                 final = "Lead saved to the CRM (id %s): %s" % (lead["id"], ", ".join("%s=%s" % (k, v) for k, v in out.items()))
+            elif kind == "research":
+                self._event({"tool": {"kind": "research", "status": "working", "text": "Scouring the web and cross-referencing the vault..."}})
+                rep = research.run(intent.get("arg") or "", depth=req.get("depth") or "normal", cross=True,
+                                   progress=lambda m: self._event({"tool": {"kind": "research", "status": "working", "text": m}}))
+                self._event({"tool": {"kind": "research", "item": rep}})
+                final = rep["markdown"]
             elif kind == "book":
                 out = llm.json_call("Extract an appointment from the text. Return JSON: {name, contact, when (ISO-like date and time as written), tz, service, notes}. Unknown fields empty.", intent.get("arg") or "", num_ctx=2048, timeout=120) or {}
                 ap = crm.book(out)

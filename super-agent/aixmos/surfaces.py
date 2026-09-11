@@ -63,6 +63,13 @@ def run_intent(h, intent, req):
         h._event({"tool": {"kind": "carousel", "item": c}})
         return "Carousel ready (%d slides):\n%s\n\nCaption:\n%s\n%s" % (
             len(c["slides"]), "\n".join(s["url"] for s in c["slides"]), c["caption"], " ".join(c["hashtags"]))
+    if kind == "research":
+        from . import research
+        h._event({"tool": {"kind": "research", "status": "working", "text": "Scouring the web and cross-referencing the vault..."}})
+        rep = research.run(intent.get("arg") or "", depth=(req or {}).get("depth") or "normal", cross=True,
+                           progress=lambda m: h._event({"tool": {"kind": "research", "status": "working", "text": m}}))
+        h._event({"tool": {"kind": "research", "item": rep}})
+        return rep["markdown"]
     if kind == "vault":
         q = intent.get("arg") or ""
         hits = knowledge.search(q, k=5)
@@ -128,6 +135,9 @@ def route_get(h, p, g):
         h._json(crm.dashboard())
     elif p == "/api/carousels":
         h._json({"items": carousel.history(), "brand": carousel.brand(), "layouts": carousel.LAYOUTS})
+    elif p == "/api/research":
+        from . import research
+        h._json({"history": research.history(), "engines": research.engines()})
     elif p == "/api/agent/runs":
         live = [j for j in jobs.list_jobs(50) if j["kind"] == "agent"]
         h._json({"live": live, "history": agent.runs(), "tools": [t["function"]["name"] for t in agent.tool_schemas("full")],
@@ -200,6 +210,12 @@ def route_post(h, p):
             account_id=(accs[0]["id"] if accs else None), length="short")
         crm.sequence_step(seq["id"], st["n"], "drafted", d)
         h._json({"draft": {"to": [seq["contact"]] if seq.get("contact") else [], **d}, "seq": seq["id"], "n": st["n"]})
+    elif p == "/api/research":
+        from . import research
+        b = h._body()
+        rep = research.run(b.get("question") or "", depth=b.get("depth") or "normal", cross=b.get("cross", True))
+        h.remember("user", "/research " + rep["question"]); h.remember("assistant", rep["markdown"])
+        h._json(rep)
     elif p == "/api/carousel":
         b = h._body()
         c = carousel.build(b.get("topic"), b.get("audience") or "", b.get("layout") or "B_list", b.get("slides") or 6, b.get("extra") or "", b.get("brand"))

@@ -575,6 +575,7 @@
     <section class="view" id="view-vault">
       <div class="scroll">
         <div class="tabs">
+          <button class="btn" data-ktab="research">Research the web</button>
           <button class="btn on" data-ktab="search">Search the vault</button>
           <button class="btn" data-ktab="skills">Skills</button>
           <button class="btn" data-ktab="prompts">Prompt library</button>
@@ -609,6 +610,23 @@
             <div class="inline"><input class="f" id="promptQuery" placeholder="filter: proof, hook, scope, review, cold email…"><button class="btn" id="promptGo">Filter</button></div>
             <div class="list" id="promptList" style="margin-top:10px"></div>
           </div>
+        </div>
+        <div id="ktab-research" class="grid2" style="display:none">
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <div class="panel">
+              <h2>Web research <span class="sub" id="rsEngines"></span></h2>
+              <label class="f">Question</label>
+              <textarea class="f" id="rsQuery" placeholder="e.g. best follow-up cadence for cold email in 2026" style="min-height:60px"></textarea>
+              <div class="row">
+                <div><label class="f">Depth</label><select class="f" id="rsDepth"><option value="quick">quick · 5 results, 2 pages</option><option value="normal" selected>normal · 8 results, 4 pages</option><option value="deep">deep · 10 results, 7 pages</option></select></div>
+              </div>
+              <label class="toggle"><input type="checkbox" id="rsCross" checked> Cross-reference findings with the vault (agreements, conflicts, gaps)</label>
+              <div class="row" style="margin-top:10px"><button class="btn primary" id="rsGo">Research</button></div>
+              <div class="note" id="rsStatus" style="margin-top:8px">Uses Google when a Custom Search key is set under Integrations, otherwise DuckDuckGo. In chat: <b>/research …</b>, <b>google …</b>, <b>fact-check …</b>.</div>
+            </div>
+            <div class="panel"><h2>Past research</h2><div class="list" id="rsHistory"></div></div>
+          </div>
+          <div class="panel"><h2>Report</h2><div id="rsReport"><span class="note">Ask a question to see the cross-referenced report.</span></div></div>
         </div>
         <div id="ktab-packs" class="grid2" style="display:none">
           <div class="panel"><h2>Packs</h2><div class="list" id="packList"></div></div>
@@ -857,7 +875,8 @@ function toolCard(msgEl, tool){
   let card = msgEl.querySelector('.toolcard[data-kind="'+tool.kind+'"]');
   if(!card){ card = el('div',{class:'toolcard','data-kind':tool.kind}); msgEl.appendChild(card); }
   card.innerHTML='';
-  const title = {image:'Image synthesis',video:'Video synthesis',edit:'Video edit',email:'Mail draft',agent:'Super agent',carousel:'Carousel'}[tool.kind]||tool.kind;
+  const title = {image:'Image synthesis',video:'Video synthesis',edit:'Video edit',email:'Mail draft',agent:'Super agent',carousel:'Carousel',research:'Web research × vault'}[tool.kind]||tool.kind;
+  if(tool.kind==='research' && tool.item){ card.appendChild(el('div',{class:'t'},title)); const a=tool.item.analysis; if(a) card.appendChild(el('div',{}, el('span',{class:'tag '+(a.confidence==='high'?'on':(a.confidence==='low'?'bad':'warn'))},'confidence '+a.confidence), el('span',{class:'note'},' '+(a.agreements||[]).length+' agree · '+(a.conflicts||[]).length+' conflict · '+(a.web_only||[]).length+' web-only'))); const srcs=el('div',{class:'row'}); (tool.item.web||[]).slice(0,5).forEach(w=>srcs.appendChild(el('a',{class:'btn sm',href:w.url,target:'_blank'}, (w.tag||'')+' '+(w.title||w.url).slice(0,40)))); card.appendChild(srcs); card.appendChild(el('div',{class:'row'}, el('button',{class:'btn sm',onclick:()=>{ showView('vault'); setKTab('research'); renderResearch(tool.item); }},'Open full report'))); scrollToBottom(); return; }
   if(tool.kind==='agent' && tool.job){ card.appendChild(el('div',{class:'t'},title)); card.appendChild(el('div',{class:'note'},'Run '+tool.job+' started. Steps stream in the Agent panel.')); card.appendChild(el('div',{class:'row'}, el('button',{class:'btn sm primary',onclick:()=>{ state.agentRun=tool.job; showView('agent'); }},'Open Agent panel'))); scrollToBottom(); return; }
   if(tool.kind==='carousel' && tool.item){ card.appendChild(el('div',{class:'t'},title)); const strip=el('div',{class:'media'}); tool.item.slides.forEach(s=>strip.appendChild(el('img',{src:s.url,style:'max-width:180px',onclick:()=>window.open(s.url,'_blank')}))); card.appendChild(strip); card.appendChild(el('div',{class:'note'},tool.item.caption)); scrollToBottom(); return; }
   const t = el('div',{class:'t'}, title);
@@ -1401,7 +1420,38 @@ $('#agentAnswer').addEventListener('keydown',e=>{ if(e.key==='Enter') $('#agentA
 $('#agentCancel').addEventListener('click', async()=>{ if(!state.agentRun) return; try{ await apiPost('/api/agent/cancel',{id:state.agentRun}); toast('Cancelling…'); }catch(e){ toast(e.message,true); } });
 
 // ============================================================ vault & skills ====
-function setKTab(t){ $$('[data-ktab]').forEach(b=>b.classList.toggle('on',b.dataset.ktab===t)); ['search','skills','prompts','packs'].forEach(x=>$('#ktab-'+x).style.display=(x===t)?'':'none'); }
+function setKTab(t){ $$('[data-ktab]').forEach(b=>b.classList.toggle('on',b.dataset.ktab===t)); ['research','search','skills','prompts','packs'].forEach(x=>$('#ktab-'+x).style.display=(x===t)?'':'none'); if(t==='research') loadResearch(); }
+// ---- web research + cross-reference
+async function loadResearch(){
+  try{ const j=await apiGet('/api/research'); $('#rsEngines').textContent='engines: '+(j.engines||[]).join(' → ');
+    const H=$('#rsHistory'); H.innerHTML=''; (j.history||[]).forEach(r=>{ const it=el('div',{class:'item'}, el('div',{}, r.question), el('div',{class:'m'}, fmtT(r.ts)+' · '+r.depth+(r.analysis?' · '+r.analysis.confidence:''))); it.addEventListener('click',()=>renderResearch(r)); H.appendChild(it); });
+    if(!H.children.length) H.appendChild(el('span',{class:'note'},'No research yet.'));
+  }catch(e){ toast(e.message,true); }
+}
+function renderResearch(r){
+  const R=$('#rsReport'); R.innerHTML='';
+  R.appendChild(el('div',{class:'note'}, 'Engines: '+(r.engines||[]).join(', ')+(r.errors&&r.errors.length?' · issues: '+r.errors.join('; '):'')));
+  const a=r.analysis;
+  if(a){
+    R.appendChild(el('div',{style:'margin:10px 0;line-height:1.55;white-space:pre-wrap'}, a.answer));
+    R.appendChild(el('div',{}, el('span',{class:'tag '+(a.confidence==='high'?'on':(a.confidence==='low'?'bad':'warn'))}, 'confidence '+a.confidence), el('span',{class:'note'},' '+(a.confidence_reason||''))));
+    [['Where vault and web agree','agreements','on'],['Where they conflict','conflicts','bad'],['Only in your vault','vault_only',''],['Only on the web','web_only','warn']].forEach(([label,key,cls])=>{
+      if(a[key]&&a[key].length){ R.appendChild(el('label',{class:'f'},label)); const ul=el('div',{class:'list'}); a[key].forEach(x=>ul.appendChild(el('div',{class:'item',style:'cursor:default'}, el('span',{class:'tag '+cls}, key.replace('_',' ')), ' '+x))); R.appendChild(ul); }
+    });
+    if(a.next_step) R.appendChild(el('div',{class:'note',style:'margin-top:8px'}, 'Next step: '+a.next_step));
+  }
+  if(r.vault&&r.vault.length){ R.appendChild(el('label',{class:'f'},'Vault sources')); r.vault.forEach(v=>R.appendChild(el('div',{class:'item'}, el('span',{class:'tag on'},v.tag), ' '+v.pack+' / '+v.file.split('/').pop()+' — '+v.title, el('div',{class:'note'},v.snippet)))); }
+  const web=(r.web&&r.web.length)?r.web:(r.results||[]).map((w,i)=>({tag:'W'+(i+1),title:w.title,url:w.url,engine:w.engine,snippet:w.snippet}));
+  if(web.length){ R.appendChild(el('label',{class:'f'},'Web sources')); web.forEach(w=>R.appendChild(el('div',{class:'item',style:'cursor:default'}, el('span',{class:'tag'},w.tag||''), ' ', el('a',{href:w.url,target:'_blank',style:'color:var(--accent)'}, w.title||w.url), el('div',{class:'note'},(w.engine?w.engine+' · ':'')+(w.snippet||'').slice(0,240))))); }
+  R.appendChild(el('div',{class:'row',style:'margin-top:10px'}, el('button',{class:'btn sm',onclick:()=>{ input.value='Based on this research: '+r.question+'\n'+(a?a.answer:''); showView('chat'); autoGrow(); }},'Continue in chat'), el('button',{class:'btn sm',onclick:()=>{ $('#agentGoal').value='Using this research as context, '+r.question+'\n\n'+(r.markdown||''); showView('agent'); }},'Give to agent')));
+}
+$('#rsGo').addEventListener('click', async()=>{
+  const q=$('#rsQuery').value.trim(); if(!q) return; const st=$('#rsStatus'); st.textContent='Searching, reading pages, cross-referencing… (about a minute on this machine)'; $('#rsGo').disabled=true; $('.nav[data-view="vault"]').classList.add('busy');
+  try{ const r=await apiPost('/api/research',{question:q,depth:$('#rsDepth').value,cross:$('#rsCross').checked}); renderResearch(r); st.textContent='Done via '+(r.engines||[]).join(', ')+'.'; loadResearch(); }
+  catch(e){ st.textContent='Error: '+e.message; }
+  $('#rsGo').disabled=false; $('.nav[data-view="vault"]').classList.remove('busy');
+});
+$('#rsQuery').addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); $('#rsGo').click(); } });
 $$('[data-ktab]').forEach(b=>b.addEventListener('click',()=>setKTab(b.dataset.ktab)));
 async function loadVault(){
   try{

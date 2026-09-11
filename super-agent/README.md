@@ -44,6 +44,15 @@ Manual: `python project_aixmos_server.py 8770`.
 | `/skill receptionist` (or appointment-setter, cold-outreach, content-engine, sales-pack …) | AIXMOS follows that pack's playbook in every reply |
 | `/vault how do I qualify a lead` | raw passages from the kit |
 | `/lead …`, `/book …`, `/carousel …` | CRM lead, appointment, Instagram carousel |
+| `/research …`, `google …`, `fact-check …`, `look up …` | scours the web, reads the top pages, and cross-references them against the vault: agreements, conflicts, gaps, sources |
+
+## Web research and cross-referencing
+`aixmos/research.py` searches Google through the official Custom Search JSON API when you add an API key
+and Search-engine ID under Integrations (SerpAPI is also supported), and falls back to DuckDuckGo with no
+key. It reads the top pages in parallel, extracts the passages that match the question, pulls the matching
+vault passages, and has the local model produce a cited report: answer, where vault and web agree, where they
+conflict, what only the vault says, what only the web adds, a confidence rating and a next step. Available in
+chat, in the Vault panel's "Research the web" tab, and to the agent as the `research` tool.
 
 ## Use it from other software
 * **OpenAI-compatible API**: base URL `http://localhost:8770/v1`, any key, model `aixmos`
