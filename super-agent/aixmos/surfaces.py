@@ -373,6 +373,11 @@ def mcp(h):
 # -------------------------------------------------------------------- boot ----
 def boot_index():
     try:
+        # The installer records the role before anyone answers the intake: make sure a TMMT role's
+        # certification path is in the vault on first start, so /vault and the agent can find it.
+        if genesis.is_tmmt(genesis.state().get("role")):
+            from . import pathway
+            pathway.ensure_pack()
         st = knowledge.stats()
         root = settings.pref("kit_path") or knowledge.DEFAULT_ROOT
         newest = max((os.path.getmtime(os.path.join(dp, f)) for dp, dn, fn in os.walk(root) for f in fn), default=0) if os.path.isdir(root) else 0

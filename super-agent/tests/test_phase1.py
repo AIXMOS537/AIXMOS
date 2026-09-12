@@ -201,6 +201,16 @@ class Onboarding(unittest.TestCase):
         self.assertFalse(genesis.view()["console"])     # candidates don't get the operator console
 
 
+class PathwayOnFirstStart(unittest.TestCase):
+    def test_installer_seeded_role_gets_the_pack_at_boot(self):
+        from aixmos import surfaces
+        shutil.rmtree(pathway.PACK, ignore_errors=True)
+        with open(genesis.FILE, "w", encoding="utf-8") as f:     # what installer.seed_genesis() writes
+            f.write('{"role": "tmmt_pathway"}')
+        surfaces.boot_index()
+        self.assertTrue(os.path.isfile(os.path.join(pathway.PACK, "modules.md")))
+
+
 class Pathway(unittest.TestCase):
     def setUp(self):
         if os.path.exists(pathway.FILE):
