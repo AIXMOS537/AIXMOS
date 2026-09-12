@@ -36,7 +36,9 @@ EXE_NAME = "AIXMOS-4THEPEOPLE-Setup.exe"
 APP_FILES = ["project_aixmos_server.py", "context_tools.py", "index.html", "README.md", "TODO.md"]
 SKIP_DIRS = {"__pycache__", ".git", "node_modules"}
 BRAIN = os.path.join(HOME, "AIXMOS-Brain")
-OPERATOR_KIT = os.path.join(BRAIN, "dist", "operator-kit")
+# Business material only (playbooks, scorecards, onboarding). The owner's blueprint, device, NAS
+# and local-AI notes stay home; build-operator-kit.ps1 -Business emits exactly this set.
+OPERATOR_KIT = os.path.join(BRAIN, "dist", "operator-kit-business")
 OPERATOR_CONSOLE = os.path.join(HOME, "CommandCenter", "TeamDashboards", "_onboarding", "Dashboard-New-Operator.html")
 CSC = r"C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
 MAGIC = b"AIXMOS4P"
@@ -87,7 +89,7 @@ def refresh_operator_kit():
     """Regenerate the shippable half of the brain through its own allowlist/domain/PII gates."""
     script = os.path.join(BRAIN, "build-operator-kit.ps1")
     if os.path.isfile(script):
-        subprocess.run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script], check=True)
+        subprocess.run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script, "-Business"], check=True)
     if not os.path.isdir(OPERATOR_KIT):
         raise SystemExit("operator kit missing at %s" % OPERATOR_KIT)
 
