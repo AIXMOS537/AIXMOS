@@ -297,6 +297,7 @@ function Cmd-Help {
         'aixmos online'       = 'the live side + the owner gates'
         'aixmos manifest'     = 'rewrite MANIFEST.md from what is actually here'
         'aixmos replicate E:' = 'stage this kit onto a drive'
+        'aixmos bootstick'    = 'build the TMMT + JARVIS stick (plug-in + bootable)'
         'aixmos help'         = 'this'
     }
     foreach ($k in $rows.Keys) {
@@ -316,6 +317,7 @@ switch -Regex ($Command.ToLower()) {
     '^online$'              { Cmd-Online }
     '^manifest$'            { Cmd-Manifest }
     '^replicate$'           { Cmd-Replicate }
+    '^bootstick$'           { & (Join-Path $PSScriptRoot 'bootstick.ps1') @Rest }
     '^(help|-h|--help|\?)$' { Cmd-Help }
     default { Bad "unknown: $Command"; Cmd-Help }
 }

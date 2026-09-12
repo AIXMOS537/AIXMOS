@@ -152,6 +152,54 @@
       ]
     }
   },
+  "bootstick": {
+    "why": "One stick: plug into any Windows PC and run START-HERE.bat, or boot the Surface from it (Debian Live). Built by bin/bootstick.ps1.",
+    "stage": "C:/AIXMOS-BOOTSTICK",
+    "boot_label": "AIXBOOT",
+    "data_label": "AIXMOS-X",
+    "models": "_RUNTIME/ollama/models",
+    "installer": {
+      "why": "The one shippable JARVIS installer (4THEPEOPLE bundle, from installer/build_installer.py). AIXMOS-Setup.exe is retired.",
+      "windows": "_INSTALLERS/AIXMOS-4THEPEOPLE/AIXMOS-4THEPEOPLE-Setup.exe",
+      "mac_linux": "_INSTALLERS/AIXMOS-4THEPEOPLE/mac-linux/install.sh",
+      "readme": "_INSTALLERS/AIXMOS-4THEPEOPLE/START-HERE.txt"
+    },
+    "exclude_dirs": ["node_modules", ".next", ".turbo", ".vercel", "test-results", "playwright-report", "__pycache__", ".pytest_cache", "$RECYCLE.BIN", ".claude"],
+    "exclude_files": [".env", ".env.local", ".env.local.*", ".env.production", ".env.production.*", ".env.development.local", ".env.test.local", ".env.vercel", ".env.vercel.*", ".env.legacy"],
+    "exclude_dirs_extra": {
+      "automation": ["project-aixmos/dist", "project-aixmos/installer/cache", "project-aixmos/installer/build"]
+    },
+    "exclude_files_extra": {
+      "automation": ["payload.zip", "settings.json.bak*"]
+    },
+    "strip": ["TMMT-WORK/Automation/project-aixmos/memory/settings.json"],
+    "extras": [
+      { "local": "TMMT-worktrees", "drive": "TMMT-WORK/TMMT-worktrees" },
+      { "local": "TMMT-GOKIT", "drive": "TMMT-WORK/TMMT-GOKIT" },
+      { "local": "LocalModels", "drive": "_RUNTIME/ollama/Modelfiles" },
+      { "local": "Automation/project-aixmos/dist/AIXMOS-4THEPEOPLE", "drive": "_INSTALLERS/AIXMOS-4THEPEOPLE" },
+      { "local": "Desktop", "drive": "PERSONAL/Desktop" },
+      { "local": "Documents", "drive": "PERSONAL/Documents" },
+      { "local": "Downloads", "drive": "PERSONAL/Downloads" }
+    ],
+    "runtimes": {
+      "python": { "find": "python", "drive": "_RUNTIME/win/python", "exe": "python.exe" },
+      "node":   { "find": "node",   "drive": "_RUNTIME/win/node",   "exe": "node.exe" },
+      "git":    { "find": "git",    "drive": "_RUNTIME/win/git",    "exe": "cmd/git.exe", "up": 1 },
+      "ollama": { "find": "ollama", "drive": "_RUNTIME/win/ollama", "exe": "ollama.exe",
+                  "xd": ["cuda_*", "rocm_*"], "xf": ["unins*", "*.tmp", "ollama app.exe", "app.ico"] },
+      "ffmpeg": { "find": "ffmpeg", "drive": "_RUNTIME/win/ffmpeg", "exe": "ffmpeg.exe", "only": ["ffmpeg.exe", "ffprobe.exe"] }
+    },
+    "linux_ollama": {
+      "why": "The brain for the booted (Debian Live) side. Official ollama-linux-amd64.tar.zst, CPU parts only (bin/extract-linux-ollama.py). Match the Windows Ollama version.",
+      "release": "v0.34.0",
+      "local": "AIXMOS-RUNTIMES/linux/ollama",
+      "drive": "_RUNTIME/linux/ollama",
+      "exe": "bin/ollama"
+    },
+    "boot_dirs": ["EFI", "boot", "live", ".disk", "isolinux"],
+    "boot_files": ["BOOTED-RUN-LLM.sh", "md5sum.txt", "sha256sum.txt"]
+  },
   "gates": {
     "push": "No blind push. Owner go required before commit/push on canon.",
     "deploy": "Vercel deploy blocked by owner gate.",
