@@ -18,7 +18,7 @@ It is stdlib-only, so it runs before the vendored packages are wired. On the tar
   6. starts the server and opens the first-boot introduction
 
 Re-running upgrades the app and keeps memory/ (conversation, settings, CRM, media, genesis).
-Flags: --role tmmt_operator|aixmos_member|both  --tmmt-dev  --port N  --no-ollama  --no-model
+Flags: --role student|employee|tmmt_pathway|tmmt_operator|builder  --tmmt-dev  --port N  --no-ollama  --no-model
        --no-autostart  --no-launch  --quiet
 Secrets never ship: no API key, service-role key or .env value is in the payload. Keys are
 entered by the person who owns them, on their own machine, in the Integrations panel.
@@ -29,8 +29,14 @@ APP = "AIXMOS"
 PORT = 8770
 MODEL = "qwen2.5:3b"
 OLLAMA_URL = "https://ollama.com/download/OllamaSetup.exe"
+OLLAMA_PUBLISHER = "Ollama"          # must appear in the Authenticode signer subject
 TMMT_REPO = "https://github.com/AIXMOS537/TMMT.git"   # canon. Never the Metavibez4L decoy.
-ROLES = {"1": "tmmt_operator", "2": "aixmos_member", "3": "both"}
+ROLES = {"1": "student", "2": "employee", "3": "tmmt_pathway", "4": "tmmt_operator", "5": "aixmos_member"}
+ROLE_ALIASES = {"builder": "aixmos_member", "entrepreneur": "aixmos_member", "movement": "aixmos_member",
+                "pathway": "tmmt_pathway", "candidate": "tmmt_pathway", "operator": "tmmt_operator"}
+VALID_ROLES = set(ROLES.values()) | {"both"}          # "both" = older installs; still honoured
+OPERATOR_ROLES = ("tmmt_operator", "both")             # get the role-locked console and the dev lane
+TMMT_ROLES = OPERATOR_ROLES + ("tmmt_pathway",)        # get the operator playbooks + certification path
 NOWIN = 0x08000000
 
 class Log:
@@ -68,6 +74,20 @@ def download(url, dest, log, label):
                 if pct // 5 != last // 5:
                     log("    %3d%%  (%d / %d MB)" % (pct, done >> 20, total >> 20), end="\r"); last = pct
     log("    done (%d MB)" % (os.path.getsize(dest) >> 20))
+
+def signed_by(path, publisher, log):
+    """Only run a downloaded executable when Windows says its Authenticode signature is valid and the
+    signer is the expected publisher. A tampered or swapped download fails here instead of running."""
+    ps = ("$s=Get-AuthenticodeSignature -LiteralPath '%s'; "
+          "Write-Output ($s.Status.ToString() + '|' + $s.SignerCertificate.Subject)") % path.replace("'", "''")
+    try:
+        out = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", ps],
+                             capture_output=True, text=True, timeout=120, creationflags=NOWIN).stdout.strip()
+    except (OSError, subprocess.TimeoutExpired) as e:
+        log("    could not check the signature (%s)" % e); return False
+    status, _, subject = out.partition("|")
+    log("    signature: %s (%s)" % (status or "unknown", subject or "no signer"))
+    return status == "Valid" and publisher.lower() in subject.lower()
 
 def run(cmd, log, timeout=None, check=False, **kw):
     log("  > " + (" ".join(cmd) if isinstance(cmd, list) else cmd))
@@ -138,6 +158,11 @@ def ensure_ollama(log, want_ollama, want_model):
             download(OLLAMA_URL, tmp, log, "Ollama installer (official, ollama.com)")
         except Exception as e:
             log("    could not download Ollama (%s). Install it from https://ollama.com and re-run setup." % e); return None
+        if not signed_by(tmp, OLLAMA_PUBLISHER, log):
+            log("    the download is not validly signed by %s, so it was NOT run. Install Ollama from https://ollama.com and re-run setup." % OLLAMA_PUBLISHER)
+            try: os.remove(tmp)
+            except OSError: pass
+            return None
         log("    installing Ollama silently (this can take a minute)")
         run([tmp, "/VERYSILENT", "/NORESTART", "/SP-"], log, timeout=1800)
         exe = os.path.join(os.environ.get("LOCALAPPDATA", ""), "Programs", "Ollama", "ollama.exe")
@@ -170,13 +195,16 @@ def ensure_ollama(log, want_ollama, want_model):
     return exe
 
 def choose_role(a, log):
-    role = a.role
-    if role not in ROLES.values():
+    role = (a.role or "").strip().lower()
+    role = ROLE_ALIASES.get(role, role)
+    if role not in VALID_ROLES:
         print("\n  Who is this machine for?")
-        print("    1) TMMT Operator     rentals / detailing / dispatch / sales inside the TMMT network")
-        print("    2) AIXMOS Movement   build your own business, product or project with AI")
-        print("    3) Both")
-        role = ROLES.get(ask("  Choose 1-3 [2]: ", "2", a.quiet), "aixmos_member")
+        print("    1) Student         school, a program, or teaching yourself")
+        print("    2) Employee        get your job done faster; work data stays on this machine")
+        print("    3) TMMT pathway    you want to become a licensed TMMT operator")
+        print("    4) TMMT operator   you already run rentals / detailing / dispatch / sales for TMMT")
+        print("    5) Entrepreneur    build your own business, product or project")
+        role = ROLES.get(ask("  Choose 1-5 [5]: ", "5", a.quiet), "aixmos_member")
     log("    role: %s" % role)
     return role
 
@@ -249,9 +277,12 @@ def provision(dest, a, log):
     role = choose_role(a, log)
     seed_genesis(dest, role)
     ico = os.path.join(dest, "aixmos.ico")
-    if role in ("tmmt_operator", "both"):
+    if role in TMMT_ROLES:
         kit = os.path.join(dest, "memory", "kit", "tmmt-operator-kit")
         log("    TMMT operator playbooks in the vault: %s" % ("yes" if os.path.isdir(kit) else "missing"))
+        if role == "tmmt_pathway":
+            log("    certification path: type /pathway in chat after first boot")
+    if role in OPERATOR_ROLES:
         console = os.path.join(dest, "operator", "TMMT-Operator-Console.html")
         if os.path.isfile(console):
             shortcut("TMMT Operator Console", console, os.path.dirname(console), ico, "TMMT operator console", log)

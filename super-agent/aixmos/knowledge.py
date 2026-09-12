@@ -174,7 +174,8 @@ def read(rel):
     _load()
     root = os.path.abspath(_IDX.get("root") or DEFAULT_ROOT)
     full = os.path.abspath(os.path.join(root, *str(rel).replace("\\", "/").split("/")))
-    if not full.startswith(root) or not os.path.isfile(full):
+    from .media import inside
+    if not inside(root, full) or not os.path.isfile(full):
         return None
     try:
         with open(full, "r", encoding="utf-8", errors="replace") as f:

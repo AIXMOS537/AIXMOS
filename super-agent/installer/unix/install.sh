@@ -2,7 +2,7 @@
 # PROJECT AIXMOS // 4THEPEOPLE -- one-shot installer for macOS and Linux.
 #
 #   bash install.sh                      # from the folder that holds aixmos-app.zip
-#   bash install.sh --role tmmt_operator # tmmt_operator | aixmos_member | both
+#   bash install.sh --role student       # student | employee | tmmt_pathway | tmmt_operator | builder
 #   flags: --dir PATH --port N --no-ollama --no-model --no-launch
 #
 # Installs to ~/AIXMOS, keeps memory/ on re-run (conversation, settings, CRM, media),
@@ -35,13 +35,16 @@ ZIP="$HERE/aixmos-app.zip"
 
 if [ -z "$ROLE" ] && [ -t 0 ]; then
   echo; echo "Who is this machine for?"
-  echo "  1) TMMT Operator      (rentals / detailing / dispatch / sales)"
-  echo "  2) AIXMOS Movement    (build your own business, product or project)"
-  echo "  3) Both"
-  printf "Choose 1-3 [2]: "; read -r c
-  case "$c" in 1) ROLE=tmmt_operator ;; 3) ROLE=both ;; *) ROLE=aixmos_member ;; esac
+  echo "  1) Student         (school, a program, or teaching yourself)"
+  echo "  2) Employee        (get your job done faster; work data stays here)"
+  echo "  3) TMMT pathway    (you want to become a licensed TMMT operator)"
+  echo "  4) TMMT operator   (you already run rentals / detailing / dispatch / sales)"
+  echo "  5) Entrepreneur    (build your own business, product or project)"
+  printf "Choose 1-5 [5]: "; read -r c
+  case "$c" in 1) ROLE=student ;; 2) ROLE=employee ;; 3) ROLE=tmmt_pathway ;; 4) ROLE=tmmt_operator ;; *) ROLE=aixmos_member ;; esac
 fi
 ROLE="${ROLE:-aixmos_member}"
+[ "$ROLE" = "builder" ] && ROLE=aixmos_member
 
 say "[1/6] Python 3"
 PY="$(command -v python3 || true)"
@@ -79,7 +82,12 @@ if ! command -v ollama >/dev/null; then
     if [ "$OS" = "Darwin" ]; then
       if command -v brew >/dev/null; then brew install ollama; else warn "Install Ollama from https://ollama.com/download (drag to Applications), then re-run."; fi
     else
-      curl -fsSL https://ollama.com/install.sh | sh || warn "Ollama install failed; see https://ollama.com"
+      # download first, then run: a dropped connection can't execute half a script, and the file can be inspected
+      OI="$(mktemp)"
+      if curl -fsSL --proto '=https' --tlsv1.2 -o "$OI" https://ollama.com/install.sh && [ -s "$OI" ]; then
+        sh "$OI" || warn "Ollama install failed; see https://ollama.com"
+      else warn "could not download the Ollama installer; see https://ollama.com"; fi
+      rm -f "$OI"
     fi
   else warn "skipped (--no-ollama)"; fi
 fi

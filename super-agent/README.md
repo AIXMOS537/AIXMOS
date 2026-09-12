@@ -38,18 +38,38 @@ whisper/         whisper.cpp binary + ggml-base.en model         (gitignored)
 | `mac-linux/AIXMOS-Install.command` (or `bash install.sh`) | macOS and Linux: installs to `~/AIXMOS`, creates a venv, installs Ollama, pulls the model |
 | `START-HERE.txt`, `SHA256SUMS.txt` | the two-minute instructions and checksums |
 
-Every install asks one question, **who is this machine for**: TMMT Operator, AIXMOS Movement, or Both.
-TMMT roles get the operator playbooks in the vault and the role-locked operator console; `--tmmt-dev`
-adds Git, Node, GitHub CLI, Claude Code and the canon app repo. Everyone gets the super agent, the
-vault, the CRM, media, mail and the first-boot **Genesis**: AIXMOS introduces itself, learns what you
-are building, shows every capability with live status and writes your first build plan.
+Every install first works out **who the user is**, and Genesis adapts to the answer:
+
+| Role (`--role`) | What AIXMOS does for them |
+|---|---|
+| `student` | study partner, deadline planner, research with sources, portfolio projects. It explains and coaches, and never writes graded work for them |
+| `employee` | email/document drafts, meeting notes to actions, small automations. Work data stays on the machine, and it asks about company AI policy |
+| `tmmt_pathway` | the path to becoming a licensed TMMT operator: 15-module certification (`/pathway`), 100-point rubric, price doors, fences, operator playbooks |
+| `tmmt_operator` | operator playbooks + the role-locked operator console; `--tmmt-dev` adds Git, Node, GitHub CLI, Claude Code and the canon app repo |
+| `builder` (`aixmos_member`) | build partner for their own business or product |
+
+Every role gets its own intake questions, capability showcase, first plan and guardrails, which are carried into
+every chat and agent prompt. Everyone gets the super agent, the vault, the CRM, media, mail and the first-boot **Genesis**.
 
 The Windows installer needs no admin rights (`%LOCALAPPDATA%\AIXMOS`), installs Ollama silently if it
 is missing, pulls `qwen2.5:3b` once (about 2 GB), writes Start/Stop launchers, a desktop shortcut and a
 per-user logon autostart, then opens the UI. Re-running upgrades the app and keeps `memory/`.
-Flags: `--role tmmt_operator|aixmos_member|both --tmmt-dev --dir PATH --port N --no-ollama --no-model
+Flags: `--role student|employee|tmmt_pathway|tmmt_operator|builder --tmmt-dev --dir PATH --port N --no-ollama --no-model
 --no-autostart --no-launch --no-shortcuts --no-mcp --quiet`. No secrets ship in the payload; a build
-gate refuses to package any live-looking key.
+gate refuses to package any live-looking key. Setup runs the downloaded Ollama installer only after
+Windows confirms a valid Authenticode signature from Ollama.
+
+## Security model (Phase 1)
+* The server answers only this machine: the Host must be localhost on its port, any Origin must be its own, and a
+  cross-site POST is refused. That stops web pages (CSRF) and DNS rebinding from driving it.
+* `/mcp` and `/v1` default to **safe** (read-only) tools. When nobody can answer the agent's question, the run stops
+  instead of the agent deciding for you.
+* Once a run has read web content, every write, command, Python run or email needs your yes for that exact call. Web
+  text is marked as untrusted data.
+* The agent cannot fetch this machine, the LAN or mesh (Tailscale) addresses, and each redirect is re-checked.
+* File access resolves links and junctions, so nothing escapes the workspace or the folders you allowed.
+* Pollinations (free, **public**) is off until you choose it, so image prompts never leave the machine by default.
+* Tests: `python -m unittest discover -s tests -v` (stdlib, no network, never touches `memory/`); CI runs them on Windows, macOS and Linux.
 
 ## Run from source
 `START-PROJECT-AIXMOS.bat` (starts the server on 8770 if the port is silent, opens the UI).
@@ -81,7 +101,8 @@ chat, in the Vault panel's "Research the web" tab, and to the agent as the `rese
   (chat with vault + skills + memory) or `aixmos-agent` (runs the agent, streams steps).
 * **MCP server**: `http://localhost:8770/mcp` (streamable HTTP). For Claude Code:
   `claude mcp add --transport http aixmos http://localhost:8770/mcp`. Tools follow the
-  `mcp_autonomy` preference (default *builder*: files and commands inside the workspace).
+  `mcp_autonomy` preference (default *safe*: read, search, vault, drafts; raise it to *builder* under Integrations
+  to allow files and commands inside the workspace).
 
 ## Super agent
 Autonomy levels: **safe** (read, search, generate), **builder** (+ write files, run commands and

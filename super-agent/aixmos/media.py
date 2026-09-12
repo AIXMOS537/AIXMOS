@@ -29,18 +29,26 @@ def url_for(path):
     rel = os.path.relpath(path, MEDIA).replace("\\", "/")
     return "/media/" + rel
 
+def inside(root, path):
+    """True when path (after resolving links, junctions and '..') is root or below it."""
+    root, path = os.path.realpath(root), os.path.realpath(path)
+    try:
+        return os.path.normcase(os.path.commonpath([root, path])) == os.path.normcase(root)
+    except ValueError:      # different drives on Windows
+        return False
+
 def path_for(url):
     """Resolve a /media/... url (or absolute media path) to a safe file path, or None."""
     if not url:
         return None
     if os.path.isabs(url):
         full = os.path.abspath(url)
-        return full if full.startswith(os.path.abspath(MEDIA)) and os.path.isfile(full) else None
+        return full if inside(MEDIA, full) and os.path.isfile(full) else None
     if not url.startswith("/media/"):
         return None
     rel = url[len("/media/"):].split("?")[0]
     full = os.path.abspath(os.path.join(MEDIA, *rel.split("/")))
-    if not full.startswith(os.path.abspath(MEDIA)) or not os.path.isfile(full):
+    if not inside(MEDIA, full) or not os.path.isfile(full):
         return None
     return full
 

@@ -295,6 +295,9 @@ PROVIDER_FNS = {"pollinations": _p_pollinations, "openai": _p_openai, "stability
                 "replicate": _p_replicate, "fal": _p_fal, "gemini": _p_gemini}
 EDIT_CAPABLE = {"openai", "gemini"}
 
+NO_PROVIDER = ("No image provider is set up. Add a key under Integrations, or switch on "
+               "'Pollinations (free, public)' there; with Pollinations your prompts go to a public service.")
+
 def choose_provider(requested=None):
     if requested and requested != "auto" and settings.configured(requested) and requested in PROVIDER_FNS:
         return requested
@@ -304,7 +307,9 @@ def choose_provider(requested=None):
     for cand in settings.providers_for("image"):
         if cand != "pollinations":
             return cand
-    return "pollinations"
+    if settings.public_image_ok():
+        return "pollinations"
+    raise RuntimeError(NO_PROVIDER)
 
 # ------------------------------------------------------------- generate ----
 def generate(prompt, provider=None, model=None, size=None, enhance=None, parent=None,
@@ -326,7 +331,7 @@ def generate(prompt, provider=None, model=None, size=None, enhance=None, parent=
         data, ext = PROVIDER_FNS[prov](final, mdl, size, source)
     except Exception as e:
         _bump(prov, "fail")
-        if allow_fallback and prov != "pollinations":
+        if allow_fallback and prov != "pollinations" and settings.public_image_ok():
             warning = "%s failed (%s); used Pollinations instead" % (prov, str(e)[:160])
             prov, mdl = "pollinations", settings.get("pollinations", "image_model")
             data, ext = _p_pollinations(final, mdl, size)

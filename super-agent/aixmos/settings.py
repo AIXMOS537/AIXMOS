@@ -8,7 +8,8 @@ to the browser except as a masked "....last4" indicator.
 import os, json, threading
 
 ROOT     = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MEMDIR   = os.path.join(ROOT, "memory")
+# AIXMOS_MEMDIR points a scratch install or the test suite at its own data folder.
+MEMDIR   = os.environ.get("AIXMOS_MEMDIR") or os.path.join(ROOT, "memory")
 FILE     = os.path.join(MEMDIR, "settings.json")
 _LOCK    = threading.Lock()
 RUNTIME  = {"port": 8770}
@@ -57,7 +58,10 @@ DEFAULT_PREFS = {
     "kit_path": "", "active_skill": "", "use_knowledge": True,
     # super agent
     "agent_model": "", "agent_autonomy": "builder", "agent_roots": "", "agent_max_steps": 24,
-    "agent_allow_send": False, "mcp_autonomy": "builder",
+    # MCP and /v1 callers cannot answer the agent's questions, so they default to read-only tools.
+    "agent_allow_send": False, "mcp_autonomy": "safe",
+    # Pollinations is a free *public* service: prompts leave the machine. Off until chosen.
+    "image_free_public": False,
 }
 
 def _read():
@@ -104,9 +108,14 @@ def configured(provider):
     need = [f for f in meta["fields"] if f in SECRET_FIELDS or f in ("client_id", "cx")]
     return all(cur.get(f) for f in need)
 
+def public_image_ok():
+    """True only when the user opted into the free public image service."""
+    return bool(pref("image_free_public")) or pref("image_provider") == "pollinations"
+
 def providers_for(cap):
     """Configured providers offering a capability, in registry order."""
-    return [p for p, m in PROVIDERS.items() if cap in m["caps"] and configured(p)]
+    return [p for p, m in PROVIDERS.items() if cap in m["caps"] and configured(p)
+            and (p != "pollinations" or public_image_ok())]
 
 def update(providers=None, prefs=None):
     """Merge updates. Empty string keeps the old value; the literal '__clear__' deletes it."""

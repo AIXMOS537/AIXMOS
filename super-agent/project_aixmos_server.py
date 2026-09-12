@@ -34,7 +34,7 @@ from aixmos import settings, media, jobs, llm, intents, imagegen, videogen, vide
 from aixmos import knowledge, skills, crm, carousel, agent, surfaces, research
 
 OLLAMA   = "http://localhost:11434"
-MEMDIR   = os.path.join(DIR, "memory")
+MEMDIR   = settings.MEMDIR          # honours AIXMOS_MEMDIR, same folder every module uses
 MEMFILE  = os.path.join(MEMDIR, "conversation.json")
 LOCK     = threading.Lock()
 WHISPER_CLI   = os.path.join(DIR, "whisper", "bin", "Release", "whisper-cli.exe")
@@ -380,6 +380,8 @@ class Handler(BaseHTTPRequestHandler):
                 out = llm.json_call("Extract an appointment from the text. Return JSON: {name, contact, when (ISO-like date and time as written), tz, service, notes}. Unknown fields empty.", intent.get("arg") or "", num_ctx=2048, timeout=120) or {}
                 ap = crm.book(out)
                 final = "Booked: %s on %s%s (%s). Please confirm the time and timezone with them." % (ap["name"] or ap["contact"], ap["when"], (" " + ap["tz"]) if ap["tz"] else "", ap["service"] or "appointment")
+            else:
+                final = surfaces.run_intent(self, intent, req)   # e.g. /pathway: one implementation, shared with /v1
         except Exception as e:
             final = "That capability hit an error: %s" % (str(e) or e.__class__.__name__)
         self._event({"message": {"role": "assistant", "content": final}, "done": True})

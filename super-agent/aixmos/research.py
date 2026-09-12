@@ -7,7 +7,7 @@ research.py -- scour the web and cross-reference it with the baked-in vault.
   cross_reference(q, web)  vault passages vs web passages -> agreements / conflicts / gaps, with sources
   run(question)            the whole pipeline, saved to memory/research.json
 """
-import os, re, json, time, html, threading, urllib.parse
+import os, re, json, time, html, socket, threading, ipaddress, urllib.parse
 from concurrent.futures import ThreadPoolExecutor
 from . import settings, llm, knowledge
 
@@ -82,11 +82,49 @@ def search(query, n=8):
     return [], errors
 
 # ----------------------------------------------------------------- fetch ----
-def fetch(url, max_chars=12000, timeout=25):
+# Shared address space (CGNAT, which Tailscale uses), "this network", benchmarking: not covered by is_private.
+_BLOCKED_NETS = [ipaddress.ip_network(n) for n in ("100.64.0.1/10", "0.0.0.0/8", "198.18.0.0/15")]
+
+def _blocked_ip(ip):
+    a = ipaddress.ip_address(ip.split("%", 1)[0])
+    if getattr(a, "ipv4_mapped", None):
+        a = a.ipv4_mapped
+    return (a.is_private or a.is_loopback or a.is_link_local or a.is_multicast or a.is_reserved or a.is_unspecified
+            or any(a in n for n in _BLOCKED_NETS if n.version == a.version))
+
+def check_url(url):
+    """SSRF guard. Pages the agent reads can steer it, so it may only fetch the public internet:
+    never this machine (the AIXMOS server, Ollama), the LAN, or mesh peers. Every address the host
+    resolves to is checked; fetch() re-checks each redirect hop."""
+    u = urllib.parse.urlsplit(url)
+    if u.scheme not in ("http", "https"):
+        raise PermissionError("refused: only http(s) URLs can be fetched")
+    host = u.hostname
+    if not host:
+        raise PermissionError("refused: URL has no host")
+    try:
+        infos = socket.getaddrinfo(host, u.port or (443 if u.scheme == "https" else 80), proto=socket.IPPROTO_TCP)
+    except socket.gaierror as e:
+        raise ValueError("cannot resolve %s (%s)" % (host, e))
+    for info in infos:
+        if _blocked_ip(info[4][0]):
+            raise PermissionError("refused: %s points at this machine or a private network" % host)
+    return url
+
+def fetch(url, max_chars=12000, timeout=25, max_redirects=5):
     import requests
     if not re.match(r"^https?://", url):
         url = "https://" + url
-    r = requests.get(url, timeout=timeout, headers=UA, allow_redirects=True)
+    for _ in range(max_redirects + 1):
+        check_url(url)
+        r = requests.get(url, timeout=timeout, headers=UA, allow_redirects=False)
+        loc = r.headers.get("Location")
+        if r.status_code in (301, 302, 303, 307, 308) and loc:
+            url = urllib.parse.urljoin(url, loc)
+            continue
+        break
+    else:
+        raise ValueError("too many redirects")
     ct = r.headers.get("Content-Type", "")
     text = r.text
     title = ""

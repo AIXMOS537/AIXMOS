@@ -1685,7 +1685,7 @@ function gBoot(){
   $('#gxNext').onclick = ()=>{ try{speechSynthesis.cancel();}catch(e){} G.step=1; gRender(); };
 }
 function gRole(){
-  gShell('Who am I working for?', 'This decides which playbooks, tools and console I load for you. You can change it later.',
+  gShell('First, who are you?', 'Student, employee, or joining the TMMT operator pathway? This decides what I load, how I help and what I will not do for you. Change it any time from the &#128752; button.',
     '<div class="gx-roles">'+G.data.roles.map(r=>'<button class="gx-role'+(G.role===r.id?' sel':'')+'" data-r="'+r.id+'"><div class="ic">'+r.icon+'</div><h3>'+gEsc(r.title)+'</h3><p>'+gEsc(r.desc)+'</p></button>').join('')+'</div>',
     '<button class="gx-btn" id="gxBack">&larr; Back</button><button class="gx-btn go" id="gxNext"'+(G.role?'':' disabled')+'>Continue &rarr;</button>');
   $$('.gx-role').forEach(b=>b.onclick=()=>{ G.role=b.dataset.r; gRender(); });
@@ -1693,14 +1693,15 @@ function gRole(){
   $('#gxNext').onclick=()=>{ G.step=2; gRender(); };
 }
 function gIntake(){
-  const qs = G.data.questions, prof = G.data.profile||{};
+  const qs = (G.data.questions_by_role||{})[G.role] || G.data.questions, prof = G.data.profile||{};
+  const R = (G.data.roles||[]).find(r=>r.id===G.role) || {};
   const body = '<div class="gx-form">'+qs.map(q=>{
     const v = G.answers[q.id] || (q.profile && prof[q.profile]) || '';
     const lab = '<label>'+gEsc(q.label)+(q.required?' <span class="req">*</span>':'')+'</label>';
     if(q.choices) return '<div class="gx-q">'+lab+'<div class="gx-pills">'+q.choices.map(c=>'<button class="gx-pill'+(v===c?' sel':'')+'" data-q="'+q.id+'" data-v="'+gEsc(c)+'">'+gEsc(c)+'</button>').join('')+'</div></div>';
     return '<div class="gx-q">'+lab+'<textarea data-q="'+q.id+'" placeholder="'+gEsc(q.ph||'')+'">'+gEsc(v)+'</textarea></div>';
   }).join('')+'</div>';
-  gShell('Tell me what you are building.', 'The more you give me, the sharper the plan. Everything stays on this machine.', body,
+  gShell(gEsc(R.intake_title||'Tell me what you are building.'), gEsc(R.intake_sub||'The more you give me, the sharper the plan. Everything stays on this machine.'), body,
     '<button class="gx-btn" id="gxBack">&larr; Back</button><button class="gx-btn go" id="gxNext">Save &amp; show me what you can do &rarr;</button>');
   $$('.gx-pill').forEach(b=>b.onclick=()=>{ G.answers[b.dataset.q]=b.dataset.v; $$('.gx-pill[data-q="'+b.dataset.q+'"]').forEach(x=>x.classList.toggle('sel', x===b)); });
   $$('.gx-q textarea').forEach(t=>t.oninput=()=>{ G.answers[t.dataset.q]=t.value; });
