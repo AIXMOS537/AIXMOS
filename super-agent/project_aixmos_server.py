@@ -148,6 +148,29 @@ class Handler(BaseHTTPRequestHandler):
     def _fail(self, e, code=400):
         self._send(code, "application/json", _err(e))
 
+    def _guard(self, post):
+        """Refuse anything that is not this machine talking to itself.
+
+        The server has no login and exposes run_command / run_python through /mcp and the agent,
+        so a web page must never be able to drive it: Host pins the request to localhost (blocks
+        DNS rebinding), Origin and Sec-Fetch-Site block cross-site fetches (CSRF). Claude Code,
+        curl and OpenAI clients send no Origin and a localhost Host, so they pass."""
+        port = settings.RUNTIME.get("port", 8770)
+        hosts = {"%s:%d" % (h, port) for h in ("localhost", "127.0.0.1", "[::1]")}
+        origin = self.headers.get("Origin")
+        reason = None
+        if (self.headers.get("Host") or "").strip().lower() not in hosts:
+            reason = "forbidden host"
+        elif origin is not None and origin.strip().lower() not in {"http://" + h for h in hosts}:
+            reason = "cross-origin request refused"
+        elif post and (self.headers.get("Sec-Fetch-Site") or "").lower() == "cross-site":
+            reason = "cross-site request refused"
+        if reason:
+            self.close_connection = True   # the refused body stays unread; never reuse this socket
+            self._send(403, "application/json", json.dumps({"error": reason}).encode())
+            return False
+        return True
+
     # shared with aixmos.surfaces (the extra API surfaces live outside this class)
     SYSTEM = SYSTEM
     build_system = staticmethod(build_system)
@@ -428,6 +451,8 @@ class Handler(BaseHTTPRequestHandler):
 
     # ----------------------------------------------------------- routes ----
     def do_GET(self):
+        if not self._guard(False):
+            return
         p, _, q = self.path.partition("?")
         qs = urllib.parse.parse_qs(q)
         g = lambda k, d=None: (qs.get(k) or [d])[0]
@@ -497,6 +522,8 @@ class Handler(BaseHTTPRequestHandler):
         self._send(200, "text/html; charset=utf-8", html.encode())
 
     def do_POST(self):
+        if not self._guard(True):
+            return
         p = self.path.split("?")[0]
         try:
             if p == "/api/chat":       self._chat()
