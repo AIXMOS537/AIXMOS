@@ -57,6 +57,43 @@ def profile():
             "liked": sum(1 for i in rated if i["rating"] > 0),
             "disliked": sum(1 for i in rated if i["rating"] < 0)}
 
+def _clean_list(v, n):
+    if isinstance(v, str):
+        v = re.split(r"[,\n;]", v)
+    out = []
+    for x in v or []:
+        x = str(x).strip().lower()[:60]
+        if x and x not in out:
+            out.append(x)
+    return out[:n]
+
+def set_profile(likes=None, avoid=None, notes=None):
+    """Owner edits the learned taste directly; the next rating rebuilds on top of this."""
+    with _LOCK:
+        d = _load()
+        p = d["profile"]
+        if likes is not None: p["likes"] = _clean_list(likes, 12)
+        if avoid is not None: p["avoid"] = _clean_list(avoid, 8)
+        if notes is not None: p["notes"] = str(notes).strip()[:500]
+        p["updated"] = time.time()
+        _save(d)
+    return profile()
+
+def reset_profile(clear_ratings=False, clear_history=False):
+    """Wipe the learned taste. Optionally also forget every rating (or the whole generation history)."""
+    with _LOCK:
+        d = _load()
+        d["profile"] = {"likes": [], "avoid": [], "notes": "", "updated": time.time()}
+        if clear_history:
+            d["items"] = []; d["stats"] = {}
+        elif clear_ratings:
+            for i in d["items"]:
+                i["rating"] = 0; i["note"] = ""
+            for st in d["stats"].values():
+                st["up"] = 0; st["down"] = 0
+        _save(d)
+    return profile()
+
 # ------------------------------------------------------------ learning ----
 def _phrases(prompt):
     out = []

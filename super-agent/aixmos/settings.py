@@ -61,7 +61,7 @@ DEFAULT_PREFS = {
     # MCP and /v1 callers cannot answer the agent's questions, so they default to read-only tools.
     "agent_allow_send": False, "mcp_autonomy": "safe",
     # Pollinations is a free *public* service: prompts leave the machine. Off until chosen.
-    "image_free_public": False,
+    "image_free_public": True,    # Pollinations (free, public) is on by default so images work with no key; opt out in Integrations
 }
 
 def _read():

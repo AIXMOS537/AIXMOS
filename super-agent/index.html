@@ -67,6 +67,7 @@
     padding:10px 18px; border-bottom:1px solid var(--line);
     background:linear-gradient(180deg, rgba(7,20,36,.85), rgba(7,20,36,.35));
     display:flex; align-items:center; gap:14px; flex-wrap:wrap; backdrop-filter:blur(6px);
+    position:relative; z-index:60;   /* the SYS menu must float above every panel below */
   }
   .title h1{margin:0;font-size:17px;letter-spacing:3px;font-weight:700;font-family:var(--mono);
     background:linear-gradient(90deg,var(--accent),#ffffff,var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
@@ -417,6 +418,13 @@
               <label class="f">Leans toward</label><div id="learnLikes"><span class="note">nothing learned yet</span></div>
               <label class="f">Avoids</label><div id="learnAvoid"><span class="note">-</span></div>
               <label class="f">Provider stats</label><div class="kv" id="learnStats"></div>
+              <details style="margin-top:10px"><summary class="note" style="cursor:pointer;color:var(--accent)">Edit or wipe what I've learned</summary>
+                <label class="f">Leans toward (comma-separated)</label><input class="f" id="learnLikesEdit" placeholder="cinematic lighting, teal and orange, 35mm film">
+                <label class="f">Avoid (comma-separated)</label><input class="f" id="learnAvoidEdit" placeholder="cartoonish, cluttered backgrounds">
+                <label class="f">Notes about your taste</label><textarea class="f" id="learnNotesEdit" style="min-height:56px" placeholder="one or two sentences"></textarea>
+                <div class="row" style="margin-top:8px"><button class="btn primary sm" id="learnSave">Save profile</button><button class="btn sm" id="learnResetProfile">Reset profile</button><button class="btn sm danger" id="learnResetRatings">Reset profile + ratings</button><button class="btn sm danger" id="learnWipe">Wipe image history</button></div>
+                <div class="note" id="learnEditStatus" style="margin-top:6px"></div>
+              </details>
             </div>
           </div>
           <div>
@@ -787,6 +795,7 @@
               <label class="f">Planning / chat model</label><select class="f" id="prefModel"></select>
               <label class="f">Assistant name</label><input class="f" id="prefName">
               <label class="toggle"><input type="checkbox" id="prefEnhance"> Enhance image prompts with learned taste</label>
+              <label class="toggle"><input type="checkbox" id="prefFreePublic"> Use the free public image service (Pollinations) when no key is set. Prompts go to a public service; switch off for private-only.</label>
               <label class="toggle"><input type="checkbox" id="prefKnowledge"> Pull relevant kit knowledge into every chat reply</label>
               <label class="f">Agent model</label><select class="f" id="prefAgentModel"></select>
               <label class="f">Agent default autonomy</label><select class="f" id="prefAgentAutonomy"><option value="safe">safe</option><option value="builder">builder</option><option value="full">full</option></select>
@@ -1141,7 +1150,20 @@ function renderProfile(p){
   const L=$('#learnLikes'); L.innerHTML=''; (p.likes||[]).forEach(x=>L.appendChild(el('span',{class:'tag on'},x))); if(!(p.likes||[]).length) L.appendChild(el('span',{class:'note'},'nothing learned yet'));
   const A=$('#learnAvoid'); A.innerHTML=''; (p.avoid||[]).forEach(x=>A.appendChild(el('span',{class:'tag bad'},x))); if(!(p.avoid||[]).length) A.appendChild(el('span',{class:'note'},'-'));
   const S=$('#learnStats'); S.innerHTML=''; Object.entries(p.stats||{}).forEach(([k,v])=>{ S.appendChild(el('span',{},k)); S.appendChild(el('b',{}, `${v.ok} ok · ${v.fail} fail · ${v.up}👍 ${v.down}👎`)); });
+  if(document.activeElement!==$('#learnLikesEdit') && document.activeElement!==$('#learnAvoidEdit') && document.activeElement!==$('#learnNotesEdit')){
+    $('#learnLikesEdit').value=(p.likes||[]).join(', '); $('#learnAvoidEdit').value=(p.avoid||[]).join(', '); $('#learnNotesEdit').value=p.notes||'';
+  }
 }
+async function learnAction(url, body, confirmMsg){
+  if(confirmMsg && !confirm(confirmMsg)) return;
+  const st=$('#learnEditStatus'); st.className='note'; st.textContent='Working…';
+  try{ const r=await apiPost(url, body); renderProfile(r.profile||{}); st.className='note ok'; st.textContent='Done.'; loadImages(); }
+  catch(e){ st.className='note err'; st.textContent='Error: '+e.message; }
+}
+$('#learnSave').addEventListener('click', ()=>learnAction('/api/image/profile',{likes:$('#learnLikesEdit').value,avoid:$('#learnAvoidEdit').value,notes:$('#learnNotesEdit').value}));
+$('#learnResetProfile').addEventListener('click', ()=>learnAction('/api/image/profile/reset',{}, 'Clear the learned likes, avoids and notes? Your ratings stay and rebuild it over time.'));
+$('#learnResetRatings').addEventListener('click', ()=>learnAction('/api/image/profile/reset',{ratings:true}, 'Clear the learned profile AND every thumbs rating? Images stay in the gallery.'));
+$('#learnWipe').addEventListener('click', ()=>learnAction('/api/image/profile/reset',{history:true}, 'Wipe the whole image history, ratings and profile? Files stay on disk but the gallery and learning start from zero.'));
 function renderGallery(){
   const g=$('#gallery'); g.innerHTML='';
   if(!state.images.length){ g.appendChild(el('div',{class:'note'},'No images yet. Generate one on the left, or say "generate an image of…" in chat.')); return; }
@@ -1389,7 +1411,7 @@ async function loadSettings(){
     const pi=$('#prefImage'); pi.innerHTML=''; ['auto',...s.caps.image].forEach(x=>pi.appendChild(el('option',{value:x},x))); pi.value=s.prefs.image_provider||'auto';
     const pv=$('#prefVideo'); pv.innerHTML=''; ['auto',...s.caps.video].forEach(x=>pv.appendChild(el('option',{value:x},x))); pv.value=s.prefs.video_provider||'auto';
     const pm=$('#prefModel'); pm.innerHTML=''; pm.appendChild(el('option',{value:''},'auto (qwen2.5:3b)')); [...modelSel.options].forEach(o=>pm.appendChild(el('option',{value:o.value},o.value))); pm.value=s.prefs.chat_model||'';
-    $('#prefName').value=s.prefs.assistant_name||'AIXMOS'; $('#prefEnhance').checked=!!s.prefs.enhance_prompts;
+    $('#prefName').value=s.prefs.assistant_name||'AIXMOS'; $('#prefEnhance').checked=!!s.prefs.enhance_prompts; $('#prefFreePublic').checked=(s.prefs.image_free_public!==false);
     $('#prefKnowledge').checked=s.prefs.use_knowledge!==false;
     const pam=$('#prefAgentModel'); pam.innerHTML=''; pam.appendChild(el('option',{value:''},'auto (largest local Qwen)')); [...modelSel.options].forEach(o=>pam.appendChild(el('option',{value:o.value},o.value))); pam.value=s.prefs.agent_model||'';
     $('#prefAgentAutonomy').value=s.prefs.agent_autonomy||'builder'; $('#prefAgentRoots').value=(s.prefs.agent_roots||'').split(';').join('\n');
@@ -1405,7 +1427,7 @@ $('#provSave').addEventListener('click', async()=>{
   try{ await apiPost('/api/settings',{providers}); st.className='note ok'; st.textContent='Saved. Providers are live immediately.'; loadSettings(); }catch(e){ st.className='note err'; st.textContent=e.message; }
 });
 $('#prefSave').addEventListener('click', async()=>{
-  try{ await apiPost('/api/settings',{prefs:{image_provider:$('#prefImage').value,video_provider:$('#prefVideo').value,chat_model:$('#prefModel').value,assistant_name:$('#prefName').value,enhance_prompts:$('#prefEnhance').checked,use_knowledge:$('#prefKnowledge').checked,agent_model:$('#prefAgentModel').value,agent_autonomy:$('#prefAgentAutonomy').value,agent_roots:$('#prefAgentRoots').value.split('\n').map(x=>x.trim()).filter(Boolean).join(';')}}); toast('Defaults saved'); loadSettings(); }catch(e){ toast(e.message,true); }
+  try{ await apiPost('/api/settings',{prefs:{image_provider:$('#prefImage').value,video_provider:$('#prefVideo').value,chat_model:$('#prefModel').value,assistant_name:$('#prefName').value,enhance_prompts:$('#prefEnhance').checked,image_free_public:$('#prefFreePublic').checked,use_knowledge:$('#prefKnowledge').checked,agent_model:$('#prefAgentModel').value,agent_autonomy:$('#prefAgentAutonomy').value,agent_roots:$('#prefAgentRoots').value.split('\n').map(x=>x.trim()).filter(Boolean).join(';')}}); toast('Defaults saved'); loadSettings(); }catch(e){ toast(e.message,true); }
 });
 
 // ============================================================ super agent ====
@@ -1659,7 +1681,7 @@ function gShell(title, sub, body, actions){
     + '<h2>'+title+'</h2><p class="sub">'+sub+'</p>'+body+'<div class="gx-actions">'+(actions||'')+'</div></div>';
   $('#gxLater').onclick = gClose;
 }
-function gClose(){ gRoot.classList.remove('show'); if(location.hash==='#genesis') history.replaceState(null,'',location.pathname); }
+function gClose(){ gRoot.classList.remove('show'); try{ sessionStorage.setItem('aixmos-genesis-later','1'); }catch(e){} if(location.hash==='#genesis') history.replaceState(null,'',location.pathname); }
 async function gOpen(step){
   try{ G.data = await apiGet('/api/genesis'); }catch(e){ toast('Genesis unavailable: '+e.message, true); return; }
   const st = G.data.state||{}; G.role = st.role||G.role; G.answers = Object.assign({}, st.answers||{});
@@ -1752,7 +1774,10 @@ async function gPlan(){
   const b = document.createElement('button'); b.className='nav'; b.innerHTML='&#128752;<span class="badge"></span><span class="tip">Mission &amp; intro</span>';
   b.addEventListener('click', ()=>gOpen(0));
   const sp = document.querySelector('.rail .spacer'); if(sp) sp.parentNode.insertBefore(b, sp);
-  apiGet('/api/genesis').then(d=>{ if(!(d.state||{}).done || location.hash==='#genesis') gOpen(0); }).catch(()=>{});
+  // Auto-open only on a true first boot (no intake saved yet) or when asked for via #genesis.
+  // Once the intake exists the intro is reachable from the rail; it never nags on every load again.
+  let dismissed=false; try{ dismissed = sessionStorage.getItem('aixmos-genesis-later')==='1'; }catch(e){}
+  apiGet('/api/genesis').then(d=>{ const st=d.state||{}; if(location.hash==='#genesis' || (!st.done && !st.intake_ts && !dismissed)) gOpen(st.intake_ts && !st.plan ? 4 : 0); }).catch(()=>{});
 })();
 </script>
 </body>

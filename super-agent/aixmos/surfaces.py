@@ -232,6 +232,12 @@ def route_post(h, p):
         rep = research.run(b.get("question") or "", depth=b.get("depth") or "normal", cross=b.get("cross", True))
         h.remember("user", "/research " + rep["question"]); h.remember("assistant", rep["markdown"])
         h._json(rep)
+    elif p == "/api/image/profile":
+        b = h._body()
+        h._json({"profile": imagegen.set_profile(b.get("likes"), b.get("avoid"), b.get("notes"))})
+    elif p == "/api/image/profile/reset":
+        b = h._body()
+        h._json({"profile": imagegen.reset_profile(bool(b.get("ratings")), bool(b.get("history")))})
     elif p == "/api/carousel":
         b = h._body()
         c = carousel.build(b.get("topic"), b.get("audience") or "", b.get("layout") or "B_list", b.get("slides") or 6, b.get("extra") or "", b.get("brand"))
