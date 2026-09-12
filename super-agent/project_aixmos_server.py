@@ -89,8 +89,10 @@ SYSTEM = ("You are AIXMOS, a private JARVIS-style AI assistant running locally o
           "content engine, sales, agency OS, ...), a CRM with leads / appointments / follow-up sequences / weekly review, and an "
           "Instagram carousel generator. Mention the right capability when it would help.")
 
-def build_system(content):
-    """Base system prompt + active skill persona + vault knowledge relevant to this message."""
+def stable_system():
+    """The part of the prompt that does NOT change from turn to turn: base prompt, active skill
+    persona, business profile, mission. Keeping it byte-identical lets Ollama reuse its cached
+    prompt prefix, so a turn only pays prompt-processing for what is new (about 20 tok/s here)."""
     parts = [SYSTEM]
     persona = skills.active_persona()
     if persona:
@@ -102,15 +104,30 @@ def build_system(content):
     mission = genesis.mission_context()
     if mission:
         parts.append(mission)
+    return "\n\n".join(parts)
+
+def turn_context(content):
+    """The volatile part: vault passages for THIS message plus a light time/place line. Appended to
+    the user's turn instead of the system prompt so the cached prefix stays valid."""
+    parts = []
     if settings.pref("use_knowledge"):
-        kb = knowledge.context_for(content, k=3, min_score=6.0, max_chars=2400)
+        kb = knowledge.context_for(content, k=2, min_score=6.0, max_chars=1200)
         if kb:
-            parts.append("RELEVANT PLAYBOOK KNOWLEDGE (from the user's AI Building Kit; cite the pack when you use it):\n" + kb)
+            parts.append("Relevant playbook passages (from the user's AI Building Kit; cite the pack when used):\n" + kb)
     try:
-        parts.append(context_tools.build_context())
+        parts.append(context_tools.build_context(light=True))
     except Exception:
         pass
     return "\n\n".join(parts)
+
+def build_system(content):
+    """Compatibility: full prompt in one block (used by the OpenAI-compatible surface)."""
+    tc = turn_context(content)
+    return stable_system() + (("\n\n" + tc) if tc else "")
+
+def _clip(text, n=1200):
+    text = text or ""
+    return text if len(text) <= n else text[:n] + " …[trimmed]"
 
 def capabilities():
     return {"image": settings.providers_for("image"), "video": settings.providers_for("video") + ["local"],
@@ -251,10 +268,14 @@ class Handler(BaseHTTPRequestHandler):
         intent = intents.detect(content, has_video=bool(req.get("current_video")))
         if intent:
             self._chat_tool(intent, req); return
-        sys_prompt = build_system(content)
         mem = load_mem()
-        ctx = [{"role": "system", "content": sys_prompt}] + mem[-MAX_CTX_MSGS:]
-        payload = json.dumps({"model": model, "messages": ctx, "stream": True, "options": {"num_ctx": NUM_CTX}}).encode()
+        n_hist = int(settings.pref("chat_history") or 12)
+        history = [{"role": m["role"], "content": _clip(m["content"])} for m in mem[-(n_hist + 1):-1]]
+        tc = turn_context(content)
+        last = {"role": "user", "content": content + (("\n\n[context for this turn]\n" + tc) if tc else "")}
+        ctx = [{"role": "system", "content": stable_system()}] + history + [last]
+        payload = json.dumps({"model": model, "messages": ctx, "stream": True, "keep_alive": llm.KEEP_ALIVE,
+                              "options": llm.options(temperature=0.7)}).encode()
         r = urllib.request.Request(OLLAMA + "/api/chat", data=payload, method="POST")
         r.add_header("Content-Type", "application/json")
         try:
@@ -600,6 +621,18 @@ if __name__ == "__main__":
     media.ensure_dirs()
     srv = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     srv.daemon_threads = True
+    try:   # storage hygiene: storyboard clips and edit scratch older than a day
+        tmpdir = os.path.join(media.MEDIA, "tmp"); cutoff = time.time() - 86400
+        for dp, dn, fn in os.walk(tmpdir, topdown=False):
+            for f in fn:
+                p = os.path.join(dp, f)
+                if os.path.getmtime(p) < cutoff:
+                    os.remove(p)
+            for d in dn:
+                try: os.rmdir(os.path.join(dp, d))
+                except OSError: pass
+    except Exception:
+        pass
     os.makedirs(agent.WORKSPACE, exist_ok=True)
     threading.Thread(target=context_tools.prewarm, daemon=True).start()
     threading.Thread(target=surfaces.boot_index, daemon=True).start()

@@ -131,7 +131,7 @@ def activate(pid):
 
 def active_persona():
     pid = settings.pref("active_skill")
-    return persona(pid) if pid else ""
+    return persona(pid, max_chars=2600) if pid else ""   # capped: prompt processing is the slow path on this CPU
 
 _PROMPTS = {"built": 0, "items": []}
 def prompts(q=None, pack=None, limit=80):

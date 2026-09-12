@@ -35,6 +35,17 @@
     background:repeating-linear-gradient(180deg, rgba(255,255,255,.025) 0 1px, transparent 1px 4px);
   }
   .app{position:relative; z-index:1; display:grid; grid-template-columns:64px 1fr; height:100vh}
+  /* Performance build: on a 2-core laptop whose desktop goes out over a USB (DisplayLink) dock every
+     repainted pixel is compressed by the CPU, so idle animation, blur and scanlines cost real CPU that
+     the local model needs. html.perf keeps the look but makes the page static and cheap to paint. */
+  html.perf body::after{display:none}
+  html.perf .panel, html.perf header, html.perf footer, html.perf .bot{backdrop-filter:none}
+  html.perf .reactor .spin, html.perf .reactor .spin-rev, html.perf .reactor .core{animation:none}
+  html.perf .nav.busy .badge, html.perf .cursor, html.perf .handsfree .hf-dot{animation-duration:2s}
+  html.perf .chip .bar i{transition:none}
+  html.perf .msg{animation:none}
+  html.perf .send, html.perf .nav.active{box-shadow:none}
+  @media (prefers-reduced-motion: reduce){ .reactor .spin, .reactor .spin-rev, .reactor .core, .msg{animation:none} }
 
   /* ---------- left rail ---------- */
   .rail{
@@ -796,6 +807,10 @@
               <label class="f">Assistant name</label><input class="f" id="prefName">
               <label class="toggle"><input type="checkbox" id="prefEnhance"> Enhance image prompts with learned taste</label>
               <label class="toggle"><input type="checkbox" id="prefFreePublic"> Use the free public image service (Pollinations) when no key is set. Prompts go to a public service; switch off for private-only.</label>
+              <label class="f">Performance mode (blur, scanlines, idle animation)</label>
+              <select class="f" id="prefPerf"><option value="auto">auto · on for weak CPUs, high-DPI or USB displays, battery</option><option value="on">on · static, cheapest to paint</option><option value="off">off · full effects</option></select>
+              <div class="row"><div><label class="f">Model threads</label><input class="f" id="prefThreads" type="number" min="1" max="16"></div><div><label class="f">Context size (tokens)</label><select class="f" id="prefCtx"><option>2048</option><option>4096</option><option>6144</option><option>8192</option></select></div><div><label class="f">Chat history replayed</label><input class="f" id="prefHistory" type="number" min="2" max="40"></div></div>
+              <div class="note">One context size for every feature keeps the model loaded between calls. On this machine prompt processing is ~20 tokens/s, so shorter history and smaller context mean faster replies.</div>
               <label class="toggle"><input type="checkbox" id="prefKnowledge"> Pull relevant kit knowledge into every chat reply</label>
               <label class="f">Agent model</label><select class="f" id="prefAgentModel"></select>
               <label class="f">Agent default autonomy</label><select class="f" id="prefAgentAutonomy"><option value="safe">safe</option><option value="builder">builder</option><option value="full">full</option></select>
@@ -884,7 +899,25 @@ async function telemetry(){
     $('#clock').textContent = t.time;
   }catch(e){}
 }
-telemetry(); setInterval(telemetry, 6000);
+// Poll slower when the tab is hidden; the HUD is decoration, the CPU is for the model.
+let telemetryTimer=null;
+function scheduleTelemetry(){ clearTimeout(telemetryTimer); telemetryTimer=setTimeout(async()=>{ if(!document.hidden) await telemetry(); scheduleTelemetry(); }, document.hidden?30000:8000); }
+telemetry(); scheduleTelemetry();
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden){ telemetry(); } scheduleTelemetry(); });
+// ---- performance mode: auto-detect weak CPU / high-DPI / battery, or follow the saved preference
+function applyPerf(mode){
+  mode = mode || 'auto';
+  let on = mode==='on';
+  if(mode==='auto'){
+    const weakCpu = (navigator.hardwareConcurrency||8) <= 4, hiDpi = (window.devicePixelRatio||1) >= 1.75;
+    on = weakCpu || hiDpi || (matchMedia('(prefers-reduced-motion: reduce)').matches);
+  }
+  document.documentElement.classList.toggle('perf', on);
+  try{ localStorage.setItem('aixmos-perf', mode); }catch(e){}
+  return on;
+}
+try{ applyPerf(localStorage.getItem('aixmos-perf')||'auto'); }catch(e){ applyPerf('auto'); }
+if(navigator.getBattery){ navigator.getBattery().then(b=>{ const f=()=>{ const m=(localStorage.getItem('aixmos-perf')||'auto'); if(m==='auto' && !b.charging) document.documentElement.classList.add('perf'); }; f(); b.addEventListener('chargingchange', f); }).catch(()=>{}); }
 
 // ============================================================ chat ====
 const log = $('#log'), empty = $('#empty'), input = $('#input'), sendBtn = $('#send'), modelSel = $('#model');
@@ -1412,6 +1445,7 @@ async function loadSettings(){
     const pv=$('#prefVideo'); pv.innerHTML=''; ['auto',...s.caps.video].forEach(x=>pv.appendChild(el('option',{value:x},x))); pv.value=s.prefs.video_provider||'auto';
     const pm=$('#prefModel'); pm.innerHTML=''; pm.appendChild(el('option',{value:''},'auto (qwen2.5:3b)')); [...modelSel.options].forEach(o=>pm.appendChild(el('option',{value:o.value},o.value))); pm.value=s.prefs.chat_model||'';
     $('#prefName').value=s.prefs.assistant_name||'AIXMOS'; $('#prefEnhance').checked=!!s.prefs.enhance_prompts; $('#prefFreePublic').checked=(s.prefs.image_free_public!==false);
+    $('#prefPerf').value=s.prefs.ui_performance||'auto'; applyPerf(s.prefs.ui_performance||'auto'); $('#prefThreads').value=s.prefs.llm_threads||3; $('#prefCtx').value=String(s.prefs.llm_ctx||4096); $('#prefHistory').value=s.prefs.chat_history||12;
     $('#prefKnowledge').checked=s.prefs.use_knowledge!==false;
     const pam=$('#prefAgentModel'); pam.innerHTML=''; pam.appendChild(el('option',{value:''},'auto (largest local Qwen)')); [...modelSel.options].forEach(o=>pam.appendChild(el('option',{value:o.value},o.value))); pam.value=s.prefs.agent_model||'';
     $('#prefAgentAutonomy').value=s.prefs.agent_autonomy||'builder'; $('#prefAgentRoots').value=(s.prefs.agent_roots||'').split(';').join('\n');
@@ -1427,7 +1461,7 @@ $('#provSave').addEventListener('click', async()=>{
   try{ await apiPost('/api/settings',{providers}); st.className='note ok'; st.textContent='Saved. Providers are live immediately.'; loadSettings(); }catch(e){ st.className='note err'; st.textContent=e.message; }
 });
 $('#prefSave').addEventListener('click', async()=>{
-  try{ await apiPost('/api/settings',{prefs:{image_provider:$('#prefImage').value,video_provider:$('#prefVideo').value,chat_model:$('#prefModel').value,assistant_name:$('#prefName').value,enhance_prompts:$('#prefEnhance').checked,image_free_public:$('#prefFreePublic').checked,use_knowledge:$('#prefKnowledge').checked,agent_model:$('#prefAgentModel').value,agent_autonomy:$('#prefAgentAutonomy').value,agent_roots:$('#prefAgentRoots').value.split('\n').map(x=>x.trim()).filter(Boolean).join(';')}}); toast('Defaults saved'); loadSettings(); }catch(e){ toast(e.message,true); }
+  try{ await apiPost('/api/settings',{prefs:{image_provider:$('#prefImage').value,video_provider:$('#prefVideo').value,chat_model:$('#prefModel').value,assistant_name:$('#prefName').value,enhance_prompts:$('#prefEnhance').checked,image_free_public:$('#prefFreePublic').checked,ui_performance:$('#prefPerf').value,llm_threads:parseInt($('#prefThreads').value)||3,llm_ctx:parseInt($('#prefCtx').value)||4096,chat_history:parseInt($('#prefHistory').value)||12,use_knowledge:$('#prefKnowledge').checked,agent_model:$('#prefAgentModel').value,agent_autonomy:$('#prefAgentAutonomy').value,agent_roots:$('#prefAgentRoots').value.split('\n').map(x=>x.trim()).filter(Boolean).join(';')}}); toast('Defaults saved'); loadSettings(); }catch(e){ toast(e.message,true); }
 });
 
 // ============================================================ super agent ====

@@ -22,9 +22,17 @@ def pick_model(prefer=None):
             return m
     return models[0] if models else FALLBACK_MODEL
 
-def chat(messages, model=None, json_mode=False, temperature=0.3, num_ctx=4096, timeout=240):
+KEEP_ALIVE = "30m"
+
+def options(temperature=0.3, num_ctx=None):
+    """Uniform runtime options. num_ctx is deliberately the same for every caller: Ollama restarts
+    the model runner whenever the context size changes, which cost ~4 s per call on this machine."""
+    return {"temperature": temperature, "num_ctx": int(settings.pref("llm_ctx") or 4096),
+            "num_thread": int(settings.pref("llm_threads") or 3)}
+
+def chat(messages, model=None, json_mode=False, temperature=0.3, num_ctx=None, timeout=240):
     payload = {"model": model or pick_model(), "messages": messages, "stream": False,
-               "options": {"temperature": temperature, "num_ctx": num_ctx}}
+               "keep_alive": KEEP_ALIVE, "options": options(temperature)}
     if json_mode:
         payload["format"] = "json"
     req = urllib.request.Request(OLLAMA + "/api/chat", data=json.dumps(payload).encode(),
@@ -32,10 +40,10 @@ def chat(messages, model=None, json_mode=False, temperature=0.3, num_ctx=4096, t
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return (json.loads(r.read()).get("message") or {}).get("content", "")
 
-def chat_raw(messages, model=None, tools=None, temperature=0.2, num_ctx=8192, timeout=600):
+def chat_raw(messages, model=None, tools=None, temperature=0.2, num_ctx=None, timeout=600):
     """Full Ollama response dict (message may carry tool_calls)."""
     payload = {"model": model or pick_model(), "messages": messages, "stream": False,
-               "options": {"temperature": temperature, "num_ctx": num_ctx}}
+               "keep_alive": KEEP_ALIVE, "options": options(temperature)}
     if tools:
         payload["tools"] = tools
     req = urllib.request.Request(OLLAMA + "/api/chat", data=json.dumps(payload).encode(),

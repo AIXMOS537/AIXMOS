@@ -110,6 +110,21 @@ Python inside `memory/workspace` and any folders you allow), **full** (+ send em
 allow-send preference). Doctrine from the kit: plan first, small steps, prove with output, never
 fabricate, ask when unsure, finish with a summary. Runs are logged in the Agent panel.
 
+## Performance build (why it feels smooth on a small laptop)
+Treat the stack like a PC build; each part has one job and one bottleneck.
+
+| Part | What it is here | What was tuned |
+|---|---|---|
+| CPU | i7-6650U class, 2 cores / 4 threads, 15 W | model runs on 3 threads (one left for the desktop); ffmpeg `superfast` with 3 threads; whisper base.en; web research reads 2 pages at a time |
+| Memory bandwidth | prompt processing ≈ 20 tokens/s, generation ≈ 7 tokens/s on the 3B | the prompt is split into a **stable prefix** (base prompt, skill, profile, mission) and a **per-turn tail** (vault passages, time), so Ollama's prompt cache is reused and a turn only pays for what is new; history replayed is capped (12 messages, 1,200 chars each); vault passages 1,200 chars |
+| Model loading | Ollama restarts its runner whenever the context size changes (~4 s) | one `llm_ctx` (4096) and one thread count for every feature; `keep_alive` 30 min |
+| RAM (16 GB) | 3B ≈ 2 GB resident | 7B is opt-in only (it took the machine down once) |
+| GPU / display | desktop drawn through a USB DisplayLink dock at 200 % scaling: every animated pixel is CPU work | Performance mode (auto on weak CPU, high-DPI, or battery): no blur, no scanlines, static reactor, slower HUD polling, none when the tab is hidden |
+| Storage (NVMe) | media store under `memory/` | scratch clips older than a day are cleared at start |
+| Power | Surface throttles at 15 W under sustained load | thread headroom above; run heavy jobs (video, research) one at a time |
+
+All of it is adjustable under Integrations → Defaults (performance mode, threads, context size, history).
+
 ## Hardware note
 This machine (2 cores, 1 GB iGPU) cannot run diffusion or video models locally, and the 7B model
 is too heavy for agent runs. Image and video *generation* use provider APIs (Pollinations needs no

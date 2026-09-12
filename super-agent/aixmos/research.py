@@ -179,7 +179,7 @@ def research(question, results=6, pages=4, progress=lambda m: None):
             return {**h, "error": str(e)[:120], "passages": []}
     todo = [h for h in hits if not re.search(r"\.(pdf|zip|exe|dmg)(\?|$)", h["url"], re.I)][:pages]
     progress("reading %d pages" % len(todo))
-    with ThreadPoolExecutor(max_workers=4) as ex:
+    with ThreadPoolExecutor(max_workers=max(1, min(4, (os.cpu_count() or 2) // 2))) as ex:   # 2 on a 4-thread laptop
         for res in ex.map(read, todo):
             if res:
                 fetched.append(res)

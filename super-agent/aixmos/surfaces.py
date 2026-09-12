@@ -322,7 +322,7 @@ def openai_chat(h):
                 sysmsg = h.build_system(user) if model != "aixmos-raw" else h.SYSTEM
                 convo = [{"role": m["role"], "content": _text_of(m)} for m in msgs if m.get("role") in ("user", "assistant")][-30:]
                 payload = json.dumps({"model": llm.pick_model(), "messages": [{"role": "system", "content": sysmsg}] + convo, "stream": True,
-                                      "options": {"num_ctx": NUM_CTX, "temperature": float(b.get("temperature") or 0.7)}}).encode()
+                                      "keep_alive": llm.KEEP_ALIVE, "options": llm.options(temperature=float(b.get("temperature") or 0.7))}).encode()
                 r = urllib.request.Request(OLLAMA + "/api/chat", data=payload, headers={"Content-Type": "application/json"}, method="POST")
                 resp = urllib.request.urlopen(r, timeout=600); buf = b""
                 while True:

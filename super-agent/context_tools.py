@@ -113,7 +113,19 @@ def get_system():
     return {"cpu": cpu, "ram": ram, "disk_free_gb": disk_free, "battery": bat}
 
 # ---- assemble the injected block -------------------------------------------
-def build_context():
+def build_context(light=False):
+    """light=True skips the CPU sample (a 0.18 s sleep) and machine stats: the chat path only
+    needs time, place and weather, and a short stable block keeps the model's prompt cache warm."""
+    if light:
+        geo = get_geo()
+        now = datetime.now()
+        lines = ["Now: " + now.strftime("%A %Y-%m-%d %I:%M %p") + ((" (%s)" % geo["tz"]) if geo and geo.get("tz") else "")]
+        if geo and geo.get("city"):
+            lines.append("Location (approx.): " + ", ".join(x for x in [geo.get("city"), geo.get("region")] if x))
+            wx = get_weather(geo.get("lat"), geo.get("lon"))
+            if wx and wx.get("temp") is not None:
+                lines.append("Weather: %s degF, %s" % (wx["temp"], wx["desc"]))
+        return "\n".join(lines)
     lines = ["[LIVE CONTEXT -- read from THIS machine right now, for accurate answers]"]
     geo = get_geo()
     tzname = (geo or {}).get("tz")

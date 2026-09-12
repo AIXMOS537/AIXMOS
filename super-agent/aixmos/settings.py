@@ -62,6 +62,11 @@ DEFAULT_PREFS = {
     "agent_allow_send": False, "mcp_autonomy": "safe",
     # Pollinations is a free *public* service: prompts leave the machine. Off until chosen.
     "image_free_public": True,    # Pollinations (free, public) is on by default so images work with no key; opt out in Integrations
+    # performance build (tuned for a 2-core laptop driving a USB display; see README "Performance")
+    "llm_threads": 3,          # leave one logical core for the UI / DisplayLink compositor
+    "llm_ctx": 4096,           # ONE context size for every call so the model never reloads between features
+    "chat_history": 12,        # messages replayed per turn (each capped); prompt processing is ~20 tok/s here
+    "ui_performance": "auto",  # auto | on | off: drop blur, scanlines and idle animations on weak/USB displays
 }
 
 def _read():

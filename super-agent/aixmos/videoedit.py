@@ -500,7 +500,8 @@ def apply(source_path, ops, progress=lambda m: None, workdir=None):
     else:
         args += ["-map", cur]
         if acur: args += ["-map", acur, "-c:a", "aac", "-b:a", "160k"]
-        args += ["-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-pix_fmt", "yuv420p", "-movflags", "+faststart"]
+        args += ["-c:v", "libx264", "-preset", "superfast", "-crf", "23", "-pix_fmt", "yuv420p", "-movflags", "+faststart",
+                 "-threads", str(int(settings.pref("llm_threads") or 3))]
         if music or pre_in: args += ["-shortest"]
         args += [out]
     progress("ffmpeg: rendering (%s)" % ", ".join(names))

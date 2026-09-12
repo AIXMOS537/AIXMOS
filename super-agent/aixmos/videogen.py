@@ -256,7 +256,7 @@ def _local_storyboard(prompt, image, secs, aspect, progress, nscenes=None):
               "fade=t=in:st=0:d=0.4,fade=t=out:st=%.1f:d=0.4,format=yuv420p"
               % (W * 3 // 2, H * 3 // 2, W * 3 // 2, H * 3 // 2, zoom, nf, W, H, fps, per - 0.4))
         clip = os.path.join(tmp, "sb_%s_%d.mp4" % (media.new_id(), i))
-        media.run_ffmpeg(["-i", fpath, "-vf", vf, "-frames:v", nf, "-r", fps, "-c:v", "libx264", "-preset", "veryfast",
+        media.run_ffmpeg(["-i", fpath, "-vf", vf, "-frames:v", nf, "-r", fps, "-c:v", "libx264", "-preset", "superfast", "-threads", str(int(settings.pref("llm_threads") or 3)),
                           "-crf", "24", "-an", clip], timeout=900)
         clips.append(clip)
     lst = os.path.join(tmp, "sb_%s.txt" % media.new_id())
