@@ -19,3 +19,5 @@ outbox/
 *.log
 .vscode/
 .idea/
+imessage-relay/lib/*.bak-*
+*.bak-*

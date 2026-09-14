@@ -1,6 +1,7 @@
 'use strict';
 
 const { execFileSync } = require('child_process');
+const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { classify, t3CannedDraft, canonHandle, digits, inList } = require('./policy');
@@ -82,6 +83,29 @@ async function handleInbound(msg, { config, adapters, env, now } = {}) {
   // must not bypass "never auto". SMS/RCS sender-ID is spoofable; only
   // iMessage (Apple-ID authenticated) may trigger MASTER exec.
   const owner = ownerHandle && imessageOk && cls.tier !== 'T3';
+
+  // ── THALAMUS + AMYGDALA front door (2026-09-08). Runs before rate limits, before
+  // any LLM draft. Rules-first threat scan; family (T3) is routed to Rick -> Taha and
+  // never gets a model vote. HIGH = blocked + ESCALATED file (escalation-watch pings
+  // Taha). Kill switch: THALAMUS_GATE=off or ~/.rick/brain/thalamus/OFF. If the gate
+  // binary is missing or crashes, the pipeline continues exactly as before.
+  let brainRoute = null;
+  try {
+    const gateBin = path.join(os.homedir(), '.rick', 'bin', 'thalamus-gate');
+    if (fs.existsSync(gateBin)) {
+      const senderTier = cls.tier === 'T3' ? 'family' : (owner ? 'owner' : (cls.tier === 'T1' ? 'inner-circle' : 'public'));
+      const raw = execFileSync('/usr/bin/python3', [gateBin, 'imessage', senderTier, String(text)], { timeout: 30000, encoding: 'utf8' });
+      const g = JSON.parse(String(raw || '{}').trim().split('\n').pop());
+      brainRoute = { route: g.route, urgency: g.urgency, threat: g.threat, threat_type: g.threat_type };
+      if (g.halt === true) {
+        const out = { action: 'blocked', reason: `amygdala_${g.threat_type || 'HIGH'}`, sent: false, tier: cls.tier, brain: brainRoute };
+        audit({ event: 'blocked', reason: out.reason, id, from, tier: cls.tier, brain: brainRoute });
+        return out;
+      }
+    }
+  } catch (err) {
+    audit({ event: 'gate_error', reason: String(err && err.message || err).slice(0, 160), id, from, tier: cls.tier });
+  }
   const rateDraft = allowRate('draft', canonHandle(from), cfg, now);
   if (!rateDraft.ok) {
     const out = { action: 'blocked', reason: rateDraft.reason, sent: false, tier: cls.tier };
@@ -121,6 +145,21 @@ async function handleInbound(msg, { config, adapters, env, now } = {}) {
   }
 
   if (cls.tier === 'T1') reply = withAssistantSignature(reply);
+
+  // ── NEUROPLASTICITY (2026-09-08): judge this draft against the ask in a detached process and
+  // train the thalamus' routing synapses. Never blocks the pipeline. Family (T3) drafts are canned,
+  // so they are not judged. Kill switch: ~/.rick/brain/thalamus/NO-LEARN.
+  try {
+    const judgeBin = path.join(os.homedir(), '.rick', 'bin', 'cingulate-judge');
+    const noLearn = path.join(os.homedir(), '.rick', 'brain', 'thalamus', 'NO-LEARN');
+    if (brainRoute && brainRoute.route && cls.tier !== 'T3' && reply && fs.existsSync(judgeBin) && !fs.existsSync(noLearn)) {
+      const { spawn } = require('child_process');
+      const child = spawn('/usr/bin/python3', [judgeBin, 'imessage', String(brainRoute.route), String(text), String(reply)], { detached: true, stdio: 'ignore' });
+      child.unref();
+    }
+  } catch (err) {
+    audit({ event: 'judge_error', reason: String(err && err.message || err).slice(0, 160), id, from });
+  }
 
   consumeRate('draft', canonHandle(from), cfg, now);
   const saved = writeDraft({
