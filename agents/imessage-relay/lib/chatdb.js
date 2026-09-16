@@ -79,6 +79,13 @@ function copyChatDb() {
         timeout: 10000,
         stdio: ['ignore', 'pipe', 'pipe'],
       });
+      // macOS 27 ships sqlite 3.54, which cannot open a WAL-mode file -readonly without
+      // its -shm. .backup keeps WAL mode, so convert the PRIVATE TEMP COPY (never chat.db)
+      // to a rollback journal before the -readonly query. Broke polling from ~2026-09-04.
+      execFileSync('/usr/bin/sqlite3', [dest, 'PRAGMA journal_mode=DELETE;'], {
+        timeout: 10000,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
       return dest;
     } catch (err) {
       lastErr = err;
@@ -136,7 +143,7 @@ function readNewInbound({ limit = 20 } = {}) {
   } catch (err) {
     return { ok: false, error: err.message, messages: [] };
   } finally {
-    if (copy) try { fs.unlinkSync(copy); } catch { /* ignore */ }
+    if (copy) for (const f of [copy, `${copy}-wal`, `${copy}-shm`]) { try { fs.unlinkSync(f); } catch { /* ignore */ } }
   }
 }
 
