@@ -38,13 +38,22 @@ function withAssistantSignature(text) {
   return body + SIG;
 }
 
+/**
+ * Effective send state = config.json OR env. The send gate and /health both read this,
+ * so health can never report send OFF while an env var has it ON.
+ */
+function sendState(config = {}, env = process.env) {
+  const auto = config.auto_send_assistant === true || env.IMESSAGE_AUTO_ASSISTANT === '1';
+  const allow = config.allow_send === true || env.IMESSAGE_ALLOW_SEND === '1' || auto;
+  return { allow_send: allow, auto_send_assistant: auto, safe_mode: config.safe_mode !== false };
+}
+
 function sendAllowed(cls, config, env = process.env) {
   if (isKilled(env)) return { ok: false, reason: 'kill_switch' };
   if (cls.tier === 'T3') return { ok: false, reason: 'tier_T3' };
   if (cls.tier === 'T2') return { ok: false, reason: 'tier_T2' };
   if (cls.tier !== 'T1') return { ok: false, reason: `tier_${cls.tier}` };
-  const auto = config.auto_send_assistant === true || env.IMESSAGE_AUTO_ASSISTANT === '1';
-  const allow = config.allow_send === true || env.IMESSAGE_ALLOW_SEND === '1' || auto;
+  const { allow_send: allow, auto_send_assistant: auto } = sendState(config, env);
   if (!allow) return { ok: false, reason: 'allow_send_off' };
   if (config.safe_mode !== false && !auto) return { ok: false, reason: 'safe_mode' };
   return { ok: true };
@@ -230,4 +239,4 @@ async function handleInbound(msg, { config, adapters, env, now } = {}) {
   };
 }
 
-module.exports = { handleInbound, sendAllowed, withAssistantSignature, skipSendDestination, isIMessageService };
+module.exports = { handleInbound, sendAllowed, sendState, withAssistantSignature, skipSendDestination, isIMessageService };

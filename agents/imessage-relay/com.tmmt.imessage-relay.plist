@@ -23,9 +23,9 @@
     <key>PATH</key>
     <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin</string>
     <key>IMESSAGE_AUTO_ASSISTANT</key>
-    <string>1</string>
+    <string>0</string>
     <key>IMESSAGE_ALLOW_SEND</key>
-    <string>1</string>
+    <string>0</string>
     <key>IMESSAGE_KILL</key>
     <string>0</string>
     <key>RELAY_BIND</key>
@@ -38,6 +38,6 @@
   <key>StandardErrorPath</key>
   <string>/tmp/imessage-relay.err</string>
   <key>Comment</key>
-  <string>T1 auto-send via Messages.app. Needs Full Disk Access on /usr/local/bin/node — not Cursor. T2/T3 never send.</string>
+  <string>Inbound read + draft. Send OFF by default (IMESSAGE_ALLOW_SEND/IMESSAGE_AUTO_ASSISTANT=0); enabling send is a reviewed activation. Needs Full Disk Access on /usr/local/bin/node — not Cursor. T2/T3 never send.</string>
 </dict>
 </plist>

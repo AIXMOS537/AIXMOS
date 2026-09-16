@@ -7,9 +7,12 @@ const { probeFda } = require('./chatdb');
 const { probeLiteLLM, probeOllama } = require('./llm-local');
 const { isKilled } = require('./gates');
 const { familyOwnerOverlap } = require('./policy');
-const { handleInbound } = require('./pipeline');
+const { handleInbound, sendState } = require('./pipeline');
 const { readNewInbound, advanceCursor } = require('./chatdb');
 const { sendViaMessages } = require('./send-imessage');
+const { recordPoll, functionalHealth } = require('./pollstate');
+
+let LIVE_POLLER = false; // true only inside the --live loop, where poll state is real
 
 const PORT = parseInt(process.env.RELAY_PORT || '8790', 10);
 const BIND = process.env.RELAY_BIND || '127.0.0.1';
@@ -33,17 +36,29 @@ async function statusPayload() {
   const litellm = await probeLiteLLM(config.llm.litellm_url);
   const ollama = await probeOllama(config.llm.ollama_url);
   const familyOverlap = familyOwnerOverlap(config.owner_handles);
+  const send = sendState(config, process.env);
+  const sendEnabled = send.allow_send;
+  const functional = functionalHealth({
+    pollMs: config.poll_ms || 5000,
+    killed: isKilled(),
+    sendEnabled,
+    processRunning: true,
+    inProcess: LIVE_POLLER,
+  });
   return {
-    ok: true,
+    // ok = FUNCTIONAL health (inbound actually processed), not "chat.db opens" (P1-C).
+    ok: functional.state === 'HEALTHY',
+    health_state: functional.state,
+    functional,
     service: 'text-my-mac',
     cursor_not_required: true,
     family_owner_overlap_checked: familyOverlap.checked,
     family_owner_overlap_count: familyOverlap.overlaps.length,
     family_owner_overlap_note: familyOverlap.note || null,
-    auto_send_assistant: config.auto_send_assistant === true,
+    auto_send_assistant: send.auto_send_assistant,
     auto_field: config.auto_field !== false,
     safe_mode: config.safe_mode !== false,
-    allow_send: config.allow_send === true || config.auto_send_assistant === true,
+    allow_send: sendEnabled,
     kill: isKilled(),
     kill_file: KILL_FILE,
     fda,
@@ -67,7 +82,8 @@ function startHealthServer() {
       res.end(JSON.stringify(obj));
     };
     if (req.method === 'GET' && (req.url === '/health' || req.url === '/status')) {
-      return json(200, await statusPayload());
+      const payload = await statusPayload();
+      return json(payload.health_state === 'FAILED' ? 503 : 200, payload);
     }
     if (req.method === 'POST' && req.url === '/send') {
       return json(403, {
@@ -158,8 +174,17 @@ function warnFamilyOwnerOverlap(config) {
   }
 }
 
+/** Startup line states ACTUAL send posture — never claims auto-send that is off. No customer data. */
+function startupStateLine(config, env = process.env) {
+  const s = sendState(config, env);
+  return `LIVE poller: READ MODE ON | SEND ${s.allow_send ? 'ENABLED' : 'DISABLED'} | ` +
+    `AUTO-REPLY ${s.auto_send_assistant ? 'ENABLED' : 'DISABLED'} | SAFE_MODE ${s.safe_mode ? 'ON' : 'OFF'} | ` +
+    `KILL ${isKilled(env) ? 'ON' : 'OFF'} | T2 draft | T3 never`;
+}
+
 async function liveLoop() {
-  console.log('LIVE poller: T1 assistant auto-send. T2 draft. T3 never. Cursor not required.');
+  LIVE_POLLER = true;
+  console.log(startupStateLine(loadConfig(), process.env));
   console.log('Kill: touch ~/.config/tmmt/imessage-assistant/KILL   or   me kill');
   warnFamilyOwnerOverlap(loadConfig());
   for (;;) {
@@ -168,10 +193,12 @@ async function liveLoop() {
     } else {
       try {
         const r = await processLiveOnce();
-        if (!r.ok) console.log('poll:', r.error, r.hint || '');
+        recordPoll(r);
+        if (!r.ok) console.log(new Date().toISOString(), 'poll:', r.error, r.hint || '');
         else if (r.processed) console.log(`processed ${r.processed} sent ${r.sent || 0}`);
       } catch (err) {
-        console.error('poll error:', err.message);
+        recordPoll({ ok: false, error: err.message });
+        console.error(new Date().toISOString(), 'poll error:', err.message);
       }
     }
     const ms = loadConfig().poll_ms || 5000;
@@ -179,4 +206,4 @@ async function liveLoop() {
   }
 }
 
-module.exports = { statusPayload, startHealthServer, processLiveOnce, liveLoop, warnFamilyOwnerOverlap };
+module.exports = { statusPayload, startHealthServer, processLiveOnce, liveLoop, warnFamilyOwnerOverlap, startupStateLine };
