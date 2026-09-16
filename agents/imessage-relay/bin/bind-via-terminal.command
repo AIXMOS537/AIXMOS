@@ -8,8 +8,8 @@ NODE="/usr/local/bin/node"
 RELAY="$HOME/projects/AIXMOS-AGENTS/imessage-relay/assistant.js"
 LOCK="$HOME/.config/tmmt/imessage-assistant/live.lock"
 LOG="/tmp/imessage-relay-term.log"
-export IMESSAGE_AUTO_ASSISTANT=1
-export IMESSAGE_ALLOW_SEND=1
+export IMESSAGE_AUTO_ASSISTANT=0  # CONTAINED 2026-09-16: auto-send OFF (owner charter P1-A)
+export IMESSAGE_ALLOW_SEND=0  # CONTAINED 2026-09-16: send OFF
 export RELAY_BIND=127.0.0.1
 export RELAY_PORT=8790
 

@@ -1,7 +1,7 @@
 {
   "safe_mode": true,
-  "allow_send": true,
-  "auto_send_assistant": true,
+  "allow_send": false,
+  "auto_send_assistant": false,
   "auto_field": true,
   "poll_ms": 5000,
   "llm": {
