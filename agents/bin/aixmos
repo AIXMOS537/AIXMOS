@@ -67,6 +67,20 @@ preflight() {
     ok "backend: $backend"
   fi
 
+  # Whose business are the agents told they work for? Silence here is how a client ends up
+  # with copy written for somebody else's company.
+  local prof; prof="$(node -e "
+    try { const p=require('./lib/profile'); const x=p.loadProfile();
+      if (x.source === 'file' && x.business_name) console.log('named:'+x.business_name);
+      else if (x.source === 'invalid') console.log('invalid');
+      else console.log('generic');
+    } catch(e){ console.log('generic'); }" 2>/dev/null)"
+  case "$prof" in
+    named:*) ok "business profile: ${prof#named:}" ;;
+    invalid) warn "business profile is malformed — agents will name no business" ;;
+    *)       info "no business profile — agents are told nothing about your business" ;;
+  esac
+
   # ── SAFETY. Reported every launch, because it governs what leaves this machine.
   printf "\n  ${B}Safety${R}\n"
   local cfg="imessage-relay/config.json"

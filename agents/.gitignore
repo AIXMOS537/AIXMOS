@@ -21,3 +21,7 @@ outbox/
 .idea/
 imessage-relay/lib/*.bak-*
 *.bak-*
+
+# Per-install business identity — never committed. See config/business-profile.example.json
+config/business-profile.json
+config/SKILLS_BRIEF.md
