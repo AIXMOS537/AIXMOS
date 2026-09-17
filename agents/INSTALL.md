@@ -71,6 +71,21 @@ only for STICKS' overdue scan — leave them blank and every other agent still w
 
 ---
 
+## TELL IT WHO YOU ARE (1 minute, do this first)
+
+```bash
+cp config/business-profile.example.json config/business-profile.json
+```
+
+Edit it: your business name, what you do, your lines of business, what must reach you
+personally, and any rule you never want broken ("never quote a price not on the rate card").
+
+Every agent reads this. Skip it and they will simply say they have not been told — which is
+safe, but they cannot write as you until you fill it in. The launcher shows which profile is
+loaded each time it starts.
+
+---
+
 ## MESSAGING — READ THIS PART
 
 ### It will not send anything until you turn it on

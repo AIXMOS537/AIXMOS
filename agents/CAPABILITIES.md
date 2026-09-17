@@ -112,25 +112,35 @@ After install, each agent is a terminal command: `chummo`, `moose`, `vision` …
 
 ---
 
-## 6. 🔴 THE HONEST GAP — IT STILL THINKS IT WORKS FOR TMMT
+## 6. IT IS WHITE-LABEL — THE AGENTS LEARN *YOUR* BUSINESS
 
-The agent personas in `orchestrator.js` hardcode one specific operation:
+Copy `config/business-profile.example.json` to `config/business-profile.json` and fill it in:
 
-> *"AIXMOS serves three businesses: TMMT Auto Services (car rentals/chauffeur/detailing/
-> drivers), AIXMOS Platform ($97/month members, credit guidance, GHL setup, 100+ pipeline
-> targeting $10K/month), and Ecommerce."*
+```json
+{
+  "business_name": "Riverside Auto Rentals",
+  "what_we_do": "weekly vehicle rentals for rideshare drivers",
+  "owner_label": "OWNER",
+  "lines": [{ "name": "Weekly rentals", "detail": "gig drivers", "tone": "direct" }],
+  "escalate_to_owner": ["insurance claims", "an unhappy customer", "refunds over $200"],
+  "notes": ["We never quote a price that is not on the current rate card."]
+}
+```
 
-A client installing this today gets a CHUMMO that believes it works for TMMT Auto Services
-and will reference those businesses and that price in customer-facing copy.
+Every agent persona reads it. CHUMMO writes as your business, MOOSE assigns tasks to your
+owner label, WONDER WOMAN escalates on your rules.
 
-**Everything else is generic. This is not.** Until the persona context is config-driven —
-read from a per-install profile rather than baked into the prompt — the pack is a
-*TMMT-flavoured* agent network rather than a white-label one.
+**With no profile, the agents name nothing.** They are told plainly: *"You work for the
+business that installed you. You have not been told its name, what it sells, or its prices
+— so never invent them."* A blank is safer than a guess, and a malformed profile falls back
+to the same blank rather than injecting half-parsed text into customer-facing copy.
 
-That is a contained fix (one prompt file, one config block), and it is the single thing
-standing between this and true plug-and-play for a stranger.
+**Nothing about the pack's author reaches your agents.** A test scans every rendered prompt
+for the original operation's name, people, and pricing and fails the build if any appears.
+Verified by reintroducing one on purpose — the suite goes red.
 
----
+The launcher tells you which profile is loaded every time it starts, so nobody discovers
+mid-campaign that their agents were writing for somebody else's company.
 
 ## 7. WHAT IS DELIBERATELY NOT INCLUDED
 
