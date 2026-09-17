@@ -24,22 +24,33 @@ Plus a scheduler, a contacts tool, and an **iMessage relay** (macOS only).
 
 ---
 
-## INSTALL
+## START HERE — one file
 
-**macOS**
+**Double-click `AIXMOS.command`** (Mac) or **`AIXMOS.bat`** (Windows).
+
+That is the whole thing. It checks what is actually true on this machine — node, a thinking
+backend, whether anything is able to send messages — tells you honestly, and then offers a
+menu: talk to an agent, install, set up offline mode, run the safety tests, manage the
+do-not-contact list.
+
+> This folder contains 25 older entry points (`START-HERE`, `RUN-FROM-USB`, `AI-BRAIN`,
+> `LOAD-ME-FIRST`, `MAKE-DESKTOP-BRAIN` …). They still work and are kept for the USB and
+> flashdrive flows, but **you do not need to choose between them any more.** The launcher
+> is the door.
+
+From a terminal:
+
 ```bash
-bash install-mac.sh
+bash bin/aixmos            # the menu
+bash bin/aixmos doctor     # preflight only — exits non-zero if not runnable
+bash bin/aixmos vision     # run one agent directly
 ```
 
-**Windows** — double-click `START-HERE.bat`, or:
-```bat
-install-windows.bat
-```
+`doctor` is safe to put in a script or a cron: it exits `1` when the machine is not in a
+state to run, including when the do-not-contact list is unreadable.
 
-**From a USB stick** — `RUN-FROM-USB.command` (Mac) or `RUN-FROM-USB.bat` (Windows).
-
-It mirrors the tree to `~/AIXMOS`, creates one alias per agent, and asks how you want the
-thinking done. Then: `chummo`, `moose`, `vision` … from any terminal.
+Installing (menu option 2, or `bash install-mac.sh`) mirrors the tree to `~/AIXMOS` and
+creates one alias per agent, so `chummo`, `moose`, `vision` … work from any terminal.
 
 ---
 
