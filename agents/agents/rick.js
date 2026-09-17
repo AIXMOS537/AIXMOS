@@ -11,6 +11,27 @@
  *   rick wake        — print Rick's prime brief (reload context)
  */
 
+// ── OWNER TIER. NOT PART OF THE DISTRIBUTED PACK. ───────────────────────────────────
+// RICK is the owner's own control surface: it hardcodes a specific Slack channel, three
+// specific Vercel deployments and a `blast` that messages THAT owner's operators. It is
+// the only file in this repo carrying those identifiers.
+//
+// The installers mirror the whole tree, so without this guard a copy of RICK lands on
+// every machine the pack is installed on. On a stranger's laptop it cannot work (no
+// credentials) and should not try (it would hit someone else's production from their
+// machine). The installers now exclude this file as well; the guard is the backstop for
+// a hand-copied tree.
+//
+// To run it on the owner's own machine: export AIXMOS_OWNER_TIER=1
+if (process.env.AIXMOS_OWNER_TIER !== "1") {
+  console.error(
+    "RICK is owner-tier and is not part of the AIXMOS pack.\n" +
+    "It targets one specific operation's Slack, Vercel projects and operator list.\n" +
+    "If this is the owner's machine: export AIXMOS_OWNER_TIER=1"
+  );
+  process.exit(2);
+}
+
 const { execSync, execFileSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
