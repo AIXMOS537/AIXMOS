@@ -28,7 +28,9 @@
     "contacts": "node contacts.js",
     "scheduler": "node scheduler.js",
     "projectx": "node projectx-feed.js",
-    "projectx:feed": "node projectx-feed.js"
+    "projectx:feed": "node projectx-feed.js",
+    "test": "node --test test/*.test.js",
+    "dnc": "node -e \"const s=require('./lib/suppression');const a=process.argv.slice(1);if(a[0]==='add')console.log(s.suppress(a[1],'manual'));else if(a[0]==='remove')console.log(s.unsuppress(a[1]));else console.log('list:',s.listPath)\""
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.68.0"

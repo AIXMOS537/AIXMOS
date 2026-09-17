@@ -1,3 +1,8 @@
+const {
+  classifyInbound: classifyOptOut,
+  suppress: suppressNumber,
+  unsuppress: unsuppressNumber,
+} = require('../../lib/suppression');
 'use strict';
 
 const { execFileSync } = require('child_process');
@@ -83,6 +88,36 @@ async function handleInbound(msg, { config, adapters, env, now } = {}) {
     const out = { action: 'blocked', reason: 'kill_switch', sent: false, tier: null };
     audit({ event: 'blocked', reason: 'kill_switch', id, from });
     return out;
+  }
+
+  // ── OPT-OUT, BEFORE ANYTHING ELSE ───────────────────────────────────────────────────
+  // Deliberately ahead of classification, rate limits and any LLM draft. An opt-out that
+  // only lands if the guards above happen to pass is not an opt-out -- the same ordering
+  // bug C-21a fixed on the TMMT SMS route. STOP must be recorded even on a day when every
+  // other part of this pipeline is failing.
+  //
+  // Exact keywords suppress. Free text that merely reads like a stop is flagged for a
+  // human and NOT auto-suppressed: guessing wrong either way is bad.
+  try {
+    const optOut = classifyOptOut(text);
+    if (optOut === 'opt_out') {
+      suppressNumber(from, 'inbound STOP (iMessage)');
+      audit({ event: 'opt_out', id, from });
+      return { action: 'opt_out', reason: 'inbound_stop', sent: false, tier: null, suppressed: true };
+    }
+    if (optOut === 'opt_in') {
+      unsuppressNumber(from);
+      audit({ event: 'opt_in', id, from });
+    }
+    if (optOut === 'stop_like') {
+      audit({ event: 'stop_like_needs_human', id, from });
+      return { action: 'held', reason: 'stop_like_needs_human', sent: false, tier: null };
+    }
+  } catch (err) {
+    // The suppression list is unreadable. Refuse to process rather than risk replying to
+    // someone who may have opted out and whose record we cannot read.
+    audit({ event: 'blocked', reason: 'dnc_unreadable', id, from, detail: err.message });
+    return { action: 'blocked', reason: 'dnc_unreadable', sent: false, tier: null };
   }
 
   const cls = classify({ from, text }, cfg);
