@@ -14,6 +14,7 @@
  */
 
 const { loadAixmosEnv } = require('./env');
+const { isSuppressed } = require('./suppression');
 loadAixmosEnv();
 
 function toE164(raw) {
@@ -174,6 +175,25 @@ function channelStatus() {
  */
 async function sendMessage({ to, text, channel, route, fallback = true, dryRun = false } = {}) {
   if (!to || !text) return { ok: false, error: 'to and text are required' };
+
+  // ── DO-NOT-CONTACT GATE ─────────────────────────────────────────────────────────────
+  // Every outbound path in this pack funnels through here: GHL, Quo and iMessage, and all
+  // five callers (send-sms, remind-overdue, retry-failed-reminders, backfill-reminder-
+  // dedupe, imessage-relay). One choke point, so the gate cannot be routed around.
+  //
+  // It is checked BEFORE dryRun on purpose: a dry run that reports "would send" to a
+  // suppressed number is a lie that gets copied into a real run.
+  //
+  // FAILS CLOSED. An unreadable list refuses the send rather than assuming nobody opted
+  // out. remind-overdue.js tells people "Reply STOP to opt out" -- this is what makes that
+  // sentence true.
+  try {
+    if (isSuppressed(to)) {
+      return { ok: false, suppressed: true, error: 'recipient has opted out (do-not-contact)', to };
+    }
+  } catch (e) {
+    return { ok: false, suppressed: true, error: `refusing to send: ${e.message}`, to };
+  }
 
   const order = channel ? [channel.toLowerCase()] : routeOrder(route);
   const attempts = [];
