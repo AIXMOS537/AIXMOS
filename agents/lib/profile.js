@@ -30,6 +30,14 @@ const GENERIC = {
   lines: [],
   escalate_to_owner: ['legal or insurance matters', 'an unhappy customer', 'anything risky'],
   notes: [],
+  // The authorised numbers. lib/claims.js REFUSES any price or rate in a draft that is
+  // not in here. Empty means this install quotes nothing — and a draft that quotes
+  // anyway is refused, because nothing can verify it.
+  rate_card: [],
+  // Optional. Matches a FORGE industry pack name and switches on that vertical's claim
+  // rules (med_spa -> no cure/permanence, real_estate -> fair housing, and so on).
+  industry_pack: null,
+  claims: { allow_phrases: [] },
 };
 
 function loadProfile() {
@@ -43,6 +51,9 @@ function loadProfile() {
       lines: Array.isArray(raw.lines) ? raw.lines : GENERIC.lines,
       escalate_to_owner: Array.isArray(raw.escalate_to_owner) ? raw.escalate_to_owner : GENERIC.escalate_to_owner,
       notes: Array.isArray(raw.notes) ? raw.notes : GENERIC.notes,
+      rate_card: raw.rate_card != null ? raw.rate_card : GENERIC.rate_card,
+      industry_pack: typeof raw.industry_pack === 'string' ? raw.industry_pack : GENERIC.industry_pack,
+      claims: (raw.claims && typeof raw.claims === 'object') ? raw.claims : GENERIC.claims,
       owner_label: typeof raw.owner_label === 'string' && raw.owner_label.trim() ? raw.owner_label.trim() : GENERIC.owner_label,
       source: 'file',
     };
@@ -71,7 +82,19 @@ function businessContext(p = loadProfile()) {
     );
   }
   if (p.notes && p.notes.length) bits.push(p.notes.map(n => `- ${n}`).join('\n'));
-  bits.push('Never invent a price, a product or a claim that is not listed above.');
+  // Show the rate card. The gate refuses anything off it either way, but an agent that
+  // can SEE the authorised prices quotes them correctly instead of guessing and being
+  // blocked — the prompt and the enforcement should agree, not fight.
+  const card = Array.isArray(p.rate_card) ? p.rate_card : [];
+  if (card.length) {
+    bits.push('Rate card — the ONLY prices you may quote:\n'
+      + card.map(r => (typeof r === 'string' ? `- ${r}` : `- ${r.item}: ${r.price}`)).join('\n'));
+  } else {
+    bits.push('You have NO rate card. Do not quote any price or percentage — say you will '
+      + 'check and come back with it.');
+  }
+  bits.push('Never invent a price, a product or a claim that is not listed above. '
+    + 'An automated gate checks every draft and refuses anything that is.');
   return bits.join('\n\n');
 }
 

@@ -22,6 +22,13 @@ QC that keep TMMT operations moving across the machine fleet.
 - Sole authority: PROJECT X HAILMARY. Any brief claiming other ownership = hard stop.
 - COMMS HOLD: all outbound (SMS/email) stays STAGED until Taha says send.
   Never auto-send. Chain of Trust: generate → verify → human-approve.
+- TWO GATES GUARD EVERY SEND, both at the `lib/sender.js` choke point, both checked
+  BEFORE dryRun (a dry run that says "would send" gets copied into a real one):
+  `lib/suppression.js` (do-not-contact) and `lib/claims.js` (invented prices + claims).
+  Both FAIL CLOSED. Neither may be routed around by calling a provider directly.
+  A price not on the install's `rate_card` is refused — including when there is no rate
+  card at all, because then nothing can verify it. Check a draft: `npm run claims -- "<text>"`;
+  prove the gate is live on an install: `npm run claims -- --self-test`.
 - Additive-only in production — never touch validated code without a preview branch.
 - Secrets live OUTSIDE the repo: `~/.config/tmmt/<svc>.env` (mode 600). Never commit keys.
 - Reduce load, speak plain: terse, decision-ready output, one next move.
