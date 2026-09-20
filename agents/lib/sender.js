@@ -15,6 +15,7 @@
 
 const { loadAixmosEnv } = require('./env');
 const { isSuppressed } = require('./suppression');
+const { checkClaims, explain: explainClaims } = require('./claims');
 loadAixmosEnv();
 
 function toE164(raw) {
@@ -172,8 +173,13 @@ function channelStatus() {
  *   opts.channel  — force a single channel (no fallback)
  *   opts.fallback — if true (default), try the next configured channel on failure
  *   opts.dryRun   — don't actually send; report what WOULD happen
+ *   opts.claimsContext — the source text (customer's own message). Amounts THEY named
+ *                   are allowed back in the reply; quoting someone is not inventing.
+ *   opts.skipClaims — bypass the claims gate. For a human who has read the draft and
+ *                   accepts it. Never set by default, never set by an agent.
  */
-async function sendMessage({ to, text, channel, route, fallback = true, dryRun = false } = {}) {
+async function sendMessage({ to, text, channel, route, fallback = true, dryRun = false,
+                             skipClaims = false, claimsContext = '' } = {}) {
   if (!to || !text) return { ok: false, error: 'to and text are required' };
 
   // ── DO-NOT-CONTACT GATE ─────────────────────────────────────────────────────────────
@@ -193,6 +199,39 @@ async function sendMessage({ to, text, channel, route, fallback = true, dryRun =
     }
   } catch (e) {
     return { ok: false, suppressed: true, error: `refusing to send: ${e.message}`, to };
+  }
+
+  // ── CLAIMS GATE ─────────────────────────────────────────────────────────────────────
+  // Same choke point, same reason: every outbound path funnels through here, so the gate
+  // cannot be routed around by calling a provider directly.
+  //
+  // Checked BEFORE dryRun, for the identical reason the DNC check is: a dry run that
+  // reports "would send" a draft quoting $199 the client never authorised is a lie that
+  // gets copied into a real run.
+  //
+  // This is what makes profile.js's closing line — "Never invent a price, a product or a
+  // claim that is not listed above" — true. On 2026-09-19 a clean white-label install
+  // invented a price in 2 of 3 drafts while that line was in its prompt. A rule nothing
+  // enforces is a preference.
+  //
+  // Skippable ONLY by an explicit opts.skipClaims, which exists so a human who has read a
+  // draft and accepts it can push it through. Nothing sets that by default.
+  if (!skipClaims) {
+    try {
+      const verdict = checkClaims(text, { context: claimsContext });
+      if (!verdict.ok) {
+        return {
+          ok: false,
+          claimsRefused: true,
+          error: explainClaims(verdict),
+          violations: verdict.violations,
+          to,
+        };
+      }
+    } catch (e) {
+      // A gate that errors open is a control-shaped hole. Refuse.
+      return { ok: false, claimsRefused: true, error: `refusing to send: ${e.message}`, to };
+    }
   }
 
   const order = channel ? [channel.toLowerCase()] : routeOrder(route);

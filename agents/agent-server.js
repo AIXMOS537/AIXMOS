@@ -15,6 +15,8 @@ const { loadAixmosEnv } = require('./lib/env');
 const llm = require('./lib/llm');
 const prompts = require('./agents/prompts');
 const { runAgent, loadRegistry } = require('./lib/runner');
+const { checkClaims, explain: explainClaims } = require('./lib/claims');
+const frontdesk = require('./lib/frontdesk');
 
 loadAixmosEnv();
 
@@ -95,12 +97,20 @@ async function handleAgent(name, body) {
   const maxTokens = parseInt(body.max_tokens || body.maxTokens || '1500', 10);
   const t0 = Date.now();
   const output = await runAgent({ system: prompts[name], userPrompt: prompt, maxTokens });
+  // CLAIMS GATE. This route used to return raw model output with no check of any kind,
+  // which made it a clean bypass around every protection in lib/sender.js. A caller that
+  // pipes /agent straight into a send is exactly how an invented price ships. The verdict
+  // rides WITH the output so a caller cannot claim it did not know.
+  const gate = checkClaims(output, { context: prompt });
   return {
     agent: name,
     backend: llm.backend(),
     model: llm.backend() === 'ollama' ? llm.DEFAULT_OLLAMA_MODEL() : llm.DEFAULT_CLAUDE_MODEL(),
     latency_ms: Date.now() - t0,
     output,
+    claims_ok: gate.ok,
+    claims: gate.ok ? null : { violations: gate.violations, summary: explainClaims(gate) },
+    approved_to_send: false,
   };
 }
 
@@ -131,8 +141,12 @@ async function handleCouncil(body) {
     userPrompt: `Situation:\n${situation}\n\nCAPTAIN said:\n${captain}\n\nExecute without hesitation.`,
     maxTokens,
   });
+  const councilGate = checkClaims(moose, { context: situation });
   return {
     decision: 'GO',
+    claims_ok: councilGate.ok,
+    claims: councilGate.ok ? null : { violations: councilGate.violations, summary: explainClaims(councilGate) },
+    approved_to_send: false,
     backend: llm.backend(),
     latency_ms: Date.now() - t0,
     vision,
@@ -169,6 +183,16 @@ const server = http.createServer(async (req, res) => {
       const result = await handleAgent(agentMatch[1], body);
       return send(res, 200, result);
     }
+    if (method === 'POST' && url.pathname === '/frontdesk') {
+      const body = await readBody(req);
+      const result = await frontdesk.handleInbound({
+        from: body.from, text: body.text || body.message || body.prompt, channel: body.channel || 'api',
+      });
+      return send(res, 200, result);
+    }
+    if (method === 'GET' && url.pathname === '/frontdesk/queue') {
+      return send(res, 200, { queue: frontdesk.listQueue().slice(0, 50), dir: frontdesk.QUEUE_DIR });
+    }
     if (method === 'POST' && url.pathname === '/council') {
       const body = await readBody(req);
       const result = await handleCouncil(body);
@@ -182,6 +206,8 @@ const server = http.createServer(async (req, res) => {
           'GET  /agents',
           'POST /agent/<name>  {prompt}',
           'POST /council       {situation}',
+          'POST /frontdesk     {from, text, channel}   triage -> chain -> gate -> queue',
+          'GET  /frontdesk/queue',
         ],
         agents: KNOWN_AGENTS,
       });

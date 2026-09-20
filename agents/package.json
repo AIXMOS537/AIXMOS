@@ -30,7 +30,12 @@
     "projectx": "node projectx-feed.js",
     "projectx:feed": "node projectx-feed.js",
     "test": "node --test test/*.test.js",
-    "dnc": "node -e \"const s=require('./lib/suppression');const a=process.argv.slice(1);if(a[0]==='add')console.log(s.suppress(a[1],'manual'));else if(a[0]==='remove')console.log(s.unsuppress(a[1]));else console.log('list:',s.listPath)\""
+    "dnc": "node -e \"const s=require('./lib/suppression');const a=process.argv.slice(1);if(a[0]==='add')console.log(s.suppress(a[1],'manual'));else if(a[0]==='remove')console.log(s.unsuppress(a[1]));else console.log('list:',s.listPath)\"",
+    "claims": "node claims-check.js",
+    "frontdesk": "node frontdesk-cli.js",
+    "setup": "node setup.js",
+    "doctor": "node setup.js --doctor",
+    "daemon": "node frontdesk-daemon.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.68.0"
