@@ -60,11 +60,16 @@ ROLES = [
      "desc": "You are building your own business, product or side project. I become your build partner.",
      "intake_title": "Tell me what you are building.",
      "intake_sub": "The more you give me, the sharper the plan. Everything stays on this machine."},
+    {"id": "everything", "icon": "\U0001F310", "title": "Everything (full station)",
+     "desc": "Every feature on: your build partner, the TMMT operator playbooks and console, the certification path and, from the installer, the TMMT app developer lane.",
+     "intake_title": "Tell me what you run and what you are building.",
+     "intake_sub": "Your operation, your projects and what is in the way. Everything stays on this machine."},
 ]
 LEGACY_ROLES = {"both": "TMMT operator + builder"}          # older installs; still honoured, no longer offered
 ROLE_IDS = {r["id"] for r in ROLES} | set(LEGACY_ROLES)
 ALIASES = {"builder": "aixmos_member", "entrepreneur": "aixmos_member", "movement": "aixmos_member",
-           "pathway": "tmmt_pathway", "candidate": "tmmt_pathway", "operator": "tmmt_operator"}
+           "pathway": "tmmt_pathway", "candidate": "tmmt_pathway", "operator": "tmmt_operator",
+           "all": "everything", "full": "everything"}
 
 def normalize_role(role):
     r = str(role or "").strip().lower()
@@ -72,10 +77,10 @@ def normalize_role(role):
     return r if r in ROLE_IDS else ""
 
 def is_operator(role):
-    return role in ("tmmt_operator", "both")
+    return role in ("tmmt_operator", "both", "everything")
 
 def is_tmmt(role):
-    return role in ("tmmt_operator", "both", "tmmt_pathway")
+    return role in ("tmmt_operator", "both", "everything", "tmmt_pathway")
 
 def role_title(role):
     return next((r["title"] for r in ROLES if r["id"] == role), LEGACY_ROLES.get(role, "builder"))
@@ -144,7 +149,7 @@ PATHWAY = [
     BLOCKERS, HOURS, LEVEL, VOICE,
 ]
 QUESTIONS_BY_ROLE = {"student": STUDENT, "employee": EMPLOYEE, "tmmt_pathway": PATHWAY,
-                     "tmmt_operator": BUSINESS, "aixmos_member": BUSINESS, "both": BUSINESS}
+                     "tmmt_operator": BUSINESS, "aixmos_member": BUSINESS, "both": BUSINESS, "everything": BUSINESS}
 QUESTIONS = BUSINESS
 
 def questions_for(role):
@@ -205,6 +210,7 @@ ROLE_GROUPS = {
     "tmmt_pathway": ("Your operator pathway", PATHWAY_ITEMS),
     "tmmt_operator": ("TMMT operator", TMMT_ITEMS),
     "both": ("TMMT operator", TMMT_ITEMS),
+    "everything": ("TMMT operator + everything", TMMT_ITEMS + PATHWAY_ITEMS[1:3]),
 }
 
 def _read():
@@ -303,6 +309,7 @@ ROLE_SKILLS = {
     "tmmt_pathway": ["sales-pack", "lead-gen", "appointment-setter", "receptionist"],
     "tmmt_operator": ["sales-pack", "appointment-setter", "missed-call", "lead-gen"],
     "both": ["sales-pack", "appointment-setter", "missed-call", "business-builder"],
+    "everything": ["business-builder", "sales-pack", "appointment-setter", "app-builder"],
 }
 
 def _suggest_skills(st):
@@ -409,6 +416,8 @@ ROLE_BRIEFS = {
                     "and the fences. Never promise income. Operators are licensed partners, not employees.",
     "tmmt_operator": "The client is a licensed TMMT operator running a lot or desk. Plan around leads, follow-up, fleet and the operator playbooks.",
     "both": "The client is a TMMT operator who also builds their own projects.",
+    "everything": "The client runs the full station: a TMMT operator who also builds their own business, products and apps. "
+                  "Plan across the operation (leads, follow-up, fleet, playbooks) and one build project.",
 }
 
 def plan(timeout=300):
@@ -486,7 +495,7 @@ ROLE_RULES = {
     "tmmt_operator": ["Licensed TMMT operator. Fences: no income claims, draft outreach and never auto-send, no customer financials, "
                       "no credit-repair or score-guarantee language, no keys or .env files."],
 }
-ROLE_RULES["both"] = ROLE_RULES["tmmt_operator"]
+ROLE_RULES["both"] = ROLE_RULES["everything"] = ROLE_RULES["tmmt_operator"]
 
 def mission_context():
     st = state()

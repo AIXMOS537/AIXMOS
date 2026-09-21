@@ -149,15 +149,16 @@ class AgentGates(unittest.TestCase):
 
 # --------------------------------------------------------- image provider default ----
 class ImageDefault(unittest.TestCase):
-    def test_public_service_is_opt_in(self):
-        self.assertNotIn("pollinations", settings.providers_for("image"))
-        with self.assertRaises(RuntimeError):
-            imagegen.choose_provider()
-        settings.update(prefs={"image_provider": "pollinations"})
+    def test_public_service_default_on_with_opt_out(self):
+        # owner decision 2026-09-12 (98c9576): free public images on by default, switchable off in Integrations
+        self.assertIn("pollinations", settings.providers_for("image"))
+        settings.update(prefs={"image_free_public": False})
         try:
-            self.assertEqual(imagegen.choose_provider(), "pollinations")
+            self.assertNotIn("pollinations", settings.providers_for("image"))
+            with self.assertRaises(RuntimeError):
+                imagegen.choose_provider()
         finally:
-            settings.update(prefs={"image_provider": "auto"})
+            settings.update(prefs={"image_free_public": True, "image_provider": "auto"})
 
 
 # ------------------------------------------------------------ who-are-you onboarding ----
@@ -199,6 +200,14 @@ class Onboarding(unittest.TestCase):
         self.assertTrue(os.path.isfile(os.path.join(pathway.PACK, "modules.md")))
         self.assertIn("Module 1", genesis._fallback_plan(genesis.state(), []))
         self.assertFalse(genesis.view()["console"])     # candidates don't get the operator console
+
+    def test_everything_role_is_full_station(self):
+        self.assertEqual(genesis.normalize_role("all"), "everything")
+        self.assertTrue(genesis.is_operator("everything") and genesis.is_tmmt("everything"))
+        genesis.save_intake("everything", {"owner": "Kai", "building": "a booking app"})
+        self.assertIn("Licensed TMMT operator", genesis.mission_context())
+        self.assertEqual(genesis.catalog()[0]["group"], "TMMT operator + everything")
+        self.assertTrue(os.path.isfile(os.path.join(pathway.PACK, "modules.md")))
 
 
 class PathwayOnFirstStart(unittest.TestCase):

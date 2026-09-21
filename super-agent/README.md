@@ -47,6 +47,7 @@ Every install first works out **who the user is**, and Genesis adapts to the ans
 | `tmmt_pathway` | the path to becoming a licensed TMMT operator: 15-module certification (`/pathway`), 100-point rubric, price doors, fences, operator playbooks |
 | `tmmt_operator` | operator playbooks + the role-locked operator console; `--tmmt-dev` adds Git, Node, GitHub CLI, Claude Code and the canon app repo |
 | `builder` (`aixmos_member`) | build partner for their own business or product |
+| `everything` (`all`) | the full station: every feature, operator playbooks + console, the certification path, and the TMMT developer lane without asking (`--no-tmmt-dev` skips it) |
 
 Every role gets its own intake questions, capability showcase, first plan and guardrails, which are carried into
 every chat and agent prompt. Everyone gets the super agent, the vault, the CRM, media, mail and the first-boot **Genesis**.
@@ -54,7 +55,7 @@ every chat and agent prompt. Everyone gets the super agent, the vault, the CRM, 
 The Windows installer needs no admin rights (`%LOCALAPPDATA%\AIXMOS`), installs Ollama silently if it
 is missing, pulls `qwen2.5:3b` once (about 2 GB), writes Start/Stop launchers, a desktop shortcut and a
 per-user logon autostart, then opens the UI. Re-running upgrades the app and keeps `memory/`.
-Flags: `--role student|employee|tmmt_pathway|tmmt_operator|builder --tmmt-dev --dir PATH --port N --no-ollama --no-model
+Flags: `--role student|employee|tmmt_pathway|tmmt_operator|builder|everything --tmmt-dev --no-tmmt-dev --dir PATH --port N --no-ollama --no-model
 --no-autostart --no-launch --no-shortcuts --no-mcp --quiet`. No secrets ship in the payload; a build
 gate refuses to package any live-looking key. Setup runs the downloaded Ollama installer only after
 Windows confirms a valid Authenticode signature from Ollama.

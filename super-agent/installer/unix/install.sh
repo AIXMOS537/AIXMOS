@@ -2,7 +2,7 @@
 # PROJECT AIXMOS // 4THEPEOPLE -- one-shot installer for macOS and Linux.
 #
 #   bash install.sh                      # from the folder that holds aixmos-app.zip
-#   bash install.sh --role student       # student | employee | tmmt_pathway | tmmt_operator | builder
+#   bash install.sh --role student       # student | employee | tmmt_pathway | tmmt_operator | builder | everything
 #   flags: --dir PATH --port N --no-ollama --no-model --no-launch
 #
 # Installs to ~/AIXMOS, keeps memory/ on re-run (conversation, settings, CRM, media),
@@ -40,11 +40,13 @@ if [ -z "$ROLE" ] && [ -t 0 ]; then
   echo "  3) TMMT pathway    (you want to become a licensed TMMT operator)"
   echo "  4) TMMT operator   (you already run rentals / detailing / dispatch / sales)"
   echo "  5) Entrepreneur    (build your own business, product or project)"
-  printf "Choose 1-5 [5]: "; read -r c
-  case "$c" in 1) ROLE=student ;; 2) ROLE=employee ;; 3) ROLE=tmmt_pathway ;; 4) ROLE=tmmt_operator ;; *) ROLE=aixmos_member ;; esac
+  echo "  6) Everything      (full station: all of the above + TMMT operator tools)"
+  printf "Choose 1-6 [5]: "; read -r c
+  case "$c" in 1) ROLE=student ;; 2) ROLE=employee ;; 3) ROLE=tmmt_pathway ;; 4) ROLE=tmmt_operator ;; 6) ROLE=everything ;; *) ROLE=aixmos_member ;; esac
 fi
 ROLE="${ROLE:-aixmos_member}"
 [ "$ROLE" = "builder" ] && ROLE=aixmos_member
+case "$ROLE" in all|full) ROLE=everything ;; esac
 
 say "[1/6] Python 3"
 PY="$(command -v python3 || true)"

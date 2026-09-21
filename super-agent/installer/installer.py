@@ -8,7 +8,8 @@ It is stdlib-only, so it runs before the vendored packages are wired. On the tar
 
   2. wires the embeddable Python to the app (._pth) so no system Python is required
   3. installs Ollama if missing (official installer, silent) and pulls the local model
-  4. asks who the machine is for -- TMMT Operator / AIXMOS Movement / Both -- and provisions it:
+  4. asks who the machine is for -- student / employee / TMMT pathway / TMMT operator / builder /
+     Everything (full station) -- and provisions it:
        * everyone: the super agent, the playbook vault, first-boot Genesis intro seeded with the role
        * TMMT roles: operator playbooks in the vault + the operator console on the desktop
        * --tmmt-dev (or yes at the prompt): Git, Node, GitHub CLI, Claude Code, the canon TMMT repo
@@ -18,8 +19,10 @@ It is stdlib-only, so it runs before the vendored packages are wired. On the tar
   6. starts the server and opens the first-boot introduction
 
 Re-running upgrades the app and keeps memory/ (conversation, settings, CRM, media, genesis).
-Flags: --role student|employee|tmmt_pathway|tmmt_operator|builder  --tmmt-dev  --port N  --no-ollama  --no-model
-       --no-autostart  --no-launch  --quiet
+Flags: --role student|employee|tmmt_pathway|tmmt_operator|builder|everything  --tmmt-dev  --no-tmmt-dev
+       --port N  --no-ollama  --no-model  --no-autostart  --no-launch  --quiet
+"everything" = every feature + operator kit + console + certification path, and the TMMT developer lane
+runs without asking (skip it with --no-tmmt-dev).
 Secrets never ship: no API key, service-role key or .env value is in the payload. Keys are
 entered by the person who owns them, on their own machine, in the Integrations panel.
 """
@@ -31,11 +34,12 @@ MODEL = "qwen2.5:3b"
 OLLAMA_URL = "https://ollama.com/download/OllamaSetup.exe"
 OLLAMA_PUBLISHER = "Ollama"          # must appear in the Authenticode signer subject
 TMMT_REPO = "https://github.com/AIXMOS537/TMMT.git"   # canon. Never the Metavibez4L decoy.
-ROLES = {"1": "student", "2": "employee", "3": "tmmt_pathway", "4": "tmmt_operator", "5": "aixmos_member"}
+ROLES = {"1": "student", "2": "employee", "3": "tmmt_pathway", "4": "tmmt_operator", "5": "aixmos_member", "6": "everything"}
 ROLE_ALIASES = {"builder": "aixmos_member", "entrepreneur": "aixmos_member", "movement": "aixmos_member",
-                "pathway": "tmmt_pathway", "candidate": "tmmt_pathway", "operator": "tmmt_operator"}
+                "pathway": "tmmt_pathway", "candidate": "tmmt_pathway", "operator": "tmmt_operator",
+                "all": "everything", "full": "everything"}
 VALID_ROLES = set(ROLES.values()) | {"both"}          # "both" = older installs; still honoured
-OPERATOR_ROLES = ("tmmt_operator", "both")             # get the role-locked console and the dev lane
+OPERATOR_ROLES = ("tmmt_operator", "both", "everything")   # get the role-locked console and the dev lane
 TMMT_ROLES = OPERATOR_ROLES + ("tmmt_pathway",)        # get the operator playbooks + certification path
 NOWIN = 0x08000000
 
@@ -204,7 +208,8 @@ def choose_role(a, log):
         print("    3) TMMT pathway    you want to become a licensed TMMT operator")
         print("    4) TMMT operator   you already run rentals / detailing / dispatch / sales for TMMT")
         print("    5) Entrepreneur    build your own business, product or project")
-        role = ROLES.get(ask("  Choose 1-5 [5]: ", "5", a.quiet), "aixmos_member")
+        print("    6) Everything      full station: all of the above + the TMMT app developer lane")
+        role = ROLES.get(ask("  Choose 1-6 [5]: ", "5", a.quiet), "aixmos_member")
     log("    role: %s" % role)
     return role
 
@@ -286,7 +291,12 @@ def provision(dest, a, log):
         console = os.path.join(dest, "operator", "TMMT-Operator-Console.html")
         if os.path.isfile(console):
             shortcut("TMMT Operator Console", console, os.path.dirname(console), ico, "TMMT operator console", log)
-        want_dev = a.tmmt_dev or ask("  Also set up TMMT developer tools (Git, Node, GitHub CLI, Claude Code, the app repo)? y/N: ", "n", a.quiet).lower().startswith("y")
+        if a.no_tmmt_dev:
+            want_dev = False
+        elif a.tmmt_dev or role == "everything":
+            want_dev = True
+        else:
+            want_dev = ask("  Also set up TMMT developer tools (Git, Node, GitHub CLI, Claude Code, the app repo)? y/N: ", "n", a.quiet).lower().startswith("y")
         if want_dev:
             tmmt_dev(log, a.quiet)
     if not a.no_mcp:
@@ -361,7 +371,7 @@ def main():
     ap = argparse.ArgumentParser(description="AIXMOS 4THEPEOPLE setup")
     ap.add_argument("--installed-dir", required=True)
     ap.add_argument("--role", default="")
-    ap.add_argument("--tmmt-dev", action="store_true")
+    ap.add_argument("--tmmt-dev", action="store_true"); ap.add_argument("--no-tmmt-dev", action="store_true")
     ap.add_argument("--port", type=int, default=PORT)
     ap.add_argument("--no-ollama", action="store_true"); ap.add_argument("--no-model", action="store_true")
     ap.add_argument("--no-autostart", action="store_true"); ap.add_argument("--no-launch", action="store_true")
