@@ -78,6 +78,19 @@ function Get-StickLanes {
     }
 }
 
+# Private = CYBORG only: the brain lane plus every PERSONAL extra (stick-relative paths).
+function Get-PrivatePaths {
+    @((Rel $Kit.lanes.brain.drive)) + @($B.extras | ForEach-Object { Rel $_.drive } | Where-Object { $_ -like 'PERSONAL*' })
+}
+# CYBORG = the volume label, or the stick's own AIXMOS-ROLE.json saying "master".
+function Test-MasterStick([string]$Root) {
+    $v = Get-Volume -DriveLetter $Root.Substring(0,1) -ErrorAction SilentlyContinue
+    if ("$($v.FileSystemLabel)" -eq 'CYBORG') { return $true }
+    $rf = Join-Path $Root 'AIXMOS-ROLE.json'
+    if (Test-Path $rf) { try { return ((Get-Content $rf -Raw | ConvertFrom-Json).role -eq 'master') } catch {} }
+    $false
+}
+
 # ---------------------------------------------------------------- stage
 function Do-Stage {
     if ($KitMode -ne 'local') { Bad 'stage runs from the installed kit on the machine that has the work, not from a stick.'; return }
@@ -249,6 +262,18 @@ function Do-Write {
     $dataFat = "$($dataVol.FileSystem)" -eq 'FAT32'
     Hd "WRITE  $Stage  ->  $dataRoot  [$($dataVol.FileSystem)]"
 
+    # Owner rule 2026-09-11: the private brain and personal files ride on CYBORG only.
+    # Any other stick gets everything else. Its brain comes from the installer's
+    # Genesis setup, and the business kit is inside INSTALL-AIXMOS.
+    $master = Test-MasterStick $dataRoot
+    $xdPrivate = @((Join-Path $Stage '_BOOT'))
+    if ($master) { Ok 'CYBORG master - private brain and PERSONAL included' }
+    else {
+        $xdPrivate += @(Get-PrivatePaths | ForEach-Object { Join-Path $Stage $_ })
+        Warn "not CYBORG - leaving off the private brain and PERSONAL: $((Get-PrivatePaths) -join ', ')"
+        if ($Vault) { Bad 'vault goes on CYBORG only. Refusing.'; return }
+    }
+
     # FAT32 cannot hold a file over 4 GB. Leave those off, and leave off the model
     # manifests that point at them so Ollama never lists a model it cannot load.
     $more = @('/FFT')
@@ -271,7 +296,7 @@ function Do-Write {
     $existing = Size-Bytes (Join-Path $dataRoot 'TMMT-WORK')
     if ($need - $existing -gt $have) { Bad 'not enough room on the stick. Use a bigger stick, or free space on it first.'; return }
 
-    Copy-Tree $Stage $dataRoot @((Join-Path $Stage '_BOOT')) $xfBig $more
+    Copy-Tree $Stage $dataRoot $xdPrivate $xfBig $more
 
     if ($Vault) {
         $src = Get-KitLane vault
@@ -311,6 +336,12 @@ function Do-Check([string]$Root) {
     }
     $vp = Join-Path $Root (Rel $Kit.lanes.vault.drive)
     if (Test-Path $vp) { Warn 'vault present - this stick carries PERSONAL material, keep it home' }
+    if ($Root -ne $Stage -and -not (Test-MasterStick $Root)) {
+        $leak = @(Get-PrivatePaths | Where-Object { Test-Path (Join-Path $Root $_) })
+        if (Test-Path $vp) { $leak += (Rel $Kit.lanes.vault.drive) }
+        if ($leak.Count) { Bad "not CYBORG but carries private material: $($leak -join ', ')"; $bad++ }
+        else { Ok 'no private brain or PERSONAL (not CYBORG)' }
+    }
 
     Write-Host ''
     Write-Host '  runtimes' -ForegroundColor White
