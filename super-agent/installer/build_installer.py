@@ -39,10 +39,11 @@ BRAIN = os.path.join(HOME, "AIXMOS-Brain")
 # Business material only (playbooks, scorecards, onboarding). The owner's blueprint, device, NAS
 # and local-AI notes stay home; build-operator-kit.ps1 -Business emits exactly this set.
 OPERATOR_KIT = os.path.join(BRAIN, "dist", "operator-kit-business")
+PII_MARKERS = os.path.join(HOME, ".aixmos-pii-markers.txt")
 OPERATOR_CONSOLE = os.path.join(HOME, "CommandCenter", "TeamDashboards", "_onboarding", "Dashboard-New-Operator.html")
 CSC = r"C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
 MAGIC = b"AIXMOS4P"
-SECRET_RX = re.compile(rb"(sb_secret_[A-Za-z0-9_-]{10,}|eyJhbGciOi[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}|sk-(?:ant-|proj-)?[A-Za-z0-9_-]{24,}|"
+SECRET_RX = re.compile(rb"(sb_secret_[A-Za-z0-9_-]{10,}|eyJhbGciOi[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}|(?<![A-Za-z0-9])sk-(?:ant-|proj-)?[A-Za-z0-9_-]{24,}|"
                        rb"ghp_[A-Za-z0-9]{30,}|AKIA[0-9A-Z]{16}|xox[bpa]-[A-Za-z0-9-]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----)")
 TEXT_EXT = {".py", ".md", ".txt", ".json", ".html", ".js", ".css", ".csv", ".yml", ".yaml", ".sh", ".cmd", ".bat", ".ps1", ".env"}
 
@@ -101,8 +102,8 @@ def add_app(z, win=True):
     add_tree(z, os.path.join(ROOT, "aixmos"), "aixmos")
     add_tree(z, os.path.join(ROOT, "memory", "kit"), "memory/kit")
     add_tree(z, OPERATOR_KIT, "memory/kit/tmmt-operator-kit")
-    if os.path.isfile(OPERATOR_CONSOLE):
-        z.write(OPERATOR_CONSOLE, "operator/TMMT-Operator-Console.html")
+    # The operator console is NOT shipped: it carries the owner's name, mail and dashboard link.
+    # Owner rule 2026-09-21: no personal information to anyone. pii_gate enforces it.
     z.writestr("memory/workspace/README.txt", "Agent workspace. Files the super agent creates land here.\n")
 
 def build_payload():
@@ -159,6 +160,29 @@ def secret_gate(path):
     if bad:
         raise SystemExit("SECRET GATE: refusing to ship. Offending entries:\n  " + "\n  ".join(bad))
     print("secret gate: clean")
+    pii_gate(path)
+
+def pii_gate(path):
+    """Refuse to ship any owner-personal marker. The markers live outside the repo, one per line."""
+    if not os.path.isfile(PII_MARKERS):
+        raise SystemExit("PII GATE: %s is missing, so personal info cannot be ruled out. Refusing to ship." % PII_MARKERS)
+    with open(PII_MARKERS, encoding="utf-8") as f:
+        marks = [m.strip().lower().encode() for m in f if m.strip() and not m.startswith("#")]
+    bad = []
+    third_party = ("vendor/", "runtime/", "whisper/", "bin/")
+    with zipfile.ZipFile(path) as z:
+        for i in z.infolist():
+            if i.filename.startswith("operator/"):
+                bad.append(i.filename + " (operator console carries owner details)")
+            if i.filename.startswith(third_party) or os.path.splitext(i.filename)[1].lower() not in TEXT_EXT:
+                continue
+            low = z.read(i.filename).lower()
+            hits = sum(1 for m in marks if m in low)
+            if hits:
+                bad.append("%s  [%d marker(s)]" % (i.filename, hits))
+    if bad:
+        raise SystemExit("PII GATE: refusing to ship. Offending entries:\n  " + "\n  ".join(bad))
+    print("pii gate: clean (%d markers)" % len(marks))
 
 def build_stub(ico):
     out = os.path.join(HERE, "stub", "AixmosSetup.stub.exe")
