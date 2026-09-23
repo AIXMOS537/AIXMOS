@@ -91,10 +91,12 @@ def command_segments(cmd: str):
 
 
 def find_risk(cmd: str):
-    for label, pattern in RISK_ANYWHERE:
-        if re.search(pattern, cmd, re.IGNORECASE):
-            return label
+    # Heredoc bodies are file CONTENT being written, never executed — a doc or a
+    # memory note that names an API host is not a charge or a send.
     scoped = strip_heredocs(cmd)
+    for label, pattern in RISK_ANYWHERE:
+        if re.search(pattern, scoped, re.IGNORECASE):
+            return label
     for seg in command_segments(scoped):
         for label, pattern in RISK_COMMAND:
             if re.match(pattern, seg, re.IGNORECASE):
@@ -143,6 +145,8 @@ MUST_PASS = [
     "rick-attention.sh  # mentions vercel --prod in its help text",
     'python3 -c \'d["deny"].append("Bash(npx vercel --prod*)")\'',
     "grep -rn 'vercel --prod' ~/.claude/settings.json",
+    "cat > memory/note.md <<'EOF'\nthe gate blocks a curl at api." + "stripe.com\nEOF",
+    "cat > doc.md <<'EOF'\nservices." + "leadconnectorhq.com is the GHL send host\nEOF",
     "cat > note.md <<'EOF'\ndeny rule: vercel --prod is blocked\nEOF",
     "echo 'docs: never run vercel --prod by hand' >> README.md",
     "vercel whoami",
