@@ -480,7 +480,11 @@ class Handler(BaseHTTPRequestHandler):
         qs = urllib.parse.parse_qs(q)
         g = lambda k, d=None: (qs.get(k) or [d])[0]
         try:
-            if p in ("/", "/index.html"):
+            if p == "/api/health":
+                from aixmos.local_cli import identity
+                self._json({"app": "AIXMOS", "version": "2.1.0", "installation": identity(),
+                            "pid": os.getpid(), "running": True})
+            elif p in ("/", "/index.html"):
                 self._index()
             elif p.startswith("/media/"):
                 self._media()
@@ -549,7 +553,16 @@ class Handler(BaseHTTPRequestHandler):
             return
         p = self.path.split("?")[0]
         try:
-            if p == "/api/chat":       self._chat()
+            if p == "/api/runtime/stop":
+                import secrets
+                token = os.environ.get("AIXMOS_CONTROL_TOKEN", "")
+                supplied = self.headers.get("X-AIXMOS-Control", "")
+                if not token or not secrets.compare_digest(token, supplied):
+                    self._fail("Runtime control token required", 403)
+                    return
+                self._json({"ok": True})
+                threading.Thread(target=self.server.shutdown, daemon=True).start()
+            elif p == "/api/chat":       self._chat()
             elif p == "/api/stt":      self._stt()
             elif p == "/api/forget":   self._forget()
             elif p in ("/api/upload", "/api/video/upload"):
@@ -634,7 +647,8 @@ if __name__ == "__main__":
     except Exception:
         pass
     os.makedirs(agent.WORKSPACE, exist_ok=True)
-    threading.Thread(target=context_tools.prewarm, daemon=True).start()
+    if os.environ.get("AIXMOS_NO_PREWARM") != "1":
+        threading.Thread(target=context_tools.prewarm, daemon=True).start()
     threading.Thread(target=surfaces.boot_index, daemon=True).start()
     n = len(load_mem())
     print("=" * 56)
@@ -650,4 +664,5 @@ if __name__ == "__main__":
         srv.serve_forever()
     except KeyboardInterrupt:
         print("\n  Project AIXMOS stopped.")
-        srv.shutdown()
+    finally:
+        srv.server_close()

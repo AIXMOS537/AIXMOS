@@ -33,7 +33,7 @@ PAYLOAD = os.path.join(HERE, "payload.zip")
 DIST = os.path.join(ROOT, "dist")
 BUNDLE = os.path.join(DIST, "AIXMOS-4THEPEOPLE")
 EXE_NAME = "AIXMOS-4THEPEOPLE-Setup.exe"
-APP_FILES = ["project_aixmos_server.py", "context_tools.py", "index.html", "README.md", "TODO.md"]
+APP_FILES = ["aixmos_local.py", "LOCAL-AGENT.md", "project_aixmos_server.py", "context_tools.py", "index.html", "README.md", "TODO.md"]
 SKIP_DIRS = {"__pycache__", ".git", "node_modules"}
 BRAIN = os.path.join(HOME, "AIXMOS-Brain")
 # Business material only (playbooks, scorecards, onboarding). The owner's blueprint, device, NAS

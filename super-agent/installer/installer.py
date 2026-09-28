@@ -33,7 +33,7 @@ PORT = 8770
 MODEL = "qwen2.5:3b"
 OLLAMA_URL = "https://ollama.com/download/OllamaSetup.exe"
 OLLAMA_PUBLISHER = "Ollama"          # must appear in the Authenticode signer subject
-TMMT_REPO = "https://github.com/AIXMOS537/TMMT.git"   # canon. Never the Metavibez4L decoy.
+TMMT_REPO = "https://github.com/AIXMOS537/TMMT.git"   # canonical private repo; access granted separately
 ROLES = {"1": "student", "2": "employee", "3": "tmmt_pathway", "4": "tmmt_operator", "5": "aixmos_member", "6": "everything"}
 ROLE_ALIASES = {"builder": "aixmos_member", "entrepreneur": "aixmos_member", "movement": "aixmos_member",
                 "pathway": "tmmt_pathway", "candidate": "tmmt_pathway", "operator": "tmmt_operator",
@@ -153,6 +153,9 @@ def wire_python(dest, log):
 
 def ensure_ollama(log, want_ollama, want_model):
     log("[3/6] Ollama + local model")
+    if not want_ollama and not want_model:
+        log("    local model setup skipped; paired clients can use tools without it")
+        return None
     exe = shutil.which("ollama") or os.path.join(os.environ.get("LOCALAPPDATA", ""), "Programs", "Ollama", "ollama.exe")
     if not os.path.isfile(exe):
         if not want_ollama:
@@ -234,7 +237,7 @@ def shortcut(name, target, workdir, icon, desc, log):
         log("    shortcut '%s' skipped (--no-shortcuts)" % name); return
     ps = ("$w=New-Object -ComObject WScript.Shell; $d=[Environment]::GetFolderPath('Desktop'); $s=$w.CreateShortcut(\"$d\\%s.lnk\"); "
           "$s.TargetPath='%s'; $s.WorkingDirectory='%s'; $s.IconLocation='%s'; $s.Description='%s'; $s.Save()"
-          % (name, target, workdir, icon, desc))
+          % (name, target.replace("'", "''"), workdir.replace("'", "''"), icon.replace("'", "''"), desc.replace("'", "''")))
     run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps], log, timeout=60)
 
 def tmmt_dev(log, quiet):
@@ -269,13 +272,17 @@ def tmmt_dev(log, quiet):
     else:
         log("    git / gh not on PATH yet -- open a new terminal and re-run with --tmmt-dev")
 
-def register_mcp(port, log):
-    claude = shutil.which("claude")
-    if not claude:
-        return
-    log("    Claude Code found: registering AIXMOS as an MCP server")
-    run([claude, "mcp", "remove", "aixmos", "-s", "user"], log, timeout=60)
-    run([claude, "mcp", "add", "--transport", "http", "-s", "user", "aixmos", "http://localhost:%d/mcp" % port], log, timeout=60)
+def register_mcp(dest, port, log):
+    py = os.path.join(dest, "runtime", "python.exe")
+    entry = os.path.join(dest, "aixmos_local.py")
+    # Always provide a portable JSON example; pair installed clients without deleting registrations.
+    config = os.path.join(dest, "aixmos-mcp.json")
+    run([py, entry, "pair", "--client", "json", "--config", config, "--replace"], log, timeout=60)
+    if os.path.isdir(os.path.join(os.path.expanduser("~"), ".cursor")):
+        run([py, entry, "pair", "--client", "cursor"], log, timeout=60)
+    if shutil.which("claude"):
+        run([py, entry, "pair", "--client", "claude-code"], log, timeout=60)
+
 
 def provision(dest, a, log):
     log("[4/6] Provisioning this machine")
@@ -300,59 +307,42 @@ def provision(dest, a, log):
         if want_dev:
             tmmt_dev(log, a.quiet)
     if not a.no_mcp:
-        register_mcp(a.port, log)
+        register_mcp(dest, a.port, log)
     return role
 
 def write_launchers(dest, port, log, autostart):
-    log("[5/6] Launcher, shortcut, autostart")
+    log("[5/6] Launchers, pairing, shortcut, autostart")
+    py = os.path.join(dest, "runtime", "python.exe")
     pyw = os.path.join(dest, "runtime", "pythonw.exe")
-    server = os.path.join(dest, "project_aixmos_server.py")
+    entry = os.path.join(dest, "aixmos_local.py")
+    actions = {"Start AIXMOS.cmd": "start --open --port %d" % port,
+               "Stop AIXMOS.cmd": "stop --port %d" % port,
+               "Status AIXMOS.cmd": "status --port %d" % port,
+               "Pair Cursor.cmd": "pair --client cursor",
+               "Pair Claude Code.cmd": "pair --client claude-code",
+               "Pair Claude Desktop.cmd": "pair --client claude-desktop"}
+    for filename, action in actions.items():
+        with open(os.path.join(dest, filename), "w", encoding="utf-8", newline="") as f:
+            f.write('@echo off\r\n"%~dp0runtime\\python.exe" "%~dp0aixmos_local.py" ' + action + '\r\nif errorlevel 1 pause\r\n')
     bat = os.path.join(dest, "Start AIXMOS.cmd")
-    P = str(port)
-    start_lines = [
-        "@echo off", "title AIXMOS", 'cd /d "%~dp0"',
-        'powershell -NoProfile -ExecutionPolicy Bypass -Command "$c=New-Object Net.Sockets.TcpClient; '
-        "try{$c.Connect('127.0.0.1'," + P + ");$c.Close()}catch{ Start-Process -WindowStyle Hidden '" + pyw +
-        "' -ArgumentList '\\\"" + server + "\\\"','" + P + "'; Start-Sleep -Seconds 3 }\"",
-        'start "" http://localhost:' + P, ""]
-    with open(bat, "w", encoding="utf-8") as f:
-        f.write("\r\n".join(start_lines))
-    stop_lines = [
-        "@echo off",
-        'for /f "tokens=5" %%p in (\'netstat -ano ^| findstr :' + P + ' ^| findstr LISTENING\') do taskkill /F /PID %%p >nul 2>&1',
-        "echo AIXMOS stopped.", ""]
-    with open(os.path.join(dest, "Stop AIXMOS.cmd"), "w", encoding="utf-8") as f:
-        f.write("\r\n".join(stop_lines))
     ico = os.path.join(dest, "aixmos.ico")
-    shortcut("AIXMOS", bat, dest, ico if os.path.isfile(ico) else bat, "Project AIXMOS - super agent", log)
+    shortcut("AIXMOS", bat, dest, ico if os.path.isfile(ico) else bat, "AIXMOS local agent", log)
     if autostart:
-        tr = '"%s" "%s" %d' % (pyw, server, port)
-        run(["schtasks", "/Create", "/F", "/SC", "ONLOGON", "/TN", "AIXMOS-Server", "/TR", tr, "/RL", "LIMITED"], log, timeout=60)
+        tr = '"%s" "%s" start --port %d' % (pyw, entry, port)
+        rc = run(["schtasks", "/Create", "/F", "/SC", "ONLOGON", "/TN", "AIXMOS-Server", "/TR", tr, "/RL", "LIMITED"], log, timeout=60)
+        if rc:
+            log("    autostart was NOT registered; use Start AIXMOS.cmd")
     else:
         log("    autostart skipped (--no-autostart)")
 
+
 def start_server(dest, port, log, launch):
-    log("[6/6] Starting the server on port %d" % port)
-    if port_open(port):
-        log("    something already answers on %d; leaving it (Stop AIXMOS.cmd then Start AIXMOS.cmd to switch)" % port)
-    else:
-        pyw = os.path.join(dest, "runtime", "pythonw.exe")
-        subprocess.Popen([pyw, os.path.join(dest, "project_aixmos_server.py"), str(port)], cwd=dest,
-                         creationflags=NOWIN | 0x00000008, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        for _ in range(40):
-            if port_open(port): break
-            time.sleep(0.5)
-        log("    server %s" % ("online" if port_open(port) else "did not answer yet (check install.log / Start AIXMOS.cmd)"))
-    try:
-        j = json.loads(urllib.request.urlopen("http://127.0.0.1:%d/api/telemetry" % port, timeout=30).read())
-        c = j.get("caps", {})
-        log("    vault %s passages | ffmpeg %s | whisper %s | ollama %s" % (
-            (c.get("knowledge") or {}).get("chunks", "?"), "ok" if c.get("video_edit") else "missing",
-            "ok" if c.get("captions") else "missing", "online" if c.get("ollama") else "offline"))
-    except Exception as e:
-        log("    (telemetry not readable yet: %s)" % e)
+    log("[6/6] Starting the local AIXMOS service")
+    cmd = [os.path.join(dest, "runtime", "python.exe"), os.path.join(dest, "aixmos_local.py"), "start", "--port", str(port)]
     if launch:
-        os.startfile("http://localhost:%d/#genesis" % port)
+        cmd.append("--open")
+    run(cmd, log, timeout=90, check=True)
+
 
 SHOWCASE = """
   WHAT YOUR SUPER AGENT CAN DO NOW
@@ -378,6 +368,8 @@ def main():
     ap.add_argument("--quiet", action="store_true")
     ap.add_argument("--no-shortcuts", action="store_true"); ap.add_argument("--no-mcp", action="store_true")
     a, _ = ap.parse_known_args()
+    if not 1024 <= a.port <= 65535:
+        ap.error("port must be between 1024 and 65535")
     SHORTCUTS["on"] = not a.no_shortcuts
     dest = os.path.abspath(a.installed_dir)
     log = Log(os.path.join(dest, "install.log"), a.quiet)
