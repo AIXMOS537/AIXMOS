@@ -1,0 +1,26 @@
+name: super-agent tests
+
+on:
+  push:
+    paths: ["super-agent/**", ".github/workflows/super-agent-tests.yml"]
+  pull_request:
+    paths: ["super-agent/**", ".github/workflows/super-agent-tests.yml"]
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: super-agent
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # vendor/ is gitignored; the app loads requests + pillow from it, exactly as the installer ships them
+      - run: python -m pip install --quiet --target vendor requests pillow
+      - run: python -m unittest discover -s tests -v

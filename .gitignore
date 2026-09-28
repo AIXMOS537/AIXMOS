@@ -1,0 +1,24 @@
+# Secrets and local config
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Dependencies and builds
+node_modules/
+venv/
+.venv/
+__pycache__/
+*.pyc
+dist/
+build/
+.next/
+
+# Local data (never commit)
+*.sqlite
+*.db
+*.npy
+*.wav
+*.log
+.DS_Store
