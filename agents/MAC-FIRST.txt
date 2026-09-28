@@ -1,0 +1,78 @@
+AIXMOS AGENTS - MAC ORIENTATION
+================================================================
+
+You're on a MacBook. Plug in this USB. Open the AIXMOS-AGENTS folder.
+
+WHAT TO CLICK
+================================================================
+
+Double-click any of these (Finder may ask you to confirm — choose "Open"):
+
+  START-HERE.command         Picks install / portable / offline / open guide
+  RUN-FROM-USB.command       Runs agents directly off the USB (no install)
+  OFFLINE-MODE-SETUP.command Installs Ollama + a local LLM (no internet needed)
+  GUIDE-MAKE-PDF.command     Regenerates the PDF guide
+
+  AIXMOS-GUIDE.pdf           READ THIS FIRST — 13-section guide
+
+If macOS blocks a .command file (Gatekeeper):
+  - Right-click the file → "Open" → confirm in the dialog (only needed once)
+  - Or open Terminal and run:  bash /Volumes/LEXAR/AIXMOS-AGENTS/START-HERE.command
+
+INSTALLATION (one-time)
+================================================================
+
+After clicking START-HERE.command → "1. INSTALL", you'll have:
+
+  ~/AIXMOS/                  Full tree copied to your Mac
+  ~/.zshrc aliases added:    aixmos, chummo, moose, captain, ww, vision,
+                             jarvis, tank, flyguy, bob, sticks, brief,
+                             aixmos-tests, aixmos-webhook,
+                             aixmos-offline, aixmos-online
+
+Open a NEW Terminal after install, then type:
+  aixmos              (master orchestrator menu)
+  chummo              (just CHUMMO)
+  aixmos-tests        (full smoke test - expect 47/49 pass)
+
+REQUIRED ENV VARS
+================================================================
+
+  ANTHROPIC_API_KEY            for online mode (AIXMOS API)
+  AIXMOS_LLM_BACKEND           claude | ollama | auto  (default: claude)
+  OLLAMA_MODEL                 llama3.1:8b or phi3:mini (only if offline)
+  GHL_WEBHOOK_SHARED_SECRET    only if running the CHUMMO-GHL webhook
+
+The installer prompts for ANTHROPIC_API_KEY and writes it to ~/.zshrc.
+Other env vars set themselves via OFFLINE-MODE-SETUP.command.
+
+DIRECTORY MAP
+================================================================
+
+  ./                         10 agent .js files + entry-point launchers
+  ./lib/                     Shared libs: llm.js (dual backend), runner, env
+  ./agents/                  prompts.js (all 10 system prompts), registry.json
+  ./config/                  aixmos.env.example (full env reference)
+  ./node_modules/            Vendored deps (@anthropic-ai/sdk)
+  ./_installers/             Bundled Node.js installer (Windows MSI)
+  ./membership/              The $97 launch package (built 2026-05-20):
+       compliance/           A2P 10DLC registration text
+       funnels/              4 landing page copy sets (F1-F4)
+       outreach/warm-launch/ 6 warm-launch messages (B2B + B2C)
+       outreach/partners/    6 partner outreach emails
+       services/chummo-ghl-webhook/  Node service + START-WEBHOOK.command
+  ./AIXMOS-GUIDE.pdf         Full user guide (operational + extension)
+  ./AIXMOS-GUIDE.md          Markdown source for the guide
+  ./AIXMOS-GUIDE.html        Browser-friendly version
+
+UPDATING FROM USB
+================================================================
+
+When you change agent code on your Mac, mirror back to USB with:
+
+  rsync -a --delete --exclude 'aixmos-state.json' \
+        ~/AIXMOS/ /Volumes/LEXAR/AIXMOS-AGENTS/
+
+That keeps the USB as the canonical "final version" copy.
+
+For the people. By the people.
