@@ -1,0 +1,75 @@
+================================================================
+  TRAPTOP  QUICK  START   -   8 GB AMD Surface Pro
+  AIXMOS Starter Pack v1 (LITE profile auto-selected)
+================================================================
+
+WHAT THIS IS
+------------
+This USB turns your AMD 8 GB Surface Pro into the first TMMT
+TRAPTOP: a local Operations Brain that runs without internet
+once installed. No cloud, no API bill, no leaked data.
+
+The installer detects 8 GB RAM and switches to LITE profile
+automatically:
+  - Model:       tmmt-brain-lite (qwen2.5:1.5b, 4K context, ~1 GB)
+  - UI:          terminal chat only (no Open WebUI = no swap thrash)
+  - Disk needed: ~4 GB free in C:\Users\<you>\.aixmos\
+  - First-run:   needs internet to pull the model (~1 GB once)
+
+After that: 100% offline, plug-out the USB, brain stays installed.
+
+
+STEP 1 - INSTALL OLLAMA (one time, ~2 min, needs internet)
+----------------------------------------------------------
+Open Edge and download:  https://ollama.com/download/windows
+Run the installer. Default options are fine.
+Reboot is NOT required.
+
+
+STEP 2 - LAUNCH FROM USB
+------------------------
+Plug in this USB drive (CYBORG).
+Open File Explorer -> CYBORG -> AIXMOS-STARTER-PACK
+Double-click:  LAUNCH.cmd
+
+You will see a menu. The header should say:
+  RAM: ~8 GB     Profile: lite     (after first install)
+
+
+STEP 3 - FIRST RUN (one time, ~3 min)
+-------------------------------------
+At the menu, press:
+  1   then Enter      ==> installs tmmt-brain-lite
+  (wait for "[OK] AIXMOS Starter Pack installed")
+  5   then Enter      ==> starts terminal chat
+
+You're talking to the Operations Brain. Type /bye to exit.
+
+
+DAILY USE (10 seconds)
+----------------------
+Plug USB -> double-click LAUNCH.cmd -> press 5 -> Enter.
+That's it. The brain remembers nothing between sessions on
+purpose (single-shot answers, no leakage).
+
+
+IF SOMETHING BREAKS
+-------------------
+At the menu press:
+  4   ==> Doctor (health check, copy the output to ask for help)
+ 10   ==> Uninstall (wipes C:\Users\<you>\.aixmos\ only,
+                     USB pack is untouched)
+
+
+WHY LITE INSTEAD OF FULL?
+-------------------------
+8 GB AMD machines can run Ollama + Windows + Edge OR Ollama +
+Open WebUI + Windows - not all of them at once without swap.
+LITE picks the path that stays in RAM.
+When you upgrade to a 16 GB+ machine, the same USB installs the
+FULL profile (tmmt-brain on llama3.2:3b, Open WebUI in browser).
+Nothing to change on the USB.
+
+================================================================
+  Questions: CEO  (this is the very first TRAPTOP, kid gloves on)
+================================================================

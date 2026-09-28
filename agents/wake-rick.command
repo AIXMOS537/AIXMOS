@@ -29,14 +29,14 @@ echo "  ✓ Prime brief loaded ($(wc -l < "$BRIEF") lines)"
 echo "  › Checking Supabase..."
 STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
   "https://uapxakmlwnpfsftfeezx.supabase.co/rest/v1/" \
-  -H "apikey: REDACTED_JWT" 2>/dev/null)
+  -H "apikey: ${SUPABASE_ANON_KEY:?set SUPABASE_ANON_KEY}" 2>/dev/null)
 [ "$STATUS" = "200" ] && echo "  ✓ Supabase LIVE" || echo "  ! Supabase → $STATUS"
 
 # Operator training status
 echo "  › Checking operator progress..."
 PROGRESS=$(curl -s \
   "https://uapxakmlwnpfsftfeezx.supabase.co/rest/v1/operator_training_progress?select=count" \
-  -H "apikey: REDACTED_JWT" \
+  -H "apikey: ${SUPABASE_ANON_KEY:?set SUPABASE_ANON_KEY}" \
   -H "Prefer: count=exact" \
   -I 2>/dev/null | grep -i "content-range" | awk -F/ '{print $2}' | tr -d '\r')
 echo "  › Operator module completions: ${PROGRESS:-0}"
