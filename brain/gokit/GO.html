@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TMMT Go-Kit — Mobile Operation Unit</title>
+<style>
+  :root{ --bg:#0b0f17; --card:#141a26; --line:#243044; --txt:#e8eef9; --mut:#8aa0c0;
+         --go:#16c784; --warn:#ffb020; --bad:#ff4d4f; --acc:#3b82f6; }
+  *{box-sizing:border-box} html,body{margin:0;height:100%}
+  body{background:radial-gradient(1200px 600px at 50% -10%,#16203200,#0b0f17),var(--bg);
+       color:var(--txt);font-family:-apple-system,Segoe UI,Roboto,system-ui,sans-serif;
+       -webkit-font-smoothing:antialiased;padding:28px;max-width:980px;margin:0 auto}
+  header{display:flex;align-items:center;gap:14px;margin-bottom:6px}
+  .logo{width:46px;height:46px;border-radius:12px;background:linear-gradient(135deg,#3b82f6,#16c784);
+        display:flex;align-items:center;justify-content:center;font-weight:800;font-size:20px}
+  h1{font-size:22px;margin:0} .sub{color:var(--mut);font-size:13px;margin-top:2px}
+  .banner{margin:22px 0;padding:18px 20px;border-radius:16px;border:1px solid var(--line);
+          background:var(--card);display:flex;align-items:center;gap:16px}
+  .dot{width:16px;height:16px;border-radius:50%;background:var(--mut);box-shadow:0 0 0 6px #ffffff10}
+  .dot.go{background:var(--go);box-shadow:0 0 0 6px #16c78422}
+  .dot.bad{background:var(--bad);box-shadow:0 0 0 6px #ff4d4f22}
+  .banner b{font-size:18px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+  .svc{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;
+       display:flex;align-items:center;justify-content:space-between}
+  .svc .nm{font-weight:600} .svc .st{font-size:12px;color:var(--mut)}
+  .pill{font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px}
+  .pill.go{background:#16c78420;color:var(--go)} .pill.bad{background:#ff4d4f20;color:var(--bad)}
+  .pill.chk{background:#ffb02020;color:var(--warn)}
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);margin:26px 0 10px}
+  .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
+  a.tile{display:block;text-decoration:none;color:var(--txt);background:var(--card);
+         border:1px solid var(--line);border-radius:16px;padding:18px;transition:.15s}
+  a.tile:hover{border-color:var(--acc);transform:translateY(-2px)}
+  a.tile.primary{background:linear-gradient(135deg,#1e293b,#0f2a44);border-color:#2b4a6b}
+  a.tile .t{font-size:16px;font-weight:700} a.tile .d{font-size:12px;color:var(--mut);margin-top:4px}
+  .foot{margin-top:26px;color:var(--mut);font-size:12px;text-align:center}
+  button.re{background:#1e293b;color:var(--txt);border:1px solid var(--line);border-radius:10px;
+            padding:8px 14px;cursor:pointer;font-weight:600}
+</style>
+</head>
+<body>
+  <header>
+    <div class="logo">TM</div>
+    <div><h1>TMMT Go-Kit</h1><div class="sub">Mobile operation unit &middot; plug in anywhere &middot; no install</div></div>
+  </header>
+
+  <div class="banner">
+    <div id="bigdot" class="dot"></div>
+    <div><b id="bigtext">Checking systems&hellip;</b><div class="sub" id="stamp"></div></div>
+    <div style="margin-left:auto"><button class="re" onclick="runChecks()">Re-check</button></div>
+  </div>
+
+  <h2>System status</h2>
+  <div class="grid" id="grid"></div>
+
+  <h2>Launch</h2>
+  <div class="tiles">
+    <a class="tile primary" href="https://tmmt-ops.vercel.app" target="_blank">
+      <div class="t">🚀 Launch TMMT Operation</div><div class="d">Open the live cloud app</div></a>
+    <a class="tile" href="https://app.clickup.com" target="_blank">
+      <div class="t">✅ ClickUp</div><div class="d">Tasks &amp; team work</div></a>
+    <a class="tile" href="https://app.slack.com" target="_blank">
+      <div class="t">💬 Slack</div><div class="d">Team comms</div></a>
+    <a class="tile" href="https://my.openphone.com" target="_blank">
+      <div class="t">📱 OpenPhone</div><div class="d">Calls &amp; texts</div></a>
+    <a class="tile" href="https://calendar.google.com" target="_blank">
+      <div class="t">📅 Calendar</div><div class="d">Schedule</div></a>
+  </div>
+
+  <div class="foot">Work-only kit &middot; no private data, no keys stored on this drive. TMMT &copy; Operator OS.</div>
+
+<script>
+  // Services to health-check (name + url). Reachability via no-cors fetch with timeout.
+  const SERVICES = [
+    {nm:'Internet',   url:'https://www.gstatic.com/generate_204'},
+    {nm:'TMMT App',   url:'https://tmmt-ops.vercel.app'},
+    {nm:'ClickUp',    url:'https://app.clickup.com'},
+    {nm:'Slack',      url:'https://slack.com'},
+    {nm:'OpenPhone',  url:'https://www.openphone.com'},
+    {nm:'Google',     url:'https://www.google.com'}
+  ];
+
+  function ping(url, ms=6000){
+    return new Promise(res=>{
+      const ctrl = new AbortController();
+      const t = setTimeout(()=>{ctrl.abort();res(false);}, ms);
+      fetch(url,{mode:'no-cors',cache:'no-store',signal:ctrl.signal})
+        .then(()=>{clearTimeout(t);res(true);})
+        .catch(()=>{clearTimeout(t);res(false);});
+    });
+  }
+
+  function render(states){
+    const g = document.getElementById('grid');
+    g.innerHTML = SERVICES.map((s,i)=>{
+      const st = states[i];
+      const cls = st===null?'chk':(st?'go':'bad');
+      const lbl = st===null?'checking':(st?'online':'unreachable');
+      return `<div class="svc"><div><div class="nm">${s.nm}</div>
+        <div class="st">${s.url.replace('https://','')}</div></div>
+        <span class="pill ${cls}">${lbl}</span></div>`;
+    }).join('');
+  }
+
+  async function runChecks(){
+    const states = SERVICES.map(()=>null); render(states);
+    document.getElementById('bigdot').className='dot';
+    document.getElementById('bigtext').textContent='Checking systems…';
+    await Promise.all(SERVICES.map(async (s,i)=>{ states[i]=await ping(s.url); render(states); }));
+    const up = states.filter(Boolean).length, total = states.length;
+    const allGo = up===total;
+    const someCore = states[1]; // TMMT App specifically
+    document.getElementById('bigdot').className = 'dot ' + (allGo?'go':(up===0?'bad':'go'));
+    document.getElementById('bigtext').textContent =
+      allGo ? 'ALL SYSTEMS GO' : `${up}/${total} online` + (someCore?' — TMMT App up':' — TMMT App DOWN');
+    document.getElementById('stamp').textContent = 'Last checked ' + new Date().toLocaleString();
+  }
+  runChecks();
+</script>
+</body>
+</html>
