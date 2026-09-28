@@ -1,0 +1,1818 @@
+<!doctype html>
+<html lang="en" data-theme="jarvis">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AIXMOS // JARVIS</title>
+<style>
+  :root{
+    --bg:#030810; --bg2:#06111f; --panel:rgba(7,20,36,.82); --panel2:#0b1a2e; --panel3:#102640;
+    --line:rgba(56,224,255,.22); --line2:rgba(56,224,255,.45);
+    --accent:#38e0ff; --accent2:#0ea5e9; --accent-soft:rgba(56,224,255,.12); --glow:rgba(56,224,255,.45);
+    --text:#dcf4ff; --muted:#7ea4bd; --ok:#39d353; --warn:#ffb020; --bad:#ff5470;
+    --mono:"Cascadia Mono","Consolas","JetBrains Mono",ui-monospace,monospace;
+  }
+  [data-theme="reactor"]{ --accent:#ffc542; --accent2:#ff8a00; --accent-soft:rgba(255,197,66,.12); --glow:rgba(255,197,66,.45); --line:rgba(255,197,66,.22); --line2:rgba(255,197,66,.45); --text:#fff3dc; --muted:#c4a980; --bg:#0a0703; --bg2:#160f04; --panel:rgba(30,20,6,.82); --panel2:#211606; --panel3:#31220a }
+  [data-theme="stealth"]{ --accent:#ff3b5c; --accent2:#b3001b; --accent-soft:rgba(255,59,92,.12); --glow:rgba(255,59,92,.45); --line:rgba(255,59,92,.22); --line2:rgba(255,59,92,.45); --text:#ffe4e8; --muted:#b58b93; --bg:#0b0306; --bg2:#16050a; --panel:rgba(34,8,14,.82); --panel2:#26090f; --panel3:#3a0d17 }
+
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; font-family:"Segoe UI",system-ui,sans-serif; color:var(--text); background:var(--bg);
+    height:100vh; overflow:hidden; position:relative;
+  }
+  /* HUD backdrop: hex mesh + glow + scanlines */
+  body::before{
+    content:""; position:fixed; inset:0; z-index:0; pointer-events:none;
+    background:
+      radial-gradient(900px 420px at 50% -8%, var(--accent-soft), transparent 65%),
+      radial-gradient(600px 400px at 100% 100%, rgba(14,165,233,.10), transparent 60%),
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='56' height='64' viewBox='0 0 56 64'><path d='M28 2 L54 17 L54 47 L28 62 L2 47 L2 17 Z' fill='none' stroke='rgba(56,224,255,0.07)' stroke-width='1'/></svg>"),
+      linear-gradient(180deg,var(--bg2),var(--bg));
+  }
+  body::after{
+    content:""; position:fixed; inset:0; z-index:0; pointer-events:none; opacity:.35;
+    background:repeating-linear-gradient(180deg, rgba(255,255,255,.025) 0 1px, transparent 1px 4px);
+  }
+  .app{position:relative; z-index:1; display:grid; grid-template-columns:64px 1fr; height:100vh}
+  /* Performance build: on a 2-core laptop whose desktop goes out over a USB (DisplayLink) dock every
+     repainted pixel is compressed by the CPU, so idle animation, blur and scanlines cost real CPU that
+     the local model needs. html.perf keeps the look but makes the page static and cheap to paint. */
+  html.perf body::after{display:none}
+  html.perf .panel, html.perf header, html.perf footer, html.perf .bot{backdrop-filter:none}
+  html.perf .reactor .spin, html.perf .reactor .spin-rev, html.perf .reactor .core{animation:none}
+  html.perf .nav.busy .badge, html.perf .cursor, html.perf .handsfree .hf-dot{animation-duration:2s}
+  html.perf .chip .bar i{transition:none}
+  html.perf .msg{animation:none}
+  html.perf .send, html.perf .nav.active{box-shadow:none}
+  @media (prefers-reduced-motion: reduce){ .reactor .spin, .reactor .spin-rev, .reactor .core, .msg{animation:none} }
+
+  /* ---------- left rail ---------- */
+  .rail{
+    border-right:1px solid var(--line); background:linear-gradient(180deg, rgba(7,20,36,.9), rgba(3,8,16,.9));
+    display:flex; flex-direction:column; align-items:center; padding:10px 0; gap:6px;
+  }
+  .rail .logo{width:44px;height:44px;margin-bottom:8px;cursor:pointer}
+  .nav{width:48px;height:48px;border-radius:12px;border:1px solid transparent;background:transparent;color:var(--muted);
+    display:grid;place-items:center;cursor:pointer;font-size:20px;position:relative;transition:all .15s}
+  .nav:hover{color:var(--text);border-color:var(--line);background:var(--accent-soft)}
+  .nav.active{color:var(--accent);border-color:var(--line2);background:var(--accent-soft);box-shadow:0 0 16px var(--accent-soft), inset 0 0 12px rgba(0,0,0,.3)}
+  .nav .tip{position:absolute;left:56px;top:50%;transform:translateY(-50%);background:var(--panel2);border:1px solid var(--line);color:var(--text);
+    padding:4px 8px;border-radius:6px;font-size:11px;letter-spacing:1px;text-transform:uppercase;white-space:nowrap;display:none;z-index:20;font-family:var(--mono)}
+  .nav:hover .tip{display:block}
+  .nav .badge{position:absolute;top:4px;right:4px;width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);display:none}
+  .nav.busy .badge{display:block;animation:blink 1s steps(2) infinite}
+  .rail .spacer{flex:1}
+
+  /* ---------- reactor logo ---------- */
+  .reactor{filter:drop-shadow(0 0 6px var(--glow))}
+  .reactor .spin{transform-origin:50% 50%;animation:rot 9s linear infinite}
+  .reactor .spin-rev{transform-origin:50% 50%;animation:rot 6s linear infinite reverse}
+  .reactor .core{animation:corepulse 2.2s ease-in-out infinite}
+  @keyframes rot{to{transform:rotate(360deg)}}
+  @keyframes corepulse{0%,100%{opacity:.75}50%{opacity:1}}
+
+  /* ---------- stage / header ---------- */
+  .stage{display:flex;flex-direction:column;min-width:0;height:100vh}
+  header{
+    padding:10px 18px; border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg, rgba(7,20,36,.85), rgba(7,20,36,.35));
+    display:flex; align-items:center; gap:14px; flex-wrap:wrap; backdrop-filter:blur(6px);
+    position:relative; z-index:60;   /* the SYS menu must float above every panel below */
+  }
+  .title h1{margin:0;font-size:17px;letter-spacing:3px;font-weight:700;font-family:var(--mono);
+    background:linear-gradient(90deg,var(--accent),#ffffff,var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .title p{margin:2px 0 0;font-size:10px;color:var(--muted);letter-spacing:3px;text-transform:uppercase;font-family:var(--mono)}
+  .spacer{flex:1}
+  .hud{display:flex;gap:8px;flex-wrap:wrap}
+  .chip{font-family:var(--mono);font-size:11px;letter-spacing:1px;color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:4px 8px;
+    background:rgba(0,0,0,.25);display:flex;align-items:center;gap:6px;white-space:nowrap}
+  .chip b{color:var(--accent);font-weight:600}
+  .chip .bar{width:46px;height:5px;border-radius:3px;background:rgba(255,255,255,.08);overflow:hidden}
+  .chip .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent));width:0;transition:width .6s}
+  .status{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted);font-family:var(--mono);letter-spacing:1px;text-transform:uppercase}
+  .dot{width:9px;height:9px;border-radius:50%;background:#5a5a5a}
+  .dot.on{background:var(--ok);box-shadow:0 0 10px var(--ok)}
+  .dot.off{background:var(--bad);box-shadow:0 0 10px var(--bad)}
+
+  .menu{position:relative}
+  .menu-btn{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:6px 11px;font-size:12px;cursor:pointer;font-family:var(--mono);letter-spacing:1px}
+  .menu-btn:hover{border-color:var(--accent)}
+  .menu-pop{position:absolute;right:0;top:calc(100% + 6px);min-width:240px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;
+    box-shadow:0 10px 30px rgba(0,0,0,.6), 0 0 20px var(--accent-soft);padding:6px;display:none;z-index:50}
+  .menu.open .menu-pop{display:block}
+  .menu-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;cursor:pointer;font-size:13px}
+  .menu-row:hover{background:var(--panel3)}
+  .menu-row select{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 8px;font-size:12px;font-family:inherit;max-width:130px}
+  .menu-row .lbl{flex:1;color:var(--muted);font-size:11px;letter-spacing:1px;text-transform:uppercase;font-family:var(--mono)}
+  .menu-row.on .lbl{color:var(--accent)}
+  .menu-danger{color:var(--bad)}
+  .menu-danger:hover{background:rgba(255,84,112,.12)}
+
+  /* ---------- views ---------- */
+  .view{display:none;flex:1;min-height:0;flex-direction:column}
+  .view.active{display:flex}
+  .scroll{flex:1;overflow-y:auto;padding:22px}
+  .scroll::-webkit-scrollbar,main::-webkit-scrollbar{width:10px}
+  .scroll::-webkit-scrollbar-thumb,main::-webkit-scrollbar-thumb{background:var(--panel3);border-radius:6px;border:2px solid var(--bg)}
+
+  /* ---------- chat ---------- */
+  main{flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:16px}
+  .msg{max-width:78%;padding:12px 16px;border-radius:14px;line-height:1.5;white-space:pre-wrap;word-wrap:break-word;font-size:14.5px;animation:rise .25s ease;position:relative}
+  @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .user{align-self:flex-end;background:linear-gradient(180deg,rgba(14,165,233,.35),rgba(14,165,233,.12));
+    border:1px solid var(--line2);border-bottom-right-radius:4px;box-shadow:0 4px 18px rgba(0,0,0,.35)}
+  .bot{align-self:flex-start;background:var(--panel);border:1px solid var(--line);border-bottom-left-radius:4px;backdrop-filter:blur(4px)}
+  .bot::before{content:"";position:absolute;left:-1px;top:12px;bottom:12px;width:2px;background:linear-gradient(180deg,transparent,var(--accent),transparent);opacity:.8}
+  .bot .who{color:var(--accent);font-size:10px;letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;font-weight:600;font-family:var(--mono)}
+  .cursor{display:inline-block;width:8px;height:16px;background:var(--accent);margin-left:2px;vertical-align:text-bottom;animation:blink 1s steps(2) infinite}
+  @keyframes blink{50%{opacity:0}}
+  .msg .media{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+  .msg .media img,.msg .media video{max-width:min(420px,100%);border-radius:10px;border:1px solid var(--line);background:#000}
+  .msg .media audio{width:100%}
+  .empty{margin:auto;text-align:center;color:var(--muted);max-width:560px;padding:0 16px;position:relative}
+  .empty .ring{width:150px;height:150px;margin:0 auto 12px}
+  .empty .lede{font-size:14px;color:var(--muted);margin-top:6px}
+  .empty b{color:var(--accent);font-family:var(--mono);letter-spacing:2px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:12px;padding:0 4px}
+  .chip-btn{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-size:12.5px;cursor:pointer;font-family:inherit;
+    transition:transform .08s ease, border-color .08s ease, background .08s ease;white-space:nowrap}
+  .chip-btn:hover{border-color:var(--accent);background:var(--accent-soft);transform:translateY(-1px)}
+
+  /* tool cards inside chat */
+  .toolcard{margin-top:10px;border:1px solid var(--line2);border-radius:12px;padding:10px;background:rgba(0,0,0,.25);font-size:13px}
+  .toolcard .t{font-family:var(--mono);font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin-bottom:6px;display:flex;align-items:center;gap:8px}
+  .toolcard img,.toolcard video{max-width:min(420px,100%);border-radius:8px;display:block;border:1px solid var(--line);background:#000}
+  .toolcard .row{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center}
+  .working{display:inline-block;width:10px;height:10px;border:2px solid var(--accent);border-right-color:transparent;border-radius:50%;animation:rot 1s linear infinite}
+
+  footer{padding:12px 22px 10px;border-top:1px solid var(--line);background:rgba(3,8,16,.7);backdrop-filter:blur(6px)}
+  .composer{max-width:920px;margin:0 auto}
+  .bar{display:flex;align-items:flex-end;gap:10px;background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:6px 6px 6px 14px;transition:border-color .15s ease, box-shadow .15s ease}
+  .bar:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft), 0 0 24px var(--accent-soft)}
+  textarea.chat{width:100%;resize:none;height:3em;min-height:3em;max-height:9em;padding:0;background:transparent;color:var(--text);border:none;outline:none;font-family:inherit;font-size:14.5px;line-height:1.5;overflow-y:hidden}
+  .send,.mic-btn{flex:0 0 auto;border:none;cursor:pointer;font-family:inherit;border-radius:12px;padding:10px 18px;font-size:14px;font-weight:700}
+  .send{background:linear-gradient(180deg,var(--accent),var(--accent2));color:#031018;border:1px solid var(--line2);box-shadow:0 4px 18px var(--accent-soft)}
+  .send:disabled{opacity:.45;cursor:default}
+  .send kbd{font-family:inherit;font-size:11px;opacity:.85;margin-left:6px;padding:1px 5px;border-radius:4px;background:rgba(0,0,0,.2)}
+  .bar.listening .send{display:none}
+  .mic-btn{background:var(--panel);color:var(--text);border:1px solid var(--line);padding:0;width:46px;height:46px;display:grid;place-items:center;font-size:20px}
+  .mic-btn:hover{border-color:var(--accent);box-shadow:0 0 12px var(--accent-soft)}
+  .mic-btn.listening{background:linear-gradient(180deg,var(--accent),var(--accent2));border-color:var(--line2);color:#031018;animation:pulse 1s infinite}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 var(--glow)}50%{box-shadow:0 0 0 12px transparent}}
+  .orb-overlay{position:absolute;inset:0;display:none;align-items:center;gap:8px;padding:0 12px;color:var(--accent);font-size:14px;font-style:italic;pointer-events:none;
+    background:linear-gradient(90deg, rgba(7,20,36,.6), rgba(7,20,36,.1));border-radius:inherit}
+  .bar.listening .orb-overlay{display:flex}
+  .orb-dots{display:inline-flex;gap:2px;align-items:center}
+  .orb-dots span{width:3px;height:3px;border-radius:50%;background:var(--accent);animation:orb 1.1s infinite ease-in-out}
+  .orb-dots span:nth-child(2){animation-delay:.13s}.orb-dots span:nth-child(3){animation-delay:.26s}.orb-dots span:nth-child(4){animation-delay:.39s}
+  @keyframes orb{0%,100%{transform:scale(.5);opacity:.3}50%{transform:scale(1.3);opacity:1}}
+  .orb-text{flex:1;font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .orb-text.full{white-space:pre-wrap;word-wrap:break-word;max-height:120px;overflow-y:auto;text-overflow:clip}
+  .handsfree{display:none;align-items:center;gap:6px;font-size:11px;color:#031018;background:var(--accent);border-radius:999px;padding:4px 10px;margin:0 auto 8px;width:fit-content;letter-spacing:1px;text-transform:uppercase;font-weight:700;font-family:var(--mono)}
+  .handsfree .hf-dot{width:6px;height:6px;border-radius:50%;background:#031018;animation:blink 1s steps(2) infinite}
+  .handsfree.on{display:flex}
+  .hint-line{max-width:920px;margin:8px auto 0;font-size:11px;color:var(--muted);text-align:center;font-family:var(--mono)}
+  kbd.k{font-family:inherit;font-size:10px;padding:1px 5px;border-radius:4px;background:var(--panel2);border:1px solid var(--line);color:var(--text)}
+
+  /* ---------- generic panel widgets ---------- */
+  .grid2{display:grid;grid-template-columns:360px 1fr;gap:18px;align-items:start}
+  .grid3{display:grid;grid-template-columns:300px 1fr 300px;gap:18px;align-items:start}
+  @media (max-width:1100px){.grid2,.grid3{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;backdrop-filter:blur(4px);position:relative}
+  .panel::before{content:"";position:absolute;left:14px;right:14px;top:0;height:1px;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:.7}
+  .panel h2{margin:0 0 10px;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--accent);font-family:var(--mono);display:flex;align-items:center;gap:8px}
+  .panel h2 .sub{color:var(--muted);letter-spacing:1px;margin-left:auto;font-size:10px;text-transform:none}
+  label.f{display:block;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin:10px 0 4px;font-family:var(--mono)}
+  input.f,select.f,textarea.f{width:100%;background:rgba(0,0,0,.3);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-family:inherit;font-size:13.5px;outline:none}
+  input.f:focus,select.f:focus,textarea.f:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  textarea.f{resize:vertical;min-height:70px}
+  select.f option{background:#0b1a2e}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .row > *{flex:1;min-width:120px}
+  .btn{background:var(--panel3);color:var(--text);border:1px solid var(--line);border-radius:9px;padding:8px 14px;font-size:13px;cursor:pointer;font-family:inherit;transition:all .12s;white-space:nowrap}
+  .btn:hover{border-color:var(--accent);box-shadow:0 0 12px var(--accent-soft)}
+  .btn.primary{background:linear-gradient(180deg,var(--accent),var(--accent2));color:#031018;font-weight:700;border-color:var(--line2)}
+  .btn.danger{color:var(--bad);border-color:rgba(255,84,112,.4)}
+  .btn.sm{padding:4px 9px;font-size:12px;border-radius:7px}
+  .btn:disabled{opacity:.45;cursor:default;box-shadow:none}
+  .btn.on{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+  .note{font-size:12px;color:var(--muted);line-height:1.45}
+  .note.err{color:var(--bad)}
+  .note.ok{color:var(--ok)}
+  .tag{display:inline-block;font-family:var(--mono);font-size:10px;letter-spacing:1px;text-transform:uppercase;border:1px solid var(--line);border-radius:5px;padding:2px 6px;color:var(--muted);margin:2px 2px 2px 0}
+  .tag.on{color:var(--accent);border-color:var(--line2);background:var(--accent-soft)}
+  .tag.warn{color:var(--warn);border-color:rgba(255,176,32,.4)}
+  .tag.bad{color:var(--bad);border-color:rgba(255,84,112,.4)}
+  .toggle{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);cursor:pointer;margin-top:10px}
+  .toggle input{accent-color:var(--accent)}
+  .list{display:flex;flex-direction:column;gap:6px}
+  .item{border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:rgba(0,0,0,.2);font-size:13px;cursor:pointer}
+  .item:hover{border-color:var(--line2)}
+  .item.sel{border-color:var(--accent);background:var(--accent-soft)}
+  .item .m{font-size:11px;color:var(--muted);font-family:var(--mono)}
+  .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
+  .card img,.card video{width:100%;aspect-ratio:1/1;object-fit:cover;background:#000;display:block}
+  .card video{aspect-ratio:16/9}
+  .card .b{padding:8px 10px;font-size:12px;display:flex;flex-direction:column;gap:6px}
+  .card .p{color:var(--text);max-height:3.2em;overflow:hidden;line-height:1.35}
+  .card .row{gap:4px}
+  .rate{display:flex;gap:4px}
+  .rate .btn{padding:3px 8px;font-size:14px}
+  .rate .btn.up.on{color:var(--ok);border-color:var(--ok)}
+  .rate .btn.down.on{color:var(--bad);border-color:var(--bad)}
+  .progress{height:4px;border-radius:2px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:6px}
+  .progress i{display:block;height:100%;width:40%;background:linear-gradient(90deg,transparent,var(--accent),transparent);animation:slide 1.4s linear infinite}
+  @keyframes slide{from{transform:translateX(-100%)}to{transform:translateX(250%)}}
+  .drop{border:1px dashed var(--line2);border-radius:12px;padding:16px;text-align:center;color:var(--muted);font-size:13px;cursor:pointer;transition:all .15s}
+  .drop.over,.drop:hover{background:var(--accent-soft);color:var(--text)}
+  .tabs{display:flex;gap:4px;margin-bottom:12px}
+  .tabs .btn{border-radius:8px}
+  .video-main{width:100%;max-height:360px;background:#000;border-radius:10px;border:1px solid var(--line)}
+  .ops{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+  .ops .tag{color:var(--text)}
+  .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;font-size:12px;font-family:var(--mono);color:var(--muted)}
+  .kv b{color:var(--text);font-weight:500}
+  .prov{border:1px solid var(--line);border-radius:12px;padding:12px;background:rgba(0,0,0,.2);margin-bottom:10px}
+  .prov h3{margin:0 0 4px;font-size:14px;display:flex;align-items:center;gap:8px}
+  .prov h3 .st{margin-left:auto}
+  .prov .help{font-size:11px;color:var(--muted);font-family:var(--mono)}
+  .inline{display:flex;gap:6px;align-items:center}
+  .inline input.f{flex:1}
+  .mailbody{min-height:220px;font-family:inherit;line-height:1.5}
+  .att{display:flex;flex-wrap:wrap;gap:4px}
+  .att .tag{cursor:pointer}
+  .toast{position:fixed;bottom:18px;right:18px;background:var(--panel2);border:1px solid var(--line2);color:var(--text);padding:10px 14px;border-radius:10px;font-size:13px;z-index:99;
+    box-shadow:0 10px 30px rgba(0,0,0,.6), 0 0 20px var(--accent-soft);max-width:420px;display:none}
+  .toast.show{display:block;animation:rise .2s ease}
+  .toast.err{border-color:var(--bad)}
+  /* ---------------- genesis: first boot ---------------- */
+  #genesis{position:fixed;inset:0;z-index:90;display:none;background:radial-gradient(1200px 700px at 50% 20%,var(--bg2),var(--bg) 70%);overflow:auto}
+  #genesis.show{display:block;animation:rise .25s ease}
+  .gx{max-width:980px;margin:0 auto;padding:34px 22px 60px}
+  .gx-top{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+  .gx-top .dots{display:flex;gap:6px;flex:1;justify-content:center}
+  .gx-top .dots i{width:34px;height:4px;border-radius:3px;background:var(--panel3)}
+  .gx-top .dots i.on{background:var(--accent);box-shadow:0 0 8px var(--glow)}
+  .gx-x{background:none;border:1px solid var(--line);color:var(--muted);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px}
+  .gx-x:hover{color:var(--text);border-color:var(--line2)}
+  .gx h2{font-size:28px;letter-spacing:.06em;margin:6px 0 4px;color:var(--text)}
+  .gx .sub{color:var(--muted);margin:0 0 20px;font-size:14px}
+  .gx-reactor{width:120px;height:120px;display:block;margin:10px auto 16px;filter:drop-shadow(0 0 18px var(--glow))}
+  .gx-lines{font-family:var(--mono);font-size:14.5px;line-height:1.75;color:var(--text);min-height:220px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px}
+  .gx-lines .ln{opacity:0;transform:translateY(4px);transition:all .35s ease}
+  .gx-lines .ln.on{opacity:1;transform:none}
+  .gx-lines .ln::before{content:"› ";color:var(--accent)}
+  .gx-principles{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-top:14px}
+  .gx-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+  .gx-card b{display:block;color:var(--accent);margin-bottom:4px;font-size:13.5px}
+  .gx-card span{color:var(--muted);font-size:12.5px;line-height:1.5}
+  .gx-roles{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+  .gx-role{cursor:pointer;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;color:var(--text);font:inherit;transition:all .15s}
+  .gx-role:hover{border-color:var(--line2)}
+  .gx-role.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent),0 0 18px var(--glow)}
+  .gx-role .ic{font-size:28px}.gx-role h3{margin:8px 0 6px;font-size:16px}.gx-role p{margin:0;color:var(--muted);font-size:13px;line-height:1.5}
+  .gx-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+  .gx-q label{display:block;font-size:12.5px;color:var(--muted);margin-bottom:5px}
+  .gx-q label .req{color:var(--accent)}
+  .gx-q textarea{width:100%;min-height:58px;resize:vertical;background:var(--panel2);border:1px solid var(--line);border-radius:10px;color:var(--text);padding:9px 11px;font:inherit;font-size:13.5px;box-sizing:border-box}
+  .gx-q textarea:focus{outline:none;border-color:var(--accent)}
+  .gx-pills{display:flex;gap:6px;flex-wrap:wrap}
+  .gx-pill{cursor:pointer;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:999px;padding:6px 12px;font-size:12.5px}
+  .gx-pill.sel{border-color:var(--accent);color:var(--accent)}
+  .gx-group{margin:18px 0 8px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+  .gx-caps{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:10px}
+  .gx-cap{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:13px 14px;display:flex;flex-direction:column;gap:6px}
+  .gx-cap .hd{display:flex;align-items:center;gap:8px}.gx-cap .hd b{flex:1;font-size:14px}
+  .gx-cap p{margin:0;color:var(--muted);font-size:12.5px;line-height:1.5;flex:1}
+  .gx-st{font-size:10.5px;font-family:var(--mono);padding:2px 7px;border-radius:999px;border:1px solid var(--line)}
+  .gx-st.ready{color:#3ddc97;border-color:rgba(61,220,151,.4)}.gx-st.setup{color:var(--warn);border-color:var(--warn)}.gx-st.indexing{color:var(--muted)}
+  .gx-try{align-self:flex-start;background:var(--accent-soft);border:1px solid var(--line2);color:var(--accent);border-radius:8px;padding:4px 10px;font-size:12px;cursor:pointer}
+  .gx-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:22px;flex-wrap:wrap;align-items:center}
+  .gx-btn{cursor:pointer;border-radius:10px;padding:10px 18px;font:inherit;font-size:14px;border:1px solid var(--line2);background:var(--panel2);color:var(--text)}
+  .gx-btn.go{background:var(--accent);border-color:var(--accent);color:var(--bg);font-weight:600;box-shadow:0 0 16px var(--glow)}
+  .gx-btn:disabled{opacity:.5;cursor:wait}
+  .gx-plan{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:6px 22px 16px;font-size:14px;line-height:1.65}
+  .gx-plan h1{font-size:20px}.gx-plan h2{font-size:16px;color:var(--accent);margin-top:18px}
+  .gx-plan code{font-family:var(--mono);background:var(--panel3);padding:1px 6px;border-radius:5px;font-size:12.5px}
+  .gx-spin{display:inline-block;width:14px;height:14px;border:2px solid var(--line2);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite;vertical-align:-2px;margin-right:8px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="rail">
+    <svg class="reactor logo" id="logo" viewBox="0 0 64 64" aria-label="AIXMOS">
+      <circle cx="32" cy="32" r="29" fill="none" stroke="var(--accent)" stroke-width="1.2" opacity=".45"/>
+      <circle class="spin" cx="32" cy="32" r="24" fill="none" stroke="var(--accent)" stroke-width="3" stroke-dasharray="11 7" stroke-linecap="round"/>
+      <circle class="spin-rev" cx="32" cy="32" r="17" fill="none" stroke="var(--accent2)" stroke-width="2" stroke-dasharray="4 5"/>
+      <polygon points="32,21 42.5,39 21.5,39" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>
+      <circle class="core" cx="32" cy="32" r="5" fill="var(--accent)"/>
+    </svg>
+    <button class="nav active" data-view="chat">&#128172;<span class="badge"></span><span class="tip">Chat</span></button>
+    <button class="nav" data-view="image">&#127912;<span class="badge"></span><span class="tip">Image Lab</span></button>
+    <button class="nav" data-view="video">&#127916;<span class="badge"></span><span class="tip">Video Lab</span></button>
+    <button class="nav" data-view="mail">&#9993;&#65039;<span class="badge"></span><span class="tip">Mail</span></button>
+    <button class="nav" data-view="agent">&#129302;<span class="badge"></span><span class="tip">Super Agent</span></button>
+    <button class="nav" data-view="vault">&#128218;<span class="badge"></span><span class="tip">Vault &amp; Skills</span></button>
+    <button class="nav" data-view="ops">&#128200;<span class="badge"></span><span class="tip">Ops &amp; CRM</span></button>
+    <div class="spacer"></div>
+    <button class="nav" data-view="integrations">&#128268;<span class="badge"></span><span class="tip">Integrations</span></button>
+  </aside>
+
+  <div class="stage">
+    <div id="banner" style="display:none;background:rgba(255,176,32,.12);border-bottom:1px solid var(--warn);color:var(--warn);padding:8px 18px;font-size:12.5px;font-family:var(--mono)"></div>
+    <header>
+      <div class="title">
+        <h1>AIXMOS</h1>
+        <p>J.A.R.V.I.S. mode &middot; local core</p>
+      </div>
+      <div class="hud" id="hud">
+        <span class="chip">CPU <span class="bar"><i id="cpuBar"></i></span><b id="cpuVal">--</b></span>
+        <span class="chip">RAM <span class="bar"><i id="ramBar"></i></span><b id="ramVal">--</b></span>
+        <span class="chip">DISK <b id="diskVal">--</b></span>
+        <span class="chip">TOOLS <b id="toolsVal">--</b></span>
+        <span class="chip" id="clockChip"><b id="clock">--:--:--</b></span>
+      </div>
+      <div class="spacer"></div>
+      <div class="status"><span id="dot" class="dot"></span><span id="status">linking&hellip;</span></div>
+      <div class="menu" id="menu">
+        <button class="menu-btn" id="menuBtn" title="Settings">&#9881; SYS</button>
+        <div class="menu-pop">
+          <div class="menu-row"><span class="lbl">Model</span><select id="model" title="Model"></select></div>
+          <div class="menu-row" id="ttsRow"><span class="lbl">Speak replies</span><span style="font-size:12px;color:var(--muted)" id="ttsState">off</span></div>
+          <div class="menu-row" id="hfRow"><span class="lbl">Hands-free loop</span><span style="font-size:12px;color:var(--muted)" id="hfState">off</span></div>
+          <div class="menu-row" id="themeRow"><span class="lbl">Theme</span><span style="font-size:12px;color:var(--muted)" id="themeState">jarvis</span>
+            <span id="themeDot" style="display:inline-block;width:12px;height:12px;border-radius:50%;margin-left:6px;background:var(--accent);box-shadow:0 0 8px var(--accent)"></span></div>
+          <div class="menu-row" id="clearRow"><span class="lbl">Clear view</span><span style="font-size:12px;color:var(--muted)">memory kept</span></div>
+          <div class="menu-row menu-danger" id="forgetRow"><span class="lbl">Forget everything</span><span style="font-size:12px">&#9888;</span></div>
+        </div>
+      </div>
+    </header>
+
+    <!-- ================= CHAT ================= -->
+    <section class="view active" id="view-chat">
+      <main id="log">
+        <div class="empty" id="empty">
+          <svg class="reactor ring" viewBox="0 0 64 64">
+            <circle cx="32" cy="32" r="30" fill="none" stroke="var(--accent)" stroke-width=".8" opacity=".4"/>
+            <circle class="spin" cx="32" cy="32" r="25" fill="none" stroke="var(--accent)" stroke-width="2.4" stroke-dasharray="14 9" stroke-linecap="round"/>
+            <circle class="spin-rev" cx="32" cy="32" r="18" fill="none" stroke="var(--accent2)" stroke-width="1.6" stroke-dasharray="3 6"/>
+            <polygon points="32,20 43,39 21,39" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-linejoin="round"/>
+            <circle class="core" cx="32" cy="32" r="5" fill="var(--accent)"/>
+          </svg>
+          <div><b>AIXMOS</b> online. All systems nominal.</div>
+          <div class="lede">Runs on this machine. Chat, images, video and mail are one sentence away.</div>
+          <div class="chips" id="chips">
+            <button class="chip-btn" data-prompt="Generate an image of ">Generate an image</button>
+            <button class="chip-btn" data-prompt="Make a short video of ">Make a video</button>
+            <button class="chip-btn" data-prompt="Write an email to ">Write an email</button>
+            <button class="chip-btn" data-prompt="Explain this code to me step by step: ">Explain code</button>
+            <button class="chip-btn" data-prompt="Give me a status report on this machine.">System status</button>
+          </div>
+        </div>
+      </main>
+      <footer>
+        <div class="composer">
+          <div class="handsfree" id="handsfree"><span class="hf-dot"></span> Hands-free &middot; listening after each reply</div>
+          <div class="bar" id="bar">
+            <div style="flex:1; position:relative;">
+              <textarea class="chat" id="input" placeholder="Talk to AIXMOS&hellip;  (try: generate an image of… / make a video of… / write an email to…)"></textarea>
+              <div class="orb-overlay" id="orb">
+                <span class="orb-dots" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
+                <span class="orb-text" id="orbText">Listening&hellip;</span>
+              </div>
+            </div>
+            <button class="send" id="send">Send <kbd>&#8629;</kbd></button>
+            <button class="mic-btn" id="mic" title="Hold to talk" aria-label="Toggle voice input">&#127908;</button>
+          </div>
+          <div class="hint-line">
+            <kbd class="k">Enter</kbd> send &middot; <kbd class="k">Shift</kbd>+<kbd class="k">Enter</kbd> newline &middot;
+            <kbd class="k">Space</kbd> (hold) push-to-talk &middot; <kbd class="k">Esc</kbd> stop &middot;
+            <kbd class="k">/image</kbd> <kbd class="k">/video</kbd> <kbd class="k">/edit</kbd> <kbd class="k">/email</kbd> commands
+            <span id="curVidHint"></span>
+          </div>
+        </div>
+      </footer>
+    </section>
+
+    <!-- ================= IMAGE LAB ================= -->
+    <section class="view" id="view-image">
+      <div class="scroll">
+        <div class="grid2">
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <div class="panel">
+              <h2>Image synthesis <span class="sub" id="imgProvHint"></span></h2>
+              <label class="f">Prompt</label>
+              <textarea class="f" id="imgPrompt" placeholder="a chrome humanoid robot head, studio lighting, cinematic"></textarea>
+              <div class="row">
+                <div><label class="f">Style</label>
+                  <select class="f" id="imgStyle">
+                    <option value="">learned default</option><option>photorealistic</option><option>cinematic film still</option>
+                    <option>anime</option><option>3D render, octane</option><option>watercolor painting</option><option>cyberpunk neon</option>
+                    <option>minimal flat vector</option><option>product photography</option><option>oil painting</option><option>pixel art</option>
+                  </select></div>
+                <div><label class="f">Provider</label><select class="f" id="imgProvider"><option value="auto">auto</option></select></div>
+                <div><label class="f">Size</label>
+                  <select class="f" id="imgSize"><option>1024x1024</option><option>1536x1024</option><option>1024x1536</option><option>1280x720</option><option>720x1280</option></select></div>
+              </div>
+              <label class="toggle"><input type="checkbox" id="imgEnhance" checked> Enhance prompt with what I've learned about your taste</label>
+              <div class="row" style="margin-top:10px">
+                <button class="btn primary" id="imgGo">Generate</button>
+              </div>
+              <div class="note" id="imgStatus" style="margin-top:8px"></div>
+            </div>
+            <div class="panel">
+              <h2>Learning profile <span class="sub" id="learnCount"></span></h2>
+              <div class="note" id="learnNotes">Rate images with the thumbs and I will learn what you like.</div>
+              <label class="f">Leans toward</label><div id="learnLikes"><span class="note">nothing learned yet</span></div>
+              <label class="f">Avoids</label><div id="learnAvoid"><span class="note">-</span></div>
+              <label class="f">Provider stats</label><div class="kv" id="learnStats"></div>
+              <details style="margin-top:10px"><summary class="note" style="cursor:pointer;color:var(--accent)">Edit or wipe what I've learned</summary>
+                <label class="f">Leans toward (comma-separated)</label><input class="f" id="learnLikesEdit" placeholder="cinematic lighting, teal and orange, 35mm film">
+                <label class="f">Avoid (comma-separated)</label><input class="f" id="learnAvoidEdit" placeholder="cartoonish, cluttered backgrounds">
+                <label class="f">Notes about your taste</label><textarea class="f" id="learnNotesEdit" style="min-height:56px" placeholder="one or two sentences"></textarea>
+                <div class="row" style="margin-top:8px"><button class="btn primary sm" id="learnSave">Save profile</button><button class="btn sm" id="learnResetProfile">Reset profile</button><button class="btn sm danger" id="learnResetRatings">Reset profile + ratings</button><button class="btn sm danger" id="learnWipe">Wipe image history</button></div>
+                <div class="note" id="learnEditStatus" style="margin-top:6px"></div>
+              </details>
+            </div>
+          </div>
+          <div>
+            <div class="panel">
+              <h2>Gallery <span class="sub">newest first &middot; thumbs teach the model &middot; refine to iterate</span></h2>
+              <div class="gallery" id="gallery"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= VIDEO LAB ================= -->
+    <section class="view" id="view-video">
+      <div class="scroll">
+        <div class="tabs">
+          <button class="btn on" data-vtab="gen">Generate</button>
+          <button class="btn" data-vtab="edit">Edit with prompts</button>
+          <button class="btn" data-vtab="lib">Library</button>
+        </div>
+        <div id="vtab-gen" class="grid2">
+          <div class="panel">
+            <h2>Video synthesis <span class="sub" id="vidProvHint"></span></h2>
+            <label class="f">Prompt</label>
+            <textarea class="f" id="vidPrompt" placeholder="slow aerial shot over a neon city at night, rain, cinematic"></textarea>
+            <div class="row">
+              <div><label class="f">Provider</label><select class="f" id="vidProvider"><option value="auto">auto</option><option value="local">local storyboard (no key)</option></select></div>
+              <div><label class="f">Aspect</label><select class="f" id="vidAspect"><option>16:9</option><option>9:16</option><option>1:1</option></select></div>
+              <div><label class="f">Seconds</label><select class="f" id="vidSeconds"><option>5</option><option>8</option><option>10</option><option>12</option><option>16</option><option>24</option></select></div>
+            </div>
+            <label class="f">Animate from image (optional)</label>
+            <select class="f" id="vidFromImage"><option value="">none</option></select>
+            <div class="row" style="margin-top:10px"><button class="btn primary" id="vidGo">Generate video</button></div>
+            <div class="note" style="margin-top:8px">No API key? The local storyboard mode builds scenes as images and adds camera motion with ffmpeg on this machine. Add Runway / Luma / Veo / Sora / Replicate / fal keys under Integrations for true generative video.</div>
+          </div>
+          <div class="panel">
+            <h2>Jobs <span class="sub">live progress</span></h2>
+            <div class="list" id="jobs"></div>
+          </div>
+        </div>
+        <div id="vtab-edit" class="grid2" style="display:none">
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <div class="panel">
+              <h2>Source</h2>
+              <div class="drop" id="drop">Drop a video here or click to upload<br><span class="note">mp4 / mov / webm / mkv, images and audio for overlays &amp; music</span></div>
+              <input type="file" id="file" accept="video/*,audio/*,image/*" style="display:none" multiple>
+              <label class="f">Or pick from library</label>
+              <select class="f" id="editSource"><option value="">choose a video</option></select>
+              <div class="kv" id="srcInfo" style="margin-top:8px"></div>
+            </div>
+            <div class="panel">
+              <h2>Instruction</h2>
+              <textarea class="f" id="editPrompt" placeholder='e.g. remove the first 5 seconds, make it vertical for TikTok, add captions and put the text "Summer Drop" at the top'></textarea>
+              <div class="chips" style="justify-content:flex-start;margin-top:8px" id="editChips">
+                <button class="chip-btn">Trim the first 5 seconds</button><button class="chip-btn">Make it vertical 9:16</button>
+                <button class="chip-btn">Add captions</button><button class="chip-btn">Speed up 2x</button><button class="chip-btn">Black and white</button>
+                <button class="chip-btn">Fade in and fade out</button><button class="chip-btn">Turn it into a gif</button><button class="chip-btn">Reverse it</button>
+                <button class="chip-btn">Extract the audio</button><button class="chip-btn">Brighter with more contrast</button>
+              </div>
+              <div class="row" style="margin-top:8px">
+                <div><label class="f">Overlay image (watermark)</label><select class="f" id="editOverlay"><option value="">none</option></select></div>
+                <div><label class="f">Music track</label><select class="f" id="editMusic"><option value="">none</option></select></div>
+              </div>
+              <label class="toggle"><input type="checkbox" id="editLLM" checked> Let the local model plan the edit (slower, understands more phrasing)</label>
+              <div class="row" style="margin-top:10px">
+                <button class="btn" id="editPlan">Preview plan</button>
+                <button class="btn primary" id="editGo">Apply edit</button>
+              </div>
+              <div id="planOut" class="note" style="margin-top:8px"></div>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <div class="panel">
+              <h2>Preview</h2>
+              <video class="video-main" id="editPreview" controls></video>
+              <div class="note" id="editHint" style="margin-top:6px">Load a source. In chat you can then simply say "cut the first 10 seconds and add captions".</div>
+            </div>
+            <div class="panel">
+              <h2>Edit jobs</h2>
+              <div class="list" id="editJobs"></div>
+            </div>
+          </div>
+        </div>
+        <div id="vtab-lib" style="display:none">
+          <div class="panel"><h2>Video library</h2><div class="gallery" id="vgallery"></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= MAIL ================= -->
+    <section class="view" id="view-mail">
+      <div class="scroll">
+        <div class="grid3">
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <div class="panel">
+              <h2>Accounts</h2>
+              <div class="list" id="accounts"><span class="note">No accounts connected yet.</span></div>
+              <div class="row" style="margin-top:10px">
+                <button class="btn" id="oauthGoogle">Sign in with Google</button>
+                <button class="btn" id="oauthMicrosoft">Sign in with Microsoft</button>
+              </div>
+              <div class="note" id="oauthHint" style="margin-top:6px"></div>
+            </div>
+            <div class="panel">
+              <h2>Add account (any provider)</h2>
+              <label class="f">Provider</label>
+              <select class="f" id="accPreset"></select>
+              <div class="note" id="accNote" style="margin-top:6px"></div>
+              <label class="f">Your name (for signatures)</label><input class="f" id="accName" placeholder="Jordan Lee">
+              <label class="f">Email address</label><input class="f" id="accEmail" placeholder="you@example.com" autocomplete="off">
+              <label class="f">Password / app password</label><input class="f" id="accPass" type="password" autocomplete="new-password">
+              <div id="accCustom" style="display:none">
+                <label class="f">Username (if different)</label><input class="f" id="accUser">
+                <div class="row"><div><label class="f">SMTP host</label><input class="f" id="accSmtp"></div><div><label class="f">SMTP port</label><input class="f" id="accPort" value="587"></div></div>
+                <label class="f">IMAP host (for inbox, optional)</label><input class="f" id="accImap">
+              </div>
+              <div class="row" style="margin-top:10px"><button class="btn primary" id="accAdd">Connect</button></div>
+              <div class="note" id="accStatus" style="margin-top:6px"></div>
+            </div>
+          </div>
+          <div class="panel">
+            <h2>Compose <span class="sub">AI writes &middot; you refine &middot; you send</span></h2>
+            <div class="row">
+              <div><label class="f">From</label><select class="f" id="mailFrom"></select></div>
+              <div><label class="f">Tone</label><select class="f" id="mailTone"><option>professional</option><option>friendly</option><option>warm</option><option>direct and brief</option><option>formal</option><option>persuasive</option><option>apologetic</option></select></div>
+              <div><label class="f">Length</label><select class="f" id="mailLen"><option>short</option><option selected>medium</option><option>long</option></select></div>
+            </div>
+            <label class="f">To</label><input class="f" id="mailTo" placeholder="name@company.com, other@company.com">
+            <label class="f">CC</label><input class="f" id="mailCc" placeholder="optional">
+            <label class="f">What should this email accomplish?</label>
+            <textarea class="f" id="mailIntent" placeholder="confirm Tuesday's 10am detailing appointment, remind them to bring the spare key, mention the ceramic coating upsell"></textarea>
+            <div class="row" style="margin-top:8px"><button class="btn primary" id="mailDraft">Draft with AI</button><button class="btn" id="mailClearReply" style="display:none">Clear reply context</button></div>
+            <div class="note" id="replyCtx"></div>
+            <label class="f">Subject</label><input class="f" id="mailSubject">
+            <label class="f">Body</label><textarea class="f mailbody" id="mailBody"></textarea>
+            <div class="inline" style="margin-top:8px">
+              <input class="f" id="mailRefine" placeholder="refine: make it shorter / add a PS about pricing / more formal">
+              <button class="btn" id="mailRefineGo">Refine</button>
+            </div>
+            <label class="f">Attach from media</label>
+            <div class="att" id="mailAtt"><span class="note">nothing generated yet</span></div>
+            <div class="row" style="margin-top:12px">
+              <button class="btn primary" id="mailSend">Send</button>
+            </div>
+            <div class="note" id="mailStatus" style="margin-top:6px"></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <div class="panel">
+              <h2>Inbox <span class="sub" id="inboxSub"></span></h2>
+              <div class="row"><select class="f" id="inboxAccount"></select><button class="btn sm" id="inboxRefresh">Refresh</button></div>
+              <div class="list" id="inbox" style="margin-top:8px"><span class="note">Pick an account to read recent mail; click a message to reply with AI.</span></div>
+            </div>
+            <div class="panel">
+              <h2>Sent by AIXMOS</h2>
+              <div class="list" id="sentLog"><span class="note">-</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= SUPER AGENT ================= -->
+    <section class="view" id="view-agent">
+      <div class="scroll">
+        <div class="grid2">
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <div class="panel">
+              <h2>Mission <span class="sub" id="agentModelHint"></span></h2>
+              <label class="f">Goal</label>
+              <textarea class="f" id="agentGoal" placeholder="e.g. Build a small Python CLI in the workspace that renames photos by EXIF date, test it on sample files, and write a README."></textarea>
+              <div class="row">
+                <div><label class="f">Autonomy</label>
+                  <select class="f" id="agentAutonomy"><option value="safe">safe · read, search, generate</option><option value="builder" selected>builder · + write files, run commands</option><option value="full">full · + send email</option></select></div>
+                <div><label class="f">Max steps</label><input class="f" id="agentSteps" type="number" value="24" min="3" max="60"></div>
+              </div>
+              <label class="f">Extra allowed folder (optional, absolute path)</label><input class="f" id="agentRoots" placeholder="C:\Users\AIXMOS\Projects\my-app">
+              <div class="row" style="margin-top:10px"><button class="btn primary" id="agentGo">Engage agent</button></div>
+              <div class="note" style="margin-top:8px">Doctrine from the kit: plan first, small steps, prove with real output, never fabricate, ask when unsure. Workspace: <code id="agentWs"></code></div>
+            </div>
+            <div class="panel">
+              <h2>Tools on board</h2>
+              <div id="agentTools" class="note"></div>
+              <div class="note" style="margin-top:8px">Also reachable from other software: OpenAI-compatible API at <code>/v1/chat/completions</code> (models <b>aixmos</b>, <b>aixmos-agent</b>) and an MCP server at <code>/mcp</code>. See Integrations.</div>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <div class="panel">
+              <h2>Live run <span class="sub" id="agentRunSub"></span></h2>
+              <div id="agentAsk" style="display:none" class="toolcard">
+                <div class="t">The agent needs you</div>
+                <div id="agentQuestion" style="margin-bottom:8px"></div>
+                <div class="inline"><input class="f" id="agentAnswer" placeholder="your answer"><button class="btn sm primary" id="agentAnswerGo">Answer</button></div>
+              </div>
+              <div class="list" id="agentSteps"><span class="note">No run yet. Give the agent a goal, or say "/agent …" in chat.</span></div>
+              <div class="row" style="margin-top:8px"><button class="btn sm danger" id="agentCancel" style="display:none">Cancel run</button></div>
+            </div>
+            <div class="panel">
+              <h2>Past runs</h2>
+              <div class="list" id="agentHistory"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= VAULT & SKILLS ================= -->
+    <section class="view" id="view-vault">
+      <div class="scroll">
+        <div class="tabs">
+          <button class="btn" data-ktab="research">Research the web</button>
+          <button class="btn on" data-ktab="search">Search the vault</button>
+          <button class="btn" data-ktab="skills">Skills</button>
+          <button class="btn" data-ktab="prompts">Prompt library</button>
+          <button class="btn" data-ktab="packs">Packs</button>
+        </div>
+        <div id="ktab-search" class="grid2">
+          <div class="panel">
+            <h2>Knowledge vault <span class="sub" id="kbStats"></span></h2>
+            <div class="inline"><input class="f" id="kbQuery" placeholder="e.g. how to qualify a lead before booking"><button class="btn primary" id="kbGo">Search</button></div>
+            <label class="f">Pack filter</label><select class="f" id="kbPack"><option value="">all packs</option></select>
+            <div class="note" style="margin-top:8px">The chat searches this automatically and cites the pack. Say <b>/vault question</b> for raw results.</div>
+            <div class="row" style="margin-top:10px"><button class="btn sm" id="kbReindex">Re-index kit</button></div>
+          </div>
+          <div class="panel"><h2>Results</h2><div class="list" id="kbHits"><span class="note">Search to see matching playbook passages.</span></div></div>
+        </div>
+        <div id="ktab-skills" class="grid2" style="display:none">
+          <div class="panel">
+            <h2>Business profile <span class="sub">fills every playbook's blanks</span></h2>
+            <div id="bizForm"></div>
+            <div class="row" style="margin-top:10px"><button class="btn primary" id="bizSave">Save profile</button></div>
+            <div class="note" id="bizStatus" style="margin-top:6px"></div>
+          </div>
+          <div class="panel">
+            <h2>Skills <span class="sub" id="skillActive"></span></h2>
+            <div class="note" style="margin-bottom:8px">Activate one and AIXMOS follows that playbook in every chat reply (say <b>/skill off</b> to leave). Each skill is a pack from the kit.</div>
+            <div class="gallery" id="skillGrid" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))"></div>
+          </div>
+        </div>
+        <div id="ktab-prompts" style="display:none">
+          <div class="panel">
+            <h2>Prompt library <span class="sub" id="promptCount"></span></h2>
+            <div class="inline"><input class="f" id="promptQuery" placeholder="filter: proof, hook, scope, review, cold email…"><button class="btn" id="promptGo">Filter</button></div>
+            <div class="list" id="promptList" style="margin-top:10px"></div>
+          </div>
+        </div>
+        <div id="ktab-research" class="grid2" style="display:none">
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <div class="panel">
+              <h2>Web research <span class="sub" id="rsEngines"></span></h2>
+              <label class="f">Question</label>
+              <textarea class="f" id="rsQuery" placeholder="e.g. best follow-up cadence for cold email in 2026" style="min-height:60px"></textarea>
+              <div class="row">
+                <div><label class="f">Depth</label><select class="f" id="rsDepth"><option value="quick">quick · 5 results, 2 pages</option><option value="normal" selected>normal · 8 results, 4 pages</option><option value="deep">deep · 10 results, 7 pages</option></select></div>
+              </div>
+              <label class="toggle"><input type="checkbox" id="rsCross" checked> Cross-reference findings with the vault (agreements, conflicts, gaps)</label>
+              <div class="row" style="margin-top:10px"><button class="btn primary" id="rsGo">Research</button></div>
+              <div class="note" id="rsStatus" style="margin-top:8px">Uses Google when a Custom Search key is set under Integrations, otherwise DuckDuckGo. In chat: <b>/research …</b>, <b>google …</b>, <b>fact-check …</b>.</div>
+            </div>
+            <div class="panel"><h2>Past research</h2><div class="list" id="rsHistory"></div></div>
+          </div>
+          <div class="panel"><h2>Report</h2><div id="rsReport"><span class="note">Ask a question to see the cross-referenced report.</span></div></div>
+        </div>
+        <div id="ktab-packs" class="grid2" style="display:none">
+          <div class="panel"><h2>Packs</h2><div class="list" id="packList"></div></div>
+          <div class="panel"><h2 id="packTitle">Files</h2><div class="list" id="packFiles"></div><pre id="packText" class="note" style="white-space:pre-wrap;margin-top:10px;max-height:60vh;overflow:auto"></pre></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= OPS & CRM ================= -->
+    <section class="view" id="view-ops">
+      <div class="scroll">
+        <div class="tabs">
+          <button class="btn on" data-otab="dash">Dashboard</button>
+          <button class="btn" data-otab="leads">Leads</button>
+          <button class="btn" data-otab="appts">Appointments</button>
+          <button class="btn" data-otab="seq">Follow-ups</button>
+          <button class="btn" data-otab="carousel">Carousel</button>
+        </div>
+        <div id="otab-dash">
+          <div class="gallery" id="kpis" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));margin-bottom:14px"></div>
+          <div class="grid2" style="grid-template-columns:2fr 1fr">
+            <div class="panel"><h2>Revenue by period <span class="sub">enter real numbers, nothing is sampled</span></h2>
+              <div id="revChart" style="display:flex;align-items:flex-end;gap:8px;height:160px;margin-top:20px"></div>
+              <div class="row" style="margin-top:14px"><input class="f" id="revPeriod" placeholder="period e.g. 2026-W37"><input class="f" id="revValue" type="number" placeholder="amount"><input class="f" id="revSource" placeholder="source (google, referral…)"><button class="btn sm" id="revAdd">Add</button></div>
+            </div>
+            <div class="panel"><h2>By source</h2><div id="revBreakdown"></div></div>
+          </div>
+          <div class="grid2" style="margin-top:14px">
+            <div class="panel"><h2>Weekly review <span class="sub">15 minutes, one action</span></h2>
+              <div id="reviewBox" class="note">No review yet.</div>
+              <textarea class="f" id="reviewNotes" placeholder="optional notes for this week" style="margin-top:8px;min-height:50px"></textarea>
+              <div class="row" style="margin-top:8px"><button class="btn primary" id="reviewGo">Run this week's review</button></div>
+            </div>
+            <div class="panel"><h2>Activity</h2><div class="list" id="activity"></div></div>
+          </div>
+        </div>
+        <div id="otab-leads" style="display:none" class="grid2" >
+          <div class="panel">
+            <h2>Add / edit lead</h2>
+            <input type="hidden" id="leadId">
+            <div class="row"><div><label class="f">Name</label><input class="f" id="leadName"></div><div><label class="f">Company</label><input class="f" id="leadCompany"></div></div>
+            <div class="row"><div><label class="f">Role</label><input class="f" id="leadRole"></div><div><label class="f">Contact (email / phone)</label><input class="f" id="leadContact"></div></div>
+            <div class="row"><div><label class="f">Location</label><input class="f" id="leadLocation"></div><div><label class="f">Source</label><input class="f" id="leadSource"></div></div>
+            <label class="f">Personalisation hook</label><input class="f" id="leadHook" placeholder="one specific, true observation">
+            <div class="row"><div><label class="f">Status</label><select class="f" id="leadStatus"></select></div><div><label class="f">Next action</label><input class="f" id="leadNext"></div></div>
+            <label class="f">Notes</label><textarea class="f" id="leadNotes" style="min-height:60px"></textarea>
+            <div class="row" style="margin-top:10px"><button class="btn primary" id="leadSave">Save lead</button><button class="btn" id="leadNew">New</button><button class="btn" id="leadScore">Score all (fit · intent · reach)</button></div>
+            <div class="note" id="leadStatusMsg" style="margin-top:6px"></div>
+          </div>
+          <div class="panel"><h2>Pipeline <span class="sub" id="leadCount"></span></h2><div class="list" id="leadList"></div></div>
+        </div>
+        <div id="otab-appts" style="display:none" class="grid2">
+          <div class="panel">
+            <h2>Book appointment</h2>
+            <div class="row"><div><label class="f">Name</label><input class="f" id="apName"></div><div><label class="f">Contact</label><input class="f" id="apContact"></div></div>
+            <div class="row"><div><label class="f">When</label><input class="f" id="apWhen" placeholder="2026-09-16 10:00"></div><div><label class="f">Timezone</label><input class="f" id="apTz" placeholder="America/New_York"></div></div>
+            <div class="row"><div><label class="f">Service</label><input class="f" id="apService"></div><div><label class="f">Lead</label><select class="f" id="apLead"><option value="">none</option></select></div></div>
+            <label class="f">Notes</label><input class="f" id="apNotes">
+            <div class="row" style="margin-top:10px"><button class="btn primary" id="apBook">Book</button></div>
+            <div class="note" style="margin-top:6px">Always confirm time and timezone with the customer before finalising (appointment-setter rule).</div>
+          </div>
+          <div class="panel"><h2>Upcoming &amp; past</h2><div class="list" id="apList"></div></div>
+        </div>
+        <div id="otab-seq" style="display:none" class="grid2">
+          <div class="panel">
+            <h2>Start a follow-up sequence</h2>
+            <label class="f">Type</label><select class="f" id="seqKind"></select>
+            <label class="f">Lead (optional)</label><select class="f" id="seqLead"><option value="">none</option></select>
+            <div class="row"><div><label class="f">Name</label><input class="f" id="seqName"></div><div><label class="f">Contact</label><input class="f" id="seqContact"></div></div>
+            <div class="row" style="margin-top:10px"><button class="btn primary" id="seqStart">Start sequence</button></div>
+            <div class="note" style="margin-top:8px">Cold outreach (day 1 · 3 · 7 · 12), missed-call text-back (now · same day · next day), no-show recovery, review request. Each touch is drafted by AI on its due date and sent by you from Mail. Do-not-contact is honoured.</div>
+          </div>
+          <div class="panel"><h2>Due &amp; active <span class="sub" id="seqDue"></span></h2><div class="list" id="seqList"></div></div>
+        </div>
+        <div id="otab-carousel" style="display:none" class="grid2">
+          <div class="panel">
+            <h2>Carousel generator <span class="sub">carousel-system playbook</span></h2>
+            <label class="f">Topic</label><input class="f" id="carTopic" placeholder="5 ceramic coating myths">
+            <label class="f">Audience</label><input class="f" id="carAudience" placeholder="car owners who care about their paint">
+            <div class="row"><div><label class="f">Layout</label><select class="f" id="carLayout"></select></div><div><label class="f">Slides</label><select class="f" id="carSlides"><option>5</option><option selected>6</option><option>7</option><option>8</option></select></div></div>
+            <label class="f">Extra direction (optional)</label><input class="f" id="carExtra" placeholder="mention our spring offer in the CTA">
+            <div class="row" style="margin-top:10px"><button class="btn primary" id="carGo">Write &amp; render</button></div>
+            <div class="note" id="carStatus" style="margin-top:6px"></div>
+            <label class="f">Brand</label>
+            <div class="row"><input class="f" id="brandBg" placeholder="bg #061021"><input class="f" id="brandText" placeholder="text #dcf4ff"><input class="f" id="brandAccent" placeholder="accent #38e0ff"><input class="f" id="brandHandle" placeholder="@handle"></div>
+            <div class="row" style="margin-top:8px"><button class="btn sm" id="brandSave">Save brand</button></div>
+          </div>
+          <div class="panel"><h2>Carousels</h2><div id="carList"></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= INTEGRATIONS ================= -->
+    <section class="view" id="view-integrations">
+      <div class="scroll">
+        <div class="grid2">
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <div class="panel">
+              <h2>Core status</h2>
+              <div class="kv" id="coreStatus"></div>
+              <div class="note" style="margin-top:8px">Keys are stored only in <code>memory/settings.json</code> on this machine and are never shown again in full.</div>
+            </div>
+            <div class="panel">
+              <h2>Defaults</h2>
+              <label class="f">Default image provider</label><select class="f" id="prefImage"></select>
+              <label class="f">Default video provider</label><select class="f" id="prefVideo"></select>
+              <label class="f">Planning / chat model</label><select class="f" id="prefModel"></select>
+              <label class="f">Assistant name</label><input class="f" id="prefName">
+              <label class="toggle"><input type="checkbox" id="prefEnhance"> Enhance image prompts with learned taste</label>
+              <label class="toggle"><input type="checkbox" id="prefFreePublic"> Use the free public image service (Pollinations) when no key is set. Prompts go to a public service; switch off for private-only.</label>
+              <label class="f">Performance mode (blur, scanlines, idle animation)</label>
+              <select class="f" id="prefPerf"><option value="auto">auto · on for weak CPUs, high-DPI or USB displays, battery</option><option value="on">on · static, cheapest to paint</option><option value="off">off · full effects</option></select>
+              <div class="row"><div><label class="f">Model threads</label><input class="f" id="prefThreads" type="number" min="1" max="16"></div><div><label class="f">Context size (tokens)</label><select class="f" id="prefCtx"><option>2048</option><option>4096</option><option>6144</option><option>8192</option></select></div><div><label class="f">Chat history replayed</label><input class="f" id="prefHistory" type="number" min="2" max="40"></div></div>
+              <div class="note">One context size for every feature keeps the model loaded between calls. On this machine prompt processing is ~20 tokens/s, so shorter history and smaller context mean faster replies.</div>
+              <label class="toggle"><input type="checkbox" id="prefKnowledge"> Pull relevant kit knowledge into every chat reply</label>
+              <label class="f">Agent model</label><select class="f" id="prefAgentModel"></select>
+              <label class="f">Agent default autonomy</label><select class="f" id="prefAgentAutonomy"><option value="safe">safe</option><option value="builder">builder</option><option value="full">full</option></select>
+              <label class="f">Extra allowed folders for the agent (one per line)</label><textarea class="f" id="prefAgentRoots" style="min-height:50px"></textarea>
+              <div class="row" style="margin-top:10px"><button class="btn primary" id="prefSave">Save defaults</button></div>
+            </div>
+            <div class="panel">
+              <h2>Use AIXMOS from other software</h2>
+              <div class="kv" id="endpointInfo"></div>
+              <pre class="note" style="white-space:pre-wrap;margin-top:8px" id="epExamples"></pre>
+            </div>
+          </div>
+          <div class="panel">
+            <h2>Providers &amp; APIs <span class="sub">paste a key, press save</span></h2>
+            <div id="providers"></div>
+            <div class="row"><button class="btn primary" id="provSave">Save keys &amp; models</button></div>
+            <div class="note" id="provStatus" style="margin-top:6px"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================ utilities ====
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+function el(tag, attrs={}, ...kids){
+  const e = document.createElement(tag);
+  for(const [k,v] of Object.entries(attrs)){
+    if(k==='class') e.className=v; else if(k==='html') e.innerHTML=v; else if(k.startsWith('on')) e.addEventListener(k.slice(2), v);
+    else if(v!==null && v!==undefined) e.setAttribute(k, v);
+  }
+  for(const k of kids){ if(k===null||k===undefined) continue; e.appendChild(typeof k==='string'?document.createTextNode(k):k); }
+  return e;
+}
+async function apiGet(p){ const r = await fetch(p); const j = await r.json(); if(!r.ok) throw new Error(j.error||r.statusText); return j; }
+async function apiPost(p, body){ const r = await fetch(p,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})}); const j = await r.json(); if(!r.ok) throw new Error(j.error||r.statusText); return j; }
+let toastT=null;
+function toast(msg, err){ const t=$('#toast'); t.textContent=msg; t.className='toast show'+(err?' err':''); clearTimeout(toastT); toastT=setTimeout(()=>t.className='toast', err?6000:3500); }
+const fmtT = ts => new Date(ts*1000).toLocaleString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+const isVideo = u => /\.(mp4|webm|mov|mkv)$/i.test(u);
+const isAudio = u => /\.(mp3|wav|m4a)$/i.test(u);
+const isImage = u => /\.(png|jpe?g|webp|gif)$/i.test(u);
+
+const state = { view:'chat', settings:null, images:[], videos:[], jobs:{}, currentVideo:null, accounts:[], replyTo:null, attachments:new Set(), uploads:[] };
+
+// ============================================================ favicon ====
+(function(){
+  const c = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#38e0ff';
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><circle cx='32' cy='32' r='24' fill='none' stroke='${c}' stroke-width='5' stroke-dasharray='11 7'/><polygon points='32,21 42.5,39 21.5,39' fill='none' stroke='${c}' stroke-width='3'/><circle cx='32' cy='32' r='6' fill='${c}'/></svg>`;
+  let l = document.querySelector("link[rel~='icon']"); if(!l){ l=document.createElement('link'); l.rel='icon'; document.head.appendChild(l); }
+  l.href = 'data:image/svg+xml,'+encodeURIComponent(svg);
+})();
+
+// ============================================================ views ====
+function showView(name){
+  state.view = name;
+  $$('.view').forEach(v=>v.classList.toggle('active', v.id==='view-'+name));
+  $$('.nav').forEach(n=>n.classList.toggle('active', n.dataset.view===name));
+  if(name==='image') loadImages();
+  if(name==='video'){ loadVideos(); pollJobs(true); }
+  if(name==='mail'){ loadAccounts(); refreshAttachments(); }
+  if(name==='integrations') loadSettings();
+  if(name==='agent') loadAgent();
+  if(name==='vault') loadVault();
+  if(name==='ops') loadOps();
+}
+$$('.nav').forEach(n=>n.addEventListener('click', ()=>showView(n.dataset.view)));
+$('#logo').addEventListener('click', ()=>showView('chat'));
+
+// ============================================================ HUD ====
+async function telemetry(){
+  try{
+    const t = await apiGet('/api/telemetry');
+    const s = t.system||{};
+    if(s.cpu!==undefined){ $('#cpuVal').textContent=s.cpu+'%'; $('#cpuBar').style.width=s.cpu+'%'; }
+    if(s.ram){ $('#ramVal').textContent=s.ram.load+'%'; $('#ramBar').style.width=s.ram.load+'%'; }
+    if(s.disk_free_gb!==undefined) $('#diskVal').textContent=s.disk_free_gb+' GB';
+    const caps=t.caps||{}; const tools=[];
+    if(caps.ollama) tools.push('LLM'); if(t.tools&&t.tools.ffmpeg) tools.push('FFMPEG'); if(caps.captions) tools.push('STT');
+    tools.push('IMG'); if(caps.email_accounts) tools.push('MAIL');
+    $('#toolsVal').textContent = tools.join('·');
+    $('#clock').textContent = t.time;
+  }catch(e){}
+}
+// Poll slower when the tab is hidden; the HUD is decoration, the CPU is for the model.
+let telemetryTimer=null;
+function scheduleTelemetry(){ clearTimeout(telemetryTimer); telemetryTimer=setTimeout(async()=>{ if(!document.hidden) await telemetry(); scheduleTelemetry(); }, document.hidden?30000:8000); }
+telemetry(); scheduleTelemetry();
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden){ telemetry(); } scheduleTelemetry(); });
+// ---- performance mode: auto-detect weak CPU / high-DPI / battery, or follow the saved preference
+function applyPerf(mode){
+  mode = mode || 'auto';
+  let on = mode==='on';
+  if(mode==='auto'){
+    const weakCpu = (navigator.hardwareConcurrency||8) <= 4, hiDpi = (window.devicePixelRatio||1) >= 1.75;
+    on = weakCpu || hiDpi || (matchMedia('(prefers-reduced-motion: reduce)').matches);
+  }
+  document.documentElement.classList.toggle('perf', on);
+  try{ localStorage.setItem('aixmos-perf', mode); }catch(e){}
+  return on;
+}
+try{ applyPerf(localStorage.getItem('aixmos-perf')||'auto'); }catch(e){ applyPerf('auto'); }
+if(navigator.getBattery){ navigator.getBattery().then(b=>{ const f=()=>{ const m=(localStorage.getItem('aixmos-perf')||'auto'); if(m==='auto' && !b.charging) document.documentElement.classList.add('perf'); }; f(); b.addEventListener('chargingchange', f); }).catch(()=>{}); }
+
+// ============================================================ chat ====
+const log = $('#log'), empty = $('#empty'), input = $('#input'), sendBtn = $('#send'), modelSel = $('#model');
+const dot = $('#dot'), statusEl = $('#status'), bar = $('#bar'), orbText = $('#orbText'), handsfree = $('#handsfree');
+let history = [], streaming=false, handsFree=false, scrollQueued=false;
+function scrollToBottom(){ if(scrollQueued) return; scrollQueued=true; requestAnimationFrame(()=>{ log.scrollTop=log.scrollHeight; scrollQueued=false; }); }
+function resetView(){ log.innerHTML=''; log.appendChild(empty); empty.style.display=''; }
+
+async function loadModels(){
+  try{
+    const j = await apiGet('/api/tags');
+    const models = (j.models||[]).map(m=>m.name);
+    modelSel.innerHTML=''; models.forEach(n=>modelSel.appendChild(el('option',{value:n},n)));
+    const pref = models.find(n=>n.startsWith('qwen2.5:3b')) || models[0];
+    if(pref) modelSel.value = pref;
+    dot.className='dot on'; statusEl.textContent='online';
+  }catch(e){ dot.className='dot off'; statusEl.textContent='Ollama offline'; }
+}
+async function loadMemory(){
+  try{
+    const j = await apiGet('/api/memory'); const msgs=j.messages||[]; history=msgs.slice();
+    if(msgs.length){ empty.style.display='none'; msgs.forEach(m=>addMsg(m.role==='assistant'?'bot':'user', m.content)); }
+  }catch(e){}
+}
+function attachMedia(container, text){
+  const urls = (text.match(/\/media\/[A-Za-z0-9_\-./]+\.(?:png|jpe?g|webp|gif|mp4|webm|mov|mp3|wav|m4a)/g)||[]);
+  if(!urls.length) return;
+  const box = el('div',{class:'media'});
+  [...new Set(urls)].forEach(u=>{
+    if(isImage(u)) box.appendChild(el('img',{src:u,loading:'lazy',onclick:()=>window.open(u,'_blank')}));
+    else if(isVideo(u)){ const v=el('video',{src:u,controls:'',preload:'metadata'}); box.appendChild(v); state.currentVideo=u; updateCurVid(); }
+    else if(isAudio(u)) box.appendChild(el('audio',{src:u,controls:''}));
+  });
+  container.appendChild(box);
+}
+function addMsg(role, text){
+  empty.style.display='none';
+  const e = el('div',{class:'msg '+(role==='user'?'user':'bot')});
+  if(role==='bot') e.appendChild(el('div',{class:'who'},'AIXMOS'));
+  const body = el('span',{class:'body'}); body.textContent=text; e.appendChild(body);
+  if(role==='bot') attachMedia(e, text);
+  log.appendChild(e); scrollToBottom();
+  return body;
+}
+function updateCurVid(){ $('#curVidHint').innerHTML = state.currentVideo ? ' &middot; loaded video: <b style="color:var(--accent)">'+state.currentVideo.split('/').pop()+'</b>' : ''; }
+
+function toolCard(msgEl, tool){
+  let card = msgEl.querySelector('.toolcard[data-kind="'+tool.kind+'"]');
+  if(!card){ card = el('div',{class:'toolcard','data-kind':tool.kind}); msgEl.appendChild(card); }
+  card.innerHTML='';
+  const title = {image:'Image synthesis',video:'Video synthesis',edit:'Video edit',email:'Mail draft',agent:'Super agent',carousel:'Carousel',research:'Web research × vault'}[tool.kind]||tool.kind;
+  if(tool.kind==='research' && tool.item){ card.appendChild(el('div',{class:'t'},title)); const a=tool.item.analysis; if(a) card.appendChild(el('div',{}, el('span',{class:'tag '+(a.confidence==='high'?'on':(a.confidence==='low'?'bad':'warn'))},'confidence '+a.confidence), el('span',{class:'note'},' '+(a.agreements||[]).length+' agree · '+(a.conflicts||[]).length+' conflict · '+(a.web_only||[]).length+' web-only'))); const srcs=el('div',{class:'row'}); (tool.item.web||[]).slice(0,5).forEach(w=>srcs.appendChild(el('a',{class:'btn sm',href:w.url,target:'_blank'}, (w.tag||'')+' '+(w.title||w.url).slice(0,40)))); card.appendChild(srcs); card.appendChild(el('div',{class:'row'}, el('button',{class:'btn sm',onclick:()=>{ showView('vault'); setKTab('research'); renderResearch(tool.item); }},'Open full report'))); scrollToBottom(); return; }
+  if(tool.kind==='agent' && tool.job){ card.appendChild(el('div',{class:'t'},title)); card.appendChild(el('div',{class:'note'},'Run '+tool.job+' started. Steps stream in the Agent panel.')); card.appendChild(el('div',{class:'row'}, el('button',{class:'btn sm primary',onclick:()=>{ state.agentRun=tool.job; showView('agent'); }},'Open Agent panel'))); scrollToBottom(); return; }
+  if(tool.kind==='carousel' && tool.item){ card.appendChild(el('div',{class:'t'},title)); const strip=el('div',{class:'media'}); tool.item.slides.forEach(s=>strip.appendChild(el('img',{src:s.url,style:'max-width:180px',onclick:()=>window.open(s.url,'_blank')}))); card.appendChild(strip); card.appendChild(el('div',{class:'note'},tool.item.caption)); scrollToBottom(); return; }
+  const t = el('div',{class:'t'}, title);
+  if(tool.status==='working'){ t.appendChild(el('span',{class:'working'})); t.appendChild(el('span',{style:'color:var(--muted);letter-spacing:0;text-transform:none'}, tool.text||'working…')); card.appendChild(t); }
+  else card.appendChild(t);
+  if(tool.item){ card.appendChild(imageCardInline(tool.item)); }
+  if(tool.job){ const box = el('div',{'data-job':tool.job}, el('div',{class:'progress'}, el('i')), el('div',{class:'note'},'queued')); card.appendChild(box); watchJob(tool.job, box); }
+  if(tool.draft){
+    card.appendChild(el('div',{class:'note'},'To: '+((tool.draft.to||[]).join(', ')||'(add recipient)')+'  ·  Subject: '+tool.draft.subject));
+    const r = el('div',{class:'row'}, el('button',{class:'btn sm primary',onclick:()=>{ fillComposer(tool.draft); showView('mail'); }},'Open in Mail'));
+    card.appendChild(r);
+  }
+  scrollToBottom();
+}
+function imageCardInline(item){
+  const wrap = el('div');
+  wrap.appendChild(el('img',{src:item.url,onclick:()=>window.open(item.url,'_blank')}));
+  const row = el('div',{class:'row'});
+  row.appendChild(rateButtons(item, ()=>{}));
+  const ref = el('input',{class:'f',placeholder:'refine: make it night, add rain…',style:'flex:1;min-width:160px'});
+  row.appendChild(ref);
+  row.appendChild(el('button',{class:'btn sm',onclick:async()=>{ if(!ref.value.trim()) return; ref.disabled=true; try{ const it=await apiPost('/api/image/refine',{id:item.id,instruction:ref.value.trim()}); const m=addMsg('bot','Refined -> '+it.url+'\nPrompt used: '+it.final_prompt); }catch(e){ toast(e.message,true);} ref.disabled=false; }},'Refine'));
+  row.appendChild(el('button',{class:'btn sm',onclick:()=>{ $('#vidFromImage').value=item.url; $('#vidPrompt').value=item.prompt; showView('video'); setVTab('gen'); }},'Animate'));
+  row.appendChild(el('button',{class:'btn sm',onclick:()=>{ state.attachments.add(item.url); showView('mail'); }},'Email it'));
+  wrap.appendChild(row);
+  if(item.warning) wrap.appendChild(el('div',{class:'note'}, item.warning));
+  return wrap;
+}
+function rateButtons(item, after){
+  const box = el('div',{class:'rate'});
+  const up = el('button',{class:'btn up'+(item.rating>0?' on':''),title:'I like this'},'\u{1F44D}');
+  const dn = el('button',{class:'btn down'+(item.rating<0?' on':''),title:'Not this'},'\u{1F44E}');
+  const go = async (r)=>{
+    let note = '';
+    if(r<0){ note = prompt('What should I avoid next time? (optional)','')||''; }
+    try{ const it = await apiPost('/api/image/rate',{id:item.id,rating:(item.rating===r?0:r),note}); item.rating=it.rating; up.classList.toggle('on',item.rating>0); dn.classList.toggle('on',item.rating<0); toast(item.rating? 'Noted. Profile updating…':'Rating cleared'); after&&after(); }catch(e){ toast(e.message,true); }
+  };
+  up.addEventListener('click',()=>go(1)); dn.addEventListener('click',()=>go(-1));
+  box.appendChild(up); box.appendChild(dn); return box;
+}
+const jobWatchers = {};
+function watchJob(id, box){
+  const tick = async ()=>{
+    try{
+      const j = await apiGet('/api/jobs/'+id); state.jobs[id]=j;
+      const note = box.querySelector('.note'); if(note) note.textContent = j.progress||j.status;
+      if(j.status==='done'){
+        box.innerHTML=''; const r=j.result||{};
+        if(r.url){ if(isVideo(r.url)||/\.gif$/i.test(r.url)){ box.appendChild(/\.gif$/i.test(r.url)?el('img',{src:r.url}):el('video',{src:r.url,controls:''})); if(isVideo(r.url)){ state.currentVideo=r.url; updateCurVid(); } }
+          else if(isAudio(r.url)) box.appendChild(el('audio',{src:r.url,controls:''})); }
+        if(r.ops) box.appendChild(el('div',{class:'ops'}, ...r.ops.map(o=>el('span',{class:'tag'}, opLabel(o)))));
+        if(r.warning) box.appendChild(el('div',{class:'note'}, r.warning));
+        if(r.url) box.appendChild(el('div',{class:'row'}, el('button',{class:'btn sm',onclick:()=>{ state.attachments.add(r.url); showView('mail'); }},'Email it'), el('a',{class:'btn sm',href:r.url,download:''},'Download')));
+        scrollToBottom(); return;
+      }
+      if(j.status==='error'){ box.innerHTML=''; box.appendChild(el('div',{class:'note err'}, j.error||'failed')); return; }
+    }catch(e){ box.querySelector('.note').textContent='job lost: '+e.message; return; }
+    jobWatchers[id]=setTimeout(tick, 2500);
+  };
+  tick();
+}
+function opLabel(o){ const p = Object.entries(o).filter(([k])=>k!=='op' && !k.startsWith('_')).map(([k,v])=>typeof v==='number'?(Math.round(v*100)/100):String(v).slice(0,24)).join(' '); return o.op+(p?' '+p:''); }
+
+async function send(){
+  const text = input.value.trim(); if(!text || streaming) return;
+  input.value=''; autoGrow(); addMsg('user', text); history.push({role:'user',content:text});
+  const msgEl = el('div',{class:'msg bot'}); msgEl.appendChild(el('div',{class:'who'},'AIXMOS'));
+  const body = el('span',{class:'body'}); msgEl.appendChild(body); const cur = el('span',{class:'cursor'}); msgEl.appendChild(cur);
+  empty.style.display='none'; log.appendChild(msgEl); scrollToBottom();
+  streaming=true; sendBtn.disabled=true; sendBtn.innerHTML='&hellip;';
+  $$('.nav').forEach(n=>n.classList.remove('busy'));
+  let acc='';
+  try{
+    const resp = await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ model: modelSel.value, content: text, current_video: state.currentVideo, image_provider: $('#imgProvider').value, video_provider: $('#vidProvider').value })});
+    const reader = resp.body.getReader(); const dec = new TextDecoder(); let buf='';
+    while(true){
+      const {value,done} = await reader.read(); if(done) break;
+      buf += dec.decode(value,{stream:true}); let nl;
+      while((nl = buf.indexOf('\n')) >= 0){
+        const line = buf.slice(0,nl).trim(); buf = buf.slice(nl+1); if(!line) continue;
+        try{
+          const j = JSON.parse(line);
+          if(j.tool){ toolCard(msgEl, j.tool); const nav={image:'image',video:'video',edit:'video',email:'mail',agent:'agent',carousel:'ops'}[j.tool.kind]; if(nav) $('.nav[data-view="'+nav+'"]').classList.add('busy'); if(j.tool.kind==='agent'&&j.tool.job){ state.agentRun=j.tool.job; } }
+          if(j.message && j.message.content){ acc += j.message.content; body.textContent = acc; scrollToBottom(); }
+        }catch(_){}
+      }
+    }
+    history.push({role:'assistant',content:acc}); attachMedia(msgEl, acc); speak(acc);
+  }catch(e){ body.textContent = acc + '\n\n[connection error: '+e.message+']'; }
+  finally{ cur.remove(); streaming=false; sendBtn.disabled=false; sendBtn.innerHTML='Send <kbd>&#8629;</kbd>'; if(handsFree && !recording){ startRecWatched(); } else { input.focus(); } }
+}
+function autoGrow(){
+  window.requestAnimationFrame(()=>{
+    input.style.height=''; const _ = input.offsetHeight;
+    const lh = parseFloat(getComputedStyle(input).lineHeight)||21.75;
+    const targetH = Math.min(input.scrollHeight, 9*lh); input.style.height=targetH+'px';
+    input.style.overflowY = (input.scrollHeight > 9*lh) ? 'auto' : 'hidden';
+  });
+}
+input.addEventListener('input', autoGrow);
+input.addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); send(); } });
+sendBtn.addEventListener('click', send);
+$('#chips').addEventListener('click', e=>{
+  const chip = e.target.closest('.chip-btn'); if(!chip) return;
+  const p = chip.dataset.prompt || chip.textContent; input.value = p; input.focus();
+  if(p.endsWith(' ') || p.endsWith(': ')) autoGrow(); else send();
+});
+
+// header menu
+const menu = $('#menu');
+$('#menuBtn').addEventListener('click', e=>{ e.stopPropagation(); menu.classList.toggle('open'); });
+document.addEventListener('click', e=>{ if(menu.classList.contains('open') && !menu.contains(e.target)) menu.classList.remove('open'); });
+$('#clearRow').addEventListener('click', ()=>{ resetView(); menu.classList.remove('open'); });
+$('#forgetRow').addEventListener('click', async ()=>{
+  if(!confirm('Permanently erase AIXMOS\'s saved memory of all past chats?')) return;
+  try{ await fetch('/api/forget',{method:'POST'}); }catch(e){}
+  history=[]; resetView(); menu.classList.remove('open');
+});
+// hands-free
+const hfState = $('#hfState');
+$('#hfRow').addEventListener('click', ()=>{
+  handsFree=!handsFree; hfState.textContent=handsFree?'on':'off'; $('#hfRow').classList.toggle('on',handsFree); handsfree.classList.toggle('on',handsFree);
+  if(handsFree && !streaming && !recording) startRecWatched(); else if(!handsFree && recording) stopRecWatched();
+});
+// theme
+const themes=['jarvis','reactor','stealth'];
+function applyTheme(t){ document.documentElement.setAttribute('data-theme',t); $('#themeState').textContent=t; try{ localStorage.setItem('aixmos-theme',t); }catch(e){} }
+try{ const t=localStorage.getItem('aixmos-theme'); if(t && themes.includes(t)) applyTheme(t); }catch(e){}
+$('#themeRow').addEventListener('click', ()=>{ const cur=document.documentElement.getAttribute('data-theme'); applyTheme(themes[(themes.indexOf(cur)+1)%themes.length]); });
+
+// ---- TTS
+let ttsOn=false, voice=null; const ttsState=$('#ttsState'); const hasTTS='speechSynthesis' in window;
+function pickVoice(){ const vs=speechSynthesis.getVoices(); voice = vs.find(v=>/^en/i.test(v.lang) && /male|david|mark|guy|ryan|george|daniel/i.test(v.name)) || vs.find(v=>/^en-GB/i.test(v.lang)) || vs.find(v=>/^en/i.test(v.lang)) || vs[0] || null; }
+if(hasTTS){ pickVoice(); speechSynthesis.onvoiceschanged=pickVoice; }
+$('#ttsRow').addEventListener('click', ()=>{ if(!hasTTS){ alert('This browser has no text-to-speech.'); return; } ttsOn=!ttsOn; ttsState.textContent=ttsOn?'on':'off'; $('#ttsRow').classList.toggle('on',ttsOn); if(!ttsOn) speechSynthesis.cancel(); });
+function speak(text){ if(!ttsOn||!text||!hasTTS) return; speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(text.replace(/\/media\/\S+/g,'')); if(voice) u.voice=voice; u.rate=1.04; u.pitch=.95; speechSynthesis.speak(u); }
+
+// ---- STT (whisper.cpp via /api/stt)
+const micBtn=$('#mic');
+let mediaStream=null, audioCtx=null, procNode=null, srcNode=null, chunks=[], recording=false, sampleRate=48000;
+function encodeWav(samples, rate){
+  const buf=new ArrayBuffer(44+samples.length*2), view=new DataView(buf);
+  const wr=(o,s)=>{ for(let i=0;i<s.length;i++) view.setUint8(o+i, s.charCodeAt(i)); };
+  wr(0,'RIFF'); view.setUint32(4,36+samples.length*2,true); wr(8,'WAVE'); wr(12,'fmt ');
+  view.setUint32(16,16,true); view.setUint16(20,1,true); view.setUint16(22,1,true); view.setUint32(24,rate,true); view.setUint32(28,rate*2,true); view.setUint16(32,2,true); view.setUint16(34,16,true);
+  wr(36,'data'); view.setUint32(40,samples.length*2,true);
+  let o=44; for(let i=0;i<samples.length;i++){ let s=Math.max(-1,Math.min(1,samples[i])); view.setInt16(o, s<0?s*0x8000:s*0x7FFF, true); o+=2; }
+  return new Blob([view],{type:'audio/wav'});
+}
+function resampleTo16k(inp, inRate){ if(inRate===16000) return inp; const ratio=inRate/16000, outLen=Math.round(inp.length/ratio), out=new Float32Array(outLen); for(let i=0;i<outLen;i++){ const idx=i*ratio, i0=Math.floor(idx), i1=Math.min(i0+1,inp.length-1), f=idx-i0; out[i]=inp[i0]*(1-f)+inp[i1]*f; } return out; }
+async function startRec(){
+  if(recording||streaming) return;
+  try{ mediaStream = await navigator.mediaDevices.getUserMedia({audio:true}); }catch(e){ orbText.textContent='Mic blocked — check browser permissions'; return; }
+  audioCtx = new (window.AudioContext||window.webkitAudioContext)(); sampleRate=audioCtx.sampleRate;
+  srcNode=audioCtx.createMediaStreamSource(mediaStream); procNode=audioCtx.createScriptProcessor(4096,1,1);
+  const zero=audioCtx.createGain(); zero.gain.value=0; chunks=[];
+  procNode.onaudioprocess=(e)=>{ chunks.push(new Float32Array(e.inputBuffer.getChannelData(0))); };
+  srcNode.connect(procNode); procNode.connect(zero); zero.connect(audioCtx.destination);
+  recording=true; bar.classList.add('listening'); micBtn.classList.add('listening'); micBtn.textContent='⏹';
+  input.placeholder='Listening…'; input.value=''; autoGrow(); orbText.textContent='Listening…'; orbText.classList.remove('full');
+  if(ttsOn) speechSynthesis.cancel();
+}
+async function stopRec(){
+  if(!recording) return; recording=false;
+  bar.classList.remove('listening'); micBtn.classList.remove('listening'); micBtn.textContent='🎤'; input.placeholder='Talk to AIXMOS…';
+  try{ procNode.disconnect(); srcNode.disconnect(); }catch(_){}
+  if(mediaStream) mediaStream.getTracks().forEach(t=>t.stop()); if(audioCtx) try{ await audioCtx.close(); }catch(_){}
+  let len=0; chunks.forEach(c=>len+=c.length);
+  if(len < sampleRate*0.3){ orbText.textContent='Listening…'; if(handsFree) setTimeout(()=>{ if(handsFree&&!streaming&&!recording) startRecWatched(); },600); return; }
+  const all=new Float32Array(len); let off=0; chunks.forEach(c=>{ all.set(c,off); off+=c.length; });
+  const wav=encodeWav(resampleTo16k(all,sampleRate),16000); orbText.textContent='Transcribing…';
+  try{
+    const r=await fetch('/api/stt',{method:'POST',headers:{'Content-Type':'audio/wav'},body:wav}); const j=await r.json();
+    if(j.text && j.text.trim()){ const transcript=j.text.trim(); input.value=transcript; autoGrow(); orbText.classList.add('full'); orbText.textContent='“'+transcript+'”';
+      if(document.activeElement===input && input.selectionStart!==input.value.length){ bar.classList.remove('listening'); orbText.textContent='Listening…'; return; }
+      send();
+    } else if(j.error){ orbText.textContent='STT: '+j.error; if(handsFree) setTimeout(()=>{ if(handsFree&&!streaming&&!recording) startRecWatched(); },1200); }
+    else { orbText.textContent='Didn’t catch that — tap mic to try again'; if(handsFree) setTimeout(()=>{ if(handsFree&&!streaming&&!recording) startRecWatched(); },1200); }
+  }catch(e){ orbText.textContent='STT error: '+e.message; if(handsFree) setTimeout(()=>{ if(handsFree&&!streaming&&!recording) startRecWatched(); },1200); }
+}
+if(navigator.mediaDevices && window.AudioContext){ micBtn.addEventListener('click', ()=>{ recording ? stopRecWatched() : startRecWatched(); }); } else { micBtn.disabled=true; micBtn.title='Microphone capture not available'; }
+let pttDown=false;
+window.addEventListener('keydown', e=>{
+  if(e.code==='Escape' && recording){ e.preventDefault(); stopRecWatched(); return; }
+  if(e.code!=='Space' || e.repeat) return;
+  if(state.view!=='chat') return;
+  const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='select'||(tag==='textarea' && e.target!==input)) return;
+  if(e.target===input && input.value.length>0) return;
+  if(recording||streaming) return; e.preventDefault(); pttDown=true; startRecWatched();
+});
+window.addEventListener('keyup', e=>{ if(e.code!=='Space'||!pttDown) return; pttDown=false; if(recording) stopRecWatched(); });
+let recWatchdog=null;
+function startRecWatched(){ startRec(); clearTimeout(recWatchdog); recWatchdog=setTimeout(()=>{ if(recording) stopRec(); },20000); }
+function stopRecWatched(){ clearTimeout(recWatchdog); stopRec(); }
+
+// ============================================================ image lab ====
+async function loadImages(){
+  try{
+    const j = await apiGet('/api/images'); state.images=j.items||[];
+    const sel=$('#imgProvider'); const cur=sel.value; sel.innerHTML=''; sel.appendChild(el('option',{value:'auto'},'auto'));
+    (j.providers||[]).forEach(p=>sel.appendChild(el('option',{value:p},p))); if([...sel.options].some(o=>o.value===cur)) sel.value=cur;
+    $('#imgProvHint').textContent = (j.providers||[]).join(' · ');
+    renderProfile(j.profile||{}); renderGallery();
+    refreshMediaSelects();
+  }catch(e){ toast(e.message,true); }
+}
+function renderProfile(p){
+  $('#learnCount').textContent = (p.total||0)+' generated · '+(p.liked||0)+' liked · '+(p.disliked||0)+' disliked';
+  $('#learnNotes').textContent = p.notes || 'Rate images with the thumbs and I will learn what you like.';
+  const L=$('#learnLikes'); L.innerHTML=''; (p.likes||[]).forEach(x=>L.appendChild(el('span',{class:'tag on'},x))); if(!(p.likes||[]).length) L.appendChild(el('span',{class:'note'},'nothing learned yet'));
+  const A=$('#learnAvoid'); A.innerHTML=''; (p.avoid||[]).forEach(x=>A.appendChild(el('span',{class:'tag bad'},x))); if(!(p.avoid||[]).length) A.appendChild(el('span',{class:'note'},'-'));
+  const S=$('#learnStats'); S.innerHTML=''; Object.entries(p.stats||{}).forEach(([k,v])=>{ S.appendChild(el('span',{},k)); S.appendChild(el('b',{}, `${v.ok} ok · ${v.fail} fail · ${v.up}👍 ${v.down}👎`)); });
+  if(document.activeElement!==$('#learnLikesEdit') && document.activeElement!==$('#learnAvoidEdit') && document.activeElement!==$('#learnNotesEdit')){
+    $('#learnLikesEdit').value=(p.likes||[]).join(', '); $('#learnAvoidEdit').value=(p.avoid||[]).join(', '); $('#learnNotesEdit').value=p.notes||'';
+  }
+}
+async function learnAction(url, body, confirmMsg){
+  if(confirmMsg && !confirm(confirmMsg)) return;
+  const st=$('#learnEditStatus'); st.className='note'; st.textContent='Working…';
+  try{ const r=await apiPost(url, body); renderProfile(r.profile||{}); st.className='note ok'; st.textContent='Done.'; loadImages(); }
+  catch(e){ st.className='note err'; st.textContent='Error: '+e.message; }
+}
+$('#learnSave').addEventListener('click', ()=>learnAction('/api/image/profile',{likes:$('#learnLikesEdit').value,avoid:$('#learnAvoidEdit').value,notes:$('#learnNotesEdit').value}));
+$('#learnResetProfile').addEventListener('click', ()=>learnAction('/api/image/profile/reset',{}, 'Clear the learned likes, avoids and notes? Your ratings stay and rebuild it over time.'));
+$('#learnResetRatings').addEventListener('click', ()=>learnAction('/api/image/profile/reset',{ratings:true}, 'Clear the learned profile AND every thumbs rating? Images stay in the gallery.'));
+$('#learnWipe').addEventListener('click', ()=>learnAction('/api/image/profile/reset',{history:true}, 'Wipe the whole image history, ratings and profile? Files stay on disk but the gallery and learning start from zero.'));
+function renderGallery(){
+  const g=$('#gallery'); g.innerHTML='';
+  if(!state.images.length){ g.appendChild(el('div',{class:'note'},'No images yet. Generate one on the left, or say "generate an image of…" in chat.')); return; }
+  state.images.forEach(item=>{
+    const c=el('div',{class:'card'});
+    c.appendChild(el('img',{src:item.url,loading:'lazy',onclick:()=>window.open(item.url,'_blank')}));
+    const b=el('div',{class:'b'});
+    b.appendChild(el('div',{class:'p',title:item.final_prompt}, item.prompt));
+    b.appendChild(el('div',{}, el('span',{class:'tag'},item.provider), el('span',{class:'tag'},item.size||''), item.parent?el('span',{class:'tag on'},'refined'):null, el('span',{class:'m'}, ' '+fmtT(item.ts))));
+    const r=el('div',{class:'row'}); r.appendChild(rateButtons(item, ()=>setTimeout(loadImages,4000)));
+    r.appendChild(el('button',{class:'btn sm',onclick:()=>{ $('#vidFromImage').value=item.url; $('#vidPrompt').value=item.prompt; showView('video'); setVTab('gen'); }},'Animate'));
+    r.appendChild(el('button',{class:'btn sm',onclick:()=>{ state.attachments.add(item.url); showView('mail'); }},'Email'));
+    b.appendChild(r);
+    const ref=el('div',{class:'inline'}); const inp=el('input',{class:'f',placeholder:'refine: warmer light, add a cat…'});
+    const go=el('button',{class:'btn sm'},'Refine');
+    go.addEventListener('click', async()=>{ if(!inp.value.trim()) return; go.disabled=true; go.textContent='…'; try{ await apiPost('/api/image/refine',{id:item.id,instruction:inp.value.trim()}); toast('Refined image added'); loadImages(); }catch(e){ toast(e.message,true);} go.disabled=false; go.textContent='Refine'; });
+    inp.addEventListener('keydown',e=>{ if(e.key==='Enter') go.click(); });
+    ref.appendChild(inp); ref.appendChild(go); b.appendChild(ref);
+    if(item.warning) b.appendChild(el('div',{class:'note'},item.warning));
+    c.appendChild(b); g.appendChild(c);
+  });
+}
+$('#imgGo').addEventListener('click', async()=>{
+  const prompt=$('#imgPrompt').value.trim(); if(!prompt) return;
+  const btn=$('#imgGo'); btn.disabled=true; $('#imgStatus').textContent='Synthesising… (prompt enhancement runs on the local model first)'; $('.nav[data-view="image"]').classList.add('busy');
+  try{
+    const it=await apiPost('/api/image/generate',{prompt,provider:$('#imgProvider').value,size:$('#imgSize').value,enhance:$('#imgEnhance').checked,style:$('#imgStyle').value||null});
+    $('#imgStatus').textContent='Done via '+it.provider+(it.warning?' · '+it.warning:''); loadImages();
+  }catch(e){ $('#imgStatus').textContent='Error: '+e.message; }
+  btn.disabled=false; $('.nav[data-view="image"]').classList.remove('busy');
+});
+$('#imgPrompt').addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); $('#imgGo').click(); } });
+
+// ============================================================ video lab ====
+function setVTab(t){ $$('[data-vtab]').forEach(b=>b.classList.toggle('on',b.dataset.vtab===t)); ['gen','edit','lib'].forEach(x=>$('#vtab-'+x).style.display = x===t?'':'none'); }
+$$('[data-vtab]').forEach(b=>b.addEventListener('click',()=>setVTab(b.dataset.vtab)));
+async function loadVideos(){
+  try{
+    const j=await apiGet('/api/videos'); state.videos=j.items||[];
+    const sel=$('#vidProvider'); const cur=sel.value; sel.innerHTML=''; sel.appendChild(el('option',{value:'auto'},'auto'));
+    (j.providers||[]).forEach(p=>sel.appendChild(el('option',{value:p},p==='local'?'local storyboard (no key)':p))); if([...sel.options].some(o=>o.value===cur)) sel.value=cur;
+    $('#vidProvHint').textContent=(j.providers||[]).join(' · ');
+    renderVGallery(); refreshMediaSelects();
+  }catch(e){ toast(e.message,true); }
+}
+function refreshMediaSelects(){
+  const imgs=state.images.map(i=>i.url).concat(state.uploads.filter(isImage));
+  const vids=state.videos.map(v=>v.url).concat(state.uploads.filter(isVideo)); const auds=state.uploads.filter(isAudio);
+  Object.values(state.jobs).forEach(j=>{ if(j.status==='done'&&j.result&&j.result.url){ if(isVideo(j.result.url)&&!vids.includes(j.result.url)) vids.unshift(j.result.url); if(isAudio(j.result.url)&&!auds.includes(j.result.url)) auds.push(j.result.url); } });
+  const fill=(sel, list, none)=>{ const cur=sel.value; sel.innerHTML=''; sel.appendChild(el('option',{value:''},none)); [...new Set(list)].forEach(u=>sel.appendChild(el('option',{value:u},u.split('/').pop()))); if([...sel.options].some(o=>o.value===cur)) sel.value=cur; };
+  fill($('#vidFromImage'), imgs, 'none'); fill($('#editOverlay'), imgs, 'none'); fill($('#editMusic'), auds.concat(vids), 'none'); fill($('#editSource'), vids, 'choose a video');
+  if(state.currentVideo && [...$('#editSource').options].some(o=>o.value===state.currentVideo)) $('#editSource').value=state.currentVideo;
+}
+function renderVGallery(){
+  const g=$('#vgallery'); g.innerHTML='';
+  if(!state.videos.length){ g.appendChild(el('div',{class:'note'},'No generated videos yet.')); return; }
+  state.videos.forEach(v=>{
+    const c=el('div',{class:'card'}); c.appendChild(el('video',{src:v.url,controls:'',preload:'metadata'}));
+    const b=el('div',{class:'b'}); b.appendChild(el('div',{class:'p'},v.prompt||'')); b.appendChild(el('div',{},el('span',{class:'tag'},v.provider),el('span',{class:'tag'},v.model||''),el('span',{class:'m'},' '+fmtT(v.ts))));
+    b.appendChild(el('div',{class:'row'}, el('button',{class:'btn sm',onclick:()=>{ setSource(v.url); setVTab('edit'); }},'Edit'), el('button',{class:'btn sm',onclick:()=>{ state.attachments.add(v.url); showView('mail'); }},'Email'), el('a',{class:'btn sm',href:v.url,download:''},'Download')));
+    if(v.warning) b.appendChild(el('div',{class:'note'},v.warning));
+    c.appendChild(b); g.appendChild(c);
+  });
+}
+$('#vidGo').addEventListener('click', async()=>{
+  const prompt=$('#vidPrompt').value.trim(); const img=$('#vidFromImage').value; if(!prompt && !img) return;
+  try{ const j=await apiPost('/api/video/generate',{prompt,provider:$('#vidProvider').value,aspect:$('#vidAspect').value,seconds:parseInt($('#vidSeconds').value),image_url:img||null}); state.jobs[j.id]=j; toast('Video job started via '+j.meta.provider); pollJobs(true); }
+  catch(e){ toast(e.message,true); }
+});
+let jobTimer=null;
+async function pollJobs(force){
+  clearTimeout(jobTimer);
+  try{ const j=await apiGet('/api/jobs'); (j.jobs||[]).forEach(x=>state.jobs[x.id]=x); renderJobs(); }catch(e){}
+  const running=Object.values(state.jobs).some(j=>j.status==='queued'||j.status==='running');
+  $('.nav[data-view="video"]').classList.toggle('busy', running);
+  if(running || force) jobTimer=setTimeout(()=>pollJobs(false), 2500);
+}
+function jobRow(j){
+  const r=el('div',{class:'item',style:'cursor:default'});
+  r.appendChild(el('div',{}, el('span',{class:'tag '+(j.status==='done'?'on':(j.status==='error'?'bad':'warn'))}, j.status), el('span',{class:'tag'}, j.kind), el('span',{class:'m'},' '+fmtT(j.created))));
+  r.appendChild(el('div',{style:'margin-top:4px'}, (j.meta&&(j.meta.prompt||j.meta.instruction))||''));
+  if(j.status==='queued'||j.status==='running'){ r.appendChild(el('div',{class:'progress'},el('i'))); r.appendChild(el('div',{class:'m'}, j.progress||'')); }
+  if(j.status==='error') r.appendChild(el('div',{class:'note err'}, j.error||'failed'));
+  if(j.status==='done' && j.result){
+    const u=j.result.url;
+    if(u){ if(/\.gif$/i.test(u)) r.appendChild(el('img',{src:u,style:'max-width:100%;border-radius:8px;margin-top:6px'})); else if(isVideo(u)) r.appendChild(el('video',{src:u,controls:'',preload:'metadata',style:'width:100%;border-radius:8px;margin-top:6px;background:#000'})); else if(isAudio(u)) r.appendChild(el('audio',{src:u,controls:'',style:'width:100%;margin-top:6px'})); }
+    if(j.result.ops) r.appendChild(el('div',{class:'ops'}, ...j.result.ops.map(o=>el('span',{class:'tag'},opLabel(o)))));
+    if(j.result.warnings&&j.result.warnings.length) r.appendChild(el('div',{class:'note'}, j.result.warnings.join(' · ')));
+    if(j.result.warning) r.appendChild(el('div',{class:'note'}, j.result.warning));
+    if(j.result.scenes) r.appendChild(el('div',{class:'note'}, 'Scenes: '+j.result.scenes.join(' | ')));
+    const row=el('div',{class:'row',style:'margin-top:6px'});
+    if(u && isVideo(u)) row.appendChild(el('button',{class:'btn sm',onclick:()=>{ setSource(u); setVTab('edit'); }},'Edit this'));
+    if(u) row.appendChild(el('button',{class:'btn sm',onclick:()=>{ state.attachments.add(u); showView('mail'); }},'Email it'));
+    if(u) row.appendChild(el('a',{class:'btn sm',href:u,download:''},'Download'));
+    r.appendChild(row);
+  }
+  return r;
+}
+function renderJobs(){
+  const all=Object.values(state.jobs).sort((a,b)=>b.created-a.created);
+  const g=$('#jobs'); g.innerHTML=''; const e=$('#editJobs'); e.innerHTML='';
+  all.filter(j=>j.kind==='video').forEach(j=>g.appendChild(jobRow(j))); if(!g.children.length) g.appendChild(el('span',{class:'note'},'No video jobs yet.'));
+  all.filter(j=>j.kind==='edit').forEach(j=>e.appendChild(jobRow(j))); if(!e.children.length) e.appendChild(el('span',{class:'note'},'No edits yet.'));
+  refreshMediaSelects();
+}
+// ---- editing
+function setSource(url){
+  state.currentVideo=url; updateCurVid(); $('#editPreview').src=url; $('#editSource').value=url;
+  $('#editHint').textContent='Source loaded. Describe the edit, or say it in chat.';
+  apiPost('/api/video/plan',{source:url,instruction:'',use_llm:false}).then(p=>{ const i=p.info||{}; const kv=$('#srcInfo'); kv.innerHTML=''; [['duration',(i.duration||0).toFixed(1)+' s'],['size',(i.width||0)+'×'+(i.height||0)],['fps',i.fps||'-'],['audio',i.has_audio?'yes':'no']].forEach(([k,v])=>{ kv.appendChild(el('span',{},k)); kv.appendChild(el('b',{},String(v))); }); }).catch(()=>{});
+}
+$('#editSource').addEventListener('change', e=>{ if(e.target.value) setSource(e.target.value); });
+const drop=$('#drop'), fileIn=$('#file');
+drop.addEventListener('click', ()=>fileIn.click());
+drop.addEventListener('dragover', e=>{ e.preventDefault(); drop.classList.add('over'); });
+drop.addEventListener('dragleave', ()=>drop.classList.remove('over'));
+drop.addEventListener('drop', e=>{ e.preventDefault(); drop.classList.remove('over'); uploadFiles(e.dataTransfer.files); });
+fileIn.addEventListener('change', ()=>uploadFiles(fileIn.files));
+async function uploadFiles(files){
+  for(const f of files){
+    drop.textContent='Uploading '+f.name+'…';
+    try{ const r=await fetch('/api/upload',{method:'POST',headers:{'X-Filename':encodeURIComponent(f.name)},body:f}); const j=await r.json(); if(!r.ok) throw new Error(j.error);
+      state.uploads.unshift(j.url); refreshMediaSelects(); if(isVideo(j.url)) setSource(j.url); toast('Uploaded '+f.name); }
+    catch(e){ toast('Upload failed: '+e.message,true); }
+  }
+  drop.innerHTML='Drop a video here or click to upload<br><span class="note">mp4 / mov / webm / mkv, images and audio for overlays &amp; music</span>';
+}
+$('#editChips').addEventListener('click', e=>{ const c=e.target.closest('.chip-btn'); if(!c) return; const t=$('#editPrompt'); t.value = (t.value.trim()? t.value.trim()+', ':'') + c.textContent.toLowerCase(); t.focus(); });
+function editExtras(){ return { overlay: $('#editOverlay').value||null, audio: $('#editMusic').value||null }; }
+$('#editPlan').addEventListener('click', async()=>{
+  const src=$('#editSource').value||state.currentVideo; const ins=$('#editPrompt').value.trim(); if(!src||!ins){ toast('Pick a source and describe the edit',true); return; }
+  const out=$('#planOut'); out.textContent='Planning…'; $('#editPlan').disabled=true;
+  try{ const p=await apiPost('/api/video/plan',{source:src,instruction:ins,extras:editExtras(),use_llm:$('#editLLM').checked});
+    out.innerHTML=''; if(p.summary) out.appendChild(el('div',{},p.summary));
+    out.appendChild(el('div',{class:'ops'}, ...(p.ops.length? p.ops.map(o=>el('span',{class:'tag on'},opLabel(o))) : [el('span',{class:'tag bad'},'no operations recognised')])));
+    if(p.warnings.length) out.appendChild(el('div',{class:'note'}, p.warnings.join(' · ')));
+    state.lastPlan = p.ops;
+  }catch(e){ out.textContent='Error: '+e.message; }
+  $('#editPlan').disabled=false;
+});
+$('#editGo').addEventListener('click', async()=>{
+  const src=$('#editSource').value||state.currentVideo; const ins=$('#editPrompt').value.trim(); if(!src||!ins){ toast('Pick a source and describe the edit',true); return; }
+  try{ const j=await apiPost('/api/video/edit',{source:src,instruction:ins,extras:editExtras(),use_llm:$('#editLLM').checked}); state.jobs[j.id]=j; toast('Edit started'); state.lastPlan=null; pollJobs(true); }
+  catch(e){ toast(e.message,true); }
+});
+
+// ============================================================ mail ====
+function fillComposer(d){ if(d.to) $('#mailTo').value=(d.to||[]).join(', '); $('#mailSubject').value=d.subject||''; $('#mailBody').value=d.body||''; }
+async function loadAccounts(){
+  try{
+    const j=await apiGet('/api/email/accounts'); state.accounts=j.accounts||[];
+    const L=$('#accounts'); L.innerHTML='';
+    if(!state.accounts.length) L.appendChild(el('span',{class:'note'},'No accounts connected yet. Add one below or sign in with Google / Microsoft.'));
+    state.accounts.forEach(a=>{
+      const it=el('div',{class:'item',style:'cursor:default'});
+      it.appendChild(el('div',{}, el('b',{},a.email), ' ', el('span',{class:'tag on'},a.type)));
+      it.appendChild(el('div',{class:'m'}, (a.name||'')+(a.imap?' · inbox':'')));
+      it.appendChild(el('div',{class:'row',style:'margin-top:4px'}, el('button',{class:'btn sm danger',onclick:async()=>{ if(!confirm('Remove '+a.email+'?')) return; await apiPost('/api/email/accounts/remove',{id:a.id}); loadAccounts(); }},'Remove')));
+      L.appendChild(it);
+    });
+    const fill=(sel)=>{ const cur=sel.value; sel.innerHTML=''; state.accounts.forEach(a=>sel.appendChild(el('option',{value:a.id},a.email))); if(!state.accounts.length) sel.appendChild(el('option',{value:''},'no account connected')); if([...sel.options].some(o=>o.value===cur)) sel.value=cur; };
+    fill($('#mailFrom')); fill($('#inboxAccount'));
+    const presets=j.presets||{}; const ps=$('#accPreset'); if(!ps.options.length){ Object.entries(presets).forEach(([k,v])=>ps.appendChild(el('option',{value:k},v.label))); ps.addEventListener('change',()=>presetChanged(presets)); presetChanged(presets); }
+    $('#oauthGoogle').disabled=!j.oauth.google; $('#oauthMicrosoft').disabled=!j.oauth.microsoft;
+    $('#oauthHint').textContent = (j.oauth.google&&j.oauth.microsoft)?'' : 'Google / Microsoft sign-in needs an OAuth client id under Integrations. Any account also works right now with an app password below.';
+    const S=$('#sentLog'); S.innerHTML=''; (j.sent||[]).forEach(s=>S.appendChild(el('div',{class:'item',style:'cursor:default'}, el('div',{},s.subject), el('div',{class:'m'},'to '+(s.to||[]).join(', ')+' · '+fmtT(s.ts))))); if(!(j.sent||[]).length) S.appendChild(el('span',{class:'note'},'-'));
+  }catch(e){ toast(e.message,true); }
+}
+function presetChanged(presets){ const p=presets[$('#accPreset').value]||{}; $('#accNote').textContent=p.note||''; $('#accCustom').style.display = ($('#accPreset').value==='custom')?'':'none'; $('#accSmtp').value=p.smtp_host||''; $('#accPort').value=p.smtp_port||587; $('#accImap').value=p.imap_host||''; }
+$('#accAdd').addEventListener('click', async()=>{
+  const st=$('#accStatus'); st.textContent='Verifying login…'; $('#accAdd').disabled=true;
+  try{ const r=await apiPost('/api/email/accounts',{preset:$('#accPreset').value,name:$('#accName').value,email:$('#accEmail').value,password:$('#accPass').value,username:$('#accUser').value,smtp_host:$('#accSmtp').value,smtp_port:$('#accPort').value,imap_host:$('#accImap').value});
+    st.textContent='Connected '+r.email; st.className='note ok'; $('#accPass').value=''; loadAccounts(); }
+  catch(e){ st.textContent='Failed: '+e.message; st.className='note err'; }
+  $('#accAdd').disabled=false;
+});
+function oauth(p){ const w=window.open('/api/email/oauth/start?provider='+p,'aixmos_oauth','width=520,height=680'); if(!w) toast('Popup blocked',true); }
+$('#oauthGoogle').addEventListener('click',()=>oauth('google')); $('#oauthMicrosoft').addEventListener('click',()=>oauth('microsoft'));
+window.addEventListener('message', e=>{ if(e.data&&e.data.aixmos==='oauth'){ toast(e.data.ok?'Account connected':'Sign-in failed', !e.data.ok); loadAccounts(); } });
+$('#inboxRefresh').addEventListener('click', loadInbox); $('#inboxAccount').addEventListener('change', loadInbox);
+async function loadInbox(){
+  const acc=$('#inboxAccount').value; if(!acc) return; const L=$('#inbox'); L.innerHTML='<span class="note">Loading…</span>'; $('#inboxSub').textContent='';
+  try{ const j=await apiGet('/api/email/inbox?account='+encodeURIComponent(acc)); L.innerHTML=''; $('#inboxSub').textContent=(j.messages||[]).length+' recent';
+    (j.messages||[]).forEach(m=>{ const it=el('div',{class:'item'}, el('div',{}, el('b',{},m.subject||'(no subject)')), el('div',{class:'m'},m.from+' · '+m.date), el('div',{class:'note'},m.snippet||'')); it.addEventListener('click',()=>openMessage(acc,m.id,it)); L.appendChild(it); });
+    if(!L.children.length) L.appendChild(el('span',{class:'note'},'Inbox empty or not readable for this account type.'));
+  }catch(e){ L.innerHTML=''; L.appendChild(el('span',{class:'note err'},e.message)); }
+}
+async function openMessage(acc,id,it){
+  $$('#inbox .item').forEach(x=>x.classList.remove('sel')); it.classList.add('sel');
+  try{ const m=await apiGet('/api/email/read?account='+encodeURIComponent(acc)+'&id='+encodeURIComponent(id)); state.replyTo=m;
+    const from=(m.from.match(/<([^>]+)>/)||[])[1]||m.from; $('#mailTo').value=from; $('#mailFrom').value=acc; $('#mailSubject').value=(/^re:/i.test(m.subject)?'':'Re: ')+m.subject;
+    $('#replyCtx').textContent='Replying to "'+m.subject+'" from '+m.from+'. Describe what to say and press Draft.'; $('#mailClearReply').style.display=''; $('#mailIntent').focus();
+  }catch(e){ toast(e.message,true); }
+}
+$('#mailClearReply').addEventListener('click',()=>{ state.replyTo=null; $('#replyCtx').textContent=''; $('#mailClearReply').style.display='none'; });
+$('#mailDraft').addEventListener('click', async()=>{
+  const intent=$('#mailIntent').value.trim(); if(!intent && !state.replyTo){ toast('Tell me what the email should accomplish',true); return; }
+  const st=$('#mailStatus'); st.className='note'; st.textContent='Drafting with the local model…'; $('#mailDraft').disabled=true;
+  try{ const d=await apiPost('/api/email/draft',{intent:intent||'reply appropriately',to:$('#mailTo').value.split(/[,;\s]+/).filter(Boolean),tone:$('#mailTone').value,length:$('#mailLen').value,account:$('#mailFrom').value||null,reply_to:state.replyTo});
+    $('#mailSubject').value=d.subject; $('#mailBody').value=d.body; st.textContent='Draft ready. Edit freely, refine below, then Send.'; }
+  catch(e){ st.textContent='Error: '+e.message; st.className='note err'; }
+  $('#mailDraft').disabled=false;
+});
+$('#mailRefineGo').addEventListener('click', async()=>{
+  const ins=$('#mailRefine').value.trim(); if(!ins) return; const st=$('#mailStatus'); st.className='note'; st.textContent='Refining…'; $('#mailRefineGo').disabled=true;
+  try{ const d=await apiPost('/api/email/refine',{subject:$('#mailSubject').value,body:$('#mailBody').value,instruction:ins,account:$('#mailFrom').value||null}); $('#mailSubject').value=d.subject; $('#mailBody').value=d.body; $('#mailRefine').value=''; st.textContent='Refined.'; }
+  catch(e){ st.textContent='Error: '+e.message; st.className='note err'; }
+  $('#mailRefineGo').disabled=false;
+});
+$('#mailRefine').addEventListener('keydown',e=>{ if(e.key==='Enter') $('#mailRefineGo').click(); });
+function refreshAttachments(){
+  const A=$('#mailAtt'); A.innerHTML='';
+  const all=[...new Set([...state.attachments, ...state.images.slice(0,8).map(i=>i.url), ...state.videos.slice(0,4).map(v=>v.url), ...Object.values(state.jobs).filter(j=>j.status==='done'&&j.result&&j.result.url).map(j=>j.result.url)])];
+  if(!all.length){ A.appendChild(el('span',{class:'note'},'nothing generated yet')); return; }
+  all.forEach(u=>{ const t=el('span',{class:'tag'+(state.attachments.has(u)?' on':'')}, u.split('/').pop()); t.addEventListener('click',()=>{ state.attachments.has(u)?state.attachments.delete(u):state.attachments.add(u); refreshAttachments(); }); A.appendChild(t); });
+}
+$('#mailSend').addEventListener('click', async()=>{
+  const acc=$('#mailFrom').value; if(!acc){ toast('Connect an account first',true); return; }
+  const to=$('#mailTo').value.trim(), subject=$('#mailSubject').value.trim(), body=$('#mailBody').value.trim();
+  if(!to||!body){ toast('Recipient and body are required',true); return; }
+  const from=(state.accounts.find(a=>a.id===acc)||{}).email||'';
+  if(!confirm('Send this email?\n\nFrom: '+from+'\nTo: '+to+'\nSubject: '+subject+(state.attachments.size?'\nAttachments: '+state.attachments.size:''))) return;
+  const st=$('#mailStatus'); st.className='note'; st.textContent='Sending…'; $('#mailSend').disabled=true;
+  try{ const r=await apiPost('/api/email/send',{account:acc,to,cc:$('#mailCc').value,subject,body,attachments:[...state.attachments],reply_to:state.replyTo});
+    st.className='note ok'; st.textContent='Sent to '+r.to.join(', '); state.attachments.clear(); refreshAttachments(); loadAccounts(); }
+  catch(e){ st.className='note err'; st.textContent='Send failed: '+e.message; }
+  $('#mailSend').disabled=false;
+});
+
+// ============================================================ integrations ====
+async function loadSettings(){
+  try{
+    const s=await apiGet('/api/settings'); state.settings=s;
+    const cs=$('#coreStatus'); cs.innerHTML='';
+    [['Ollama', s.caps.ollama?'online':'offline'],['ffmpeg', s.tools.ffmpeg?'ready':'missing'],['whisper.cpp', s.caps.captions?'ready':'missing'],['image providers', s.caps.image.join(', ')],['video providers', s.caps.video.join(', ')],['email accounts', String(s.caps.email_accounts)]].forEach(([k,v])=>{ cs.appendChild(el('span',{},k)); cs.appendChild(el('b',{},v)); });
+    const P=$('#providers'); P.innerHTML='';
+    Object.entries(s.providers).forEach(([id,p])=>{
+      const box=el('div',{class:'prov','data-id':id});
+      box.appendChild(el('h3',{}, p.label, ...p.caps.map(c=>el('span',{class:'tag'},c)), el('span',{class:'tag st '+(p.configured?'on':'')}, p.configured?'configured':'not set')));
+      box.appendChild(el('div',{class:'help'}, p.help||''));
+      Object.entries(p.fields).forEach(([f,v])=>{ const secret=(f==='api_key'||f==='client_secret'); box.appendChild(el('label',{class:'f'},f.replace('_',' '))); const row=el('div',{class:'inline'}); row.appendChild(el('input',{class:'f','data-field':f,type:secret?'password':'text',placeholder:v||('enter '+f.replace('_',' ')),autocomplete:'off'})); if(v) row.appendChild(el('button',{class:'btn sm danger',onclick:(e)=>{ e.target.previousSibling.value='__clear__'; e.target.previousSibling.type='text'; }},'clear')); box.appendChild(row); });
+      Object.entries(p.models).forEach(([f,v])=>{ box.appendChild(el('label',{class:'f'},f.replace('_',' '))); box.appendChild(el('input',{class:'f','data-field':f,value:v})); });
+      P.appendChild(box);
+    });
+    const pi=$('#prefImage'); pi.innerHTML=''; ['auto',...s.caps.image].forEach(x=>pi.appendChild(el('option',{value:x},x))); pi.value=s.prefs.image_provider||'auto';
+    const pv=$('#prefVideo'); pv.innerHTML=''; ['auto',...s.caps.video].forEach(x=>pv.appendChild(el('option',{value:x},x))); pv.value=s.prefs.video_provider||'auto';
+    const pm=$('#prefModel'); pm.innerHTML=''; pm.appendChild(el('option',{value:''},'auto (qwen2.5:3b)')); [...modelSel.options].forEach(o=>pm.appendChild(el('option',{value:o.value},o.value))); pm.value=s.prefs.chat_model||'';
+    $('#prefName').value=s.prefs.assistant_name||'AIXMOS'; $('#prefEnhance').checked=!!s.prefs.enhance_prompts; $('#prefFreePublic').checked=(s.prefs.image_free_public!==false);
+    $('#prefPerf').value=s.prefs.ui_performance||'auto'; applyPerf(s.prefs.ui_performance||'auto'); $('#prefThreads').value=s.prefs.llm_threads||3; $('#prefCtx').value=String(s.prefs.llm_ctx||4096); $('#prefHistory').value=s.prefs.chat_history||12;
+    $('#prefKnowledge').checked=s.prefs.use_knowledge!==false;
+    const pam=$('#prefAgentModel'); pam.innerHTML=''; pam.appendChild(el('option',{value:''},'auto (largest local Qwen)')); [...modelSel.options].forEach(o=>pam.appendChild(el('option',{value:o.value},o.value))); pam.value=s.prefs.agent_model||'';
+    $('#prefAgentAutonomy').value=s.prefs.agent_autonomy||'builder'; $('#prefAgentRoots').value=(s.prefs.agent_roots||'').split(';').join('\n');
+    const port=(s.caps&&s.caps.port)||location.port||8770; const base='http://localhost:'+port;
+    const E=$('#endpointInfo'); E.innerHTML=''; [['OpenAI base URL',base+'/v1'],['Models','aixmos · aixmos-agent · aixmos-raw'],['MCP server',base+'/mcp'],['Workspace',s.workspace||''],['Vault',(s.caps.knowledge&&s.caps.knowledge.chunks||0)+' passages'],['Active skill',s.caps.active_skill||'none']].forEach(([k,v])=>{ E.appendChild(el('span',{},k)); E.appendChild(el('b',{},v)); });
+    $('#epExamples').textContent='# Claude Code\nclaude mcp add --transport http aixmos '+base+'/mcp\n\n# curl (OpenAI format)\ncurl '+base+'/v1/chat/completions -H "Content-Type: application/json" -d \'{"model":"aixmos","messages":[{"role":"user","content":"how do I qualify a lead?"}]}\'\n\n# Cursor / Continue / Open WebUI: OpenAI provider, base URL '+base+'/v1, any key, model "aixmos"';
+  }catch(e){ toast(e.message,true); }
+}
+$('#provSave').addEventListener('click', async()=>{
+  const providers={};
+  $$('#providers .prov').forEach(box=>{ const id=box.dataset.id; providers[id]={}; box.querySelectorAll('input[data-field]').forEach(i=>{ if(i.value!=='' ) providers[id][i.dataset.field]=i.value; }); });
+  const st=$('#provStatus'); st.textContent='Saving…';
+  try{ await apiPost('/api/settings',{providers}); st.className='note ok'; st.textContent='Saved. Providers are live immediately.'; loadSettings(); }catch(e){ st.className='note err'; st.textContent=e.message; }
+});
+$('#prefSave').addEventListener('click', async()=>{
+  try{ await apiPost('/api/settings',{prefs:{image_provider:$('#prefImage').value,video_provider:$('#prefVideo').value,chat_model:$('#prefModel').value,assistant_name:$('#prefName').value,enhance_prompts:$('#prefEnhance').checked,image_free_public:$('#prefFreePublic').checked,ui_performance:$('#prefPerf').value,llm_threads:parseInt($('#prefThreads').value)||3,llm_ctx:parseInt($('#prefCtx').value)||4096,chat_history:parseInt($('#prefHistory').value)||12,use_knowledge:$('#prefKnowledge').checked,agent_model:$('#prefAgentModel').value,agent_autonomy:$('#prefAgentAutonomy').value,agent_roots:$('#prefAgentRoots').value.split('\n').map(x=>x.trim()).filter(Boolean).join(';')}}); toast('Defaults saved'); loadSettings(); }catch(e){ toast(e.message,true); }
+});
+
+// ============================================================ super agent ====
+let agentTimer=null;
+async function loadAgent(){
+  try{
+    const j=await apiGet('/api/agent/runs');
+    $('#agentModelHint').textContent='model '+j.model+' · autonomy '+j.autonomy; $('#agentWs').textContent=j.workspace;
+    const T=$('#agentTools'); T.innerHTML=''; j.tools.forEach(t=>T.appendChild(el('span',{class:'tag'},t)));
+    $('#agentAutonomy').value=j.autonomy||'builder';
+    renderAgentHistory(j.history||[]);
+    const live=(j.live||[]).find(x=>['queued','running','waiting'].includes(x.status));
+    if(live) state.agentRun=live.id;
+    if(state.agentRun) watchAgent(state.agentRun);
+  }catch(e){ toast(e.message,true); }
+}
+function renderAgentHistory(h){
+  const H=$('#agentHistory'); H.innerHTML='';
+  if(!h.length){ H.appendChild(el('span',{class:'note'},'No runs yet.')); return; }
+  h.slice(0,15).forEach(r=>{
+    const it=el('div',{class:'item'}, el('div',{}, el('span',{class:'tag '+(r.status==='done'?'on':(r.status==='error'?'bad':'warn'))},r.status), el('span',{class:'m'},' '+fmtT(r.created))), el('div',{style:'margin-top:4px'},r.goal), r.final?el('div',{class:'note'},String(r.final).slice(0,240)):null);
+    it.addEventListener('click',()=>{ renderSteps(r.steps||[], r); });
+    H.appendChild(it);
+  });
+}
+function stepRow(s){
+  if(s.kind==='assistant') return el('div',{class:'item',style:'cursor:default;border-color:var(--line2)'}, el('div',{class:'m'},'step '+s.n+' · plan / reasoning'), el('div',{style:'white-space:pre-wrap'},s.text));
+  if(s.kind==='error') return el('div',{class:'item',style:'cursor:default'}, el('div',{class:'note err'},s.text));
+  const d=el('details',{class:'item',style:'cursor:default'});
+  d.appendChild(el('summary',{}, el('span',{class:'tag on'},s.tool||'tool'), ' ', el('span',{class:'m'},String(s.args||'').slice(0,140)+(s.ms?' · '+s.ms+' ms':''))));
+  d.appendChild(el('pre',{class:'note',style:'white-space:pre-wrap;margin:6px 0 0;max-height:260px;overflow:auto'}, s.result||''));
+  return d;
+}
+function renderSteps(steps, run){
+  const S=$('#agentSteps'); S.innerHTML='';
+  if(run) S.appendChild(el('div',{class:'note'},'Goal: '+run.goal));
+  steps.forEach(s=>S.appendChild(stepRow(s)));
+  if(run && run.final) S.appendChild(el('div',{class:'toolcard'}, el('div',{class:'t'},'Result'), el('div',{style:'white-space:pre-wrap'},run.final)));
+  if(run && run.artifacts && run.artifacts.length) S.appendChild(el('div',{class:'note'},'Artifacts: '+run.artifacts.join(' · ')));
+  if(!steps.length && !(run&&run.final)) S.appendChild(el('span',{class:'note'},'Waiting for the first step…'));
+}
+async function watchAgent(id){
+  clearTimeout(agentTimer);
+  try{
+    const j=await apiGet('/api/agent/run/'+id);
+    const meta=j.meta||{}; const res=j.result||{};
+    $('#agentRunSub').textContent=id+' · '+j.status+' · '+(j.progress||'');
+    renderSteps(meta.steps||[], {goal:meta.goal, final:res.final||(j.status==='error'?('Error: '+j.error):null), artifacts:res.artifacts||meta.artifacts});
+    const ask=$('#agentAsk'); if(j.status==='waiting'){ ask.style.display=''; $('#agentQuestion').textContent=j.question||''; } else ask.style.display='none';
+    $('#agentCancel').style.display=['queued','running','waiting'].includes(j.status)?'':'none';
+    $('.nav[data-view="agent"]').classList.toggle('busy', ['queued','running','waiting'].includes(j.status));
+    if(['queued','running','waiting'].includes(j.status)) agentTimer=setTimeout(()=>watchAgent(id), 2500);
+    else { state.agentRun=null; loadAgent(); }
+  }catch(e){ $('#agentRunSub').textContent='run not found'; }
+}
+$('#agentGo').addEventListener('click', async()=>{
+  const goal=$('#agentGoal').value.trim(); if(!goal){ toast('Give the agent a goal',true); return; }
+  try{ const j=await apiPost('/api/agent/run',{goal,autonomy:$('#agentAutonomy').value,max_steps:parseInt($('#agentSteps').value)||24,roots:$('#agentRoots').value||null}); state.agentRun=j.id; toast('Agent engaged'); watchAgent(j.id); }
+  catch(e){ toast(e.message,true); }
+});
+$('#agentAnswerGo').addEventListener('click', async()=>{ const a=$('#agentAnswer').value.trim(); if(!a||!state.agentRun) return; try{ await apiPost('/api/agent/answer',{id:state.agentRun,answer:a}); $('#agentAnswer').value=''; watchAgent(state.agentRun); }catch(e){ toast(e.message,true); } });
+$('#agentAnswer').addEventListener('keydown',e=>{ if(e.key==='Enter') $('#agentAnswerGo').click(); });
+$('#agentCancel').addEventListener('click', async()=>{ if(!state.agentRun) return; try{ await apiPost('/api/agent/cancel',{id:state.agentRun}); toast('Cancelling…'); }catch(e){ toast(e.message,true); } });
+
+// ============================================================ vault & skills ====
+function setKTab(t){ $$('[data-ktab]').forEach(b=>b.classList.toggle('on',b.dataset.ktab===t)); ['research','search','skills','prompts','packs'].forEach(x=>$('#ktab-'+x).style.display=(x===t)?'':'none'); if(t==='research') loadResearch(); }
+// ---- web research + cross-reference
+async function loadResearch(){
+  try{ const j=await apiGet('/api/research'); $('#rsEngines').textContent='engines: '+(j.engines||[]).join(' → ');
+    const H=$('#rsHistory'); H.innerHTML=''; (j.history||[]).forEach(r=>{ const it=el('div',{class:'item'}, el('div',{}, r.question), el('div',{class:'m'}, fmtT(r.ts)+' · '+r.depth+(r.analysis?' · '+r.analysis.confidence:''))); it.addEventListener('click',()=>renderResearch(r)); H.appendChild(it); });
+    if(!H.children.length) H.appendChild(el('span',{class:'note'},'No research yet.'));
+  }catch(e){ toast(e.message,true); }
+}
+function renderResearch(r){
+  const R=$('#rsReport'); R.innerHTML='';
+  R.appendChild(el('div',{class:'note'}, 'Engines: '+(r.engines||[]).join(', ')+(r.errors&&r.errors.length?' · issues: '+r.errors.join('; '):'')));
+  const a=r.analysis;
+  if(a){
+    R.appendChild(el('div',{style:'margin:10px 0;line-height:1.55;white-space:pre-wrap'}, a.answer));
+    R.appendChild(el('div',{}, el('span',{class:'tag '+(a.confidence==='high'?'on':(a.confidence==='low'?'bad':'warn'))}, 'confidence '+a.confidence), el('span',{class:'note'},' '+(a.confidence_reason||''))));
+    [['Where vault and web agree','agreements','on'],['Where they conflict','conflicts','bad'],['Only in your vault','vault_only',''],['Only on the web','web_only','warn']].forEach(([label,key,cls])=>{
+      if(a[key]&&a[key].length){ R.appendChild(el('label',{class:'f'},label)); const ul=el('div',{class:'list'}); a[key].forEach(x=>ul.appendChild(el('div',{class:'item',style:'cursor:default'}, el('span',{class:'tag '+cls}, key.replace('_',' ')), ' '+x))); R.appendChild(ul); }
+    });
+    if(a.next_step) R.appendChild(el('div',{class:'note',style:'margin-top:8px'}, 'Next step: '+a.next_step));
+  }
+  if(r.vault&&r.vault.length){ R.appendChild(el('label',{class:'f'},'Vault sources')); r.vault.forEach(v=>R.appendChild(el('div',{class:'item'}, el('span',{class:'tag on'},v.tag), ' '+v.pack+' / '+v.file.split('/').pop()+' — '+v.title, el('div',{class:'note'},v.snippet)))); }
+  const web=(r.web&&r.web.length)?r.web:(r.results||[]).map((w,i)=>({tag:'W'+(i+1),title:w.title,url:w.url,engine:w.engine,snippet:w.snippet}));
+  if(web.length){ R.appendChild(el('label',{class:'f'},'Web sources')); web.forEach(w=>R.appendChild(el('div',{class:'item',style:'cursor:default'}, el('span',{class:'tag'},w.tag||''), ' ', el('a',{href:w.url,target:'_blank',style:'color:var(--accent)'}, w.title||w.url), el('div',{class:'note'},(w.engine?w.engine+' · ':'')+(w.snippet||'').slice(0,240))))); }
+  R.appendChild(el('div',{class:'row',style:'margin-top:10px'}, el('button',{class:'btn sm',onclick:()=>{ input.value='Based on this research: '+r.question+'\n'+(a?a.answer:''); showView('chat'); autoGrow(); }},'Continue in chat'), el('button',{class:'btn sm',onclick:()=>{ $('#agentGoal').value='Using this research as context, '+r.question+'\n\n'+(r.markdown||''); showView('agent'); }},'Give to agent')));
+}
+$('#rsGo').addEventListener('click', async()=>{
+  const q=$('#rsQuery').value.trim(); if(!q) return; const st=$('#rsStatus'); st.textContent='Searching, reading pages, cross-referencing… (about a minute on this machine)'; $('#rsGo').disabled=true; $('.nav[data-view="vault"]').classList.add('busy');
+  try{ const r=await apiPost('/api/research',{question:q,depth:$('#rsDepth').value,cross:$('#rsCross').checked}); renderResearch(r); st.textContent='Done via '+(r.engines||[]).join(', ')+'.'; loadResearch(); }
+  catch(e){ st.textContent='Error: '+e.message; }
+  $('#rsGo').disabled=false; $('.nav[data-view="vault"]').classList.remove('busy');
+});
+$('#rsQuery').addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); $('#rsGo').click(); } });
+$$('[data-ktab]').forEach(b=>b.addEventListener('click',()=>setKTab(b.dataset.ktab)));
+async function loadVault(){
+  try{
+    const [k, s, p, b]=await Promise.all([apiGet('/api/knowledge/packs'), apiGet('/api/skills'), apiGet('/api/prompts?limit=120'), apiGet('/api/business')]);
+    state.packs=k.packs||[]; $('#kbStats').textContent=(k.stats.chunks||0)+' passages · '+(k.stats.files||0)+' files · '+(k.stats.packs||0)+' packs';
+    const sel=$('#kbPack'); const cur=sel.value; sel.innerHTML=''; sel.appendChild(el('option',{value:''},'all packs')); state.packs.forEach(x=>sel.appendChild(el('option',{value:x.id},x.title))); sel.value=cur;
+    const PL=$('#packList'); PL.innerHTML=''; state.packs.forEach(x=>{ const it=el('div',{class:'item'}, el('div',{}, el('b',{},x.title)), el('div',{class:'m'},x.files.length+' files · '+x.chunks+' passages'), el('div',{class:'note'},x.summary||'')); it.addEventListener('click',()=>showPack(x)); PL.appendChild(it); });
+    renderSkills(s.skills||[], s.active||'');
+    renderBizForm(b.business||{}, b.fields||[]);
+    renderPrompts(p);
+  }catch(e){ toast(e.message,true); }
+}
+function renderSkills(list, active){
+  $('#skillActive').textContent=active?('active: '+active):'none active';
+  const G=$('#skillGrid'); G.innerHTML='';
+  list.forEach(sk=>{
+    const c=el('div',{class:'card'}); const b=el('div',{class:'b'});
+    b.appendChild(el('div',{style:'font-size:22px'},sk.icon)); b.appendChild(el('div',{}, el('b',{},sk.name)));
+    b.appendChild(el('div',{class:'note',style:'max-height:5em;overflow:hidden'},sk.summary||''));
+    b.appendChild(el('div',{}, el('span',{class:'tag'},sk.files+' files'), sk.core?el('span',{class:'tag on'},'core prompt'):null));
+    const on=sk.id===active;
+    b.appendChild(el('div',{class:'row'}, el('button',{class:'btn sm'+(on?' on':' primary'),onclick:async()=>{ try{ await apiPost('/api/skills/activate',{id:on?null:sk.id}); toast(on?'Skill off':'Skill on: '+sk.name); loadVault(); }catch(e){ toast(e.message,true);} }}, on?'Deactivate':'Activate'),
+      el('button',{class:'btn sm',onclick:async()=>{ const r=await apiGet('/api/skills/persona?id='+sk.id); $('#packText').textContent=r.persona; $('#packTitle').textContent='Persona · '+sk.name; setKTab('packs'); }},'View persona'),
+      el('button',{class:'btn sm',onclick:()=>{ input.value='/skill '+sk.id; showView('chat'); send(); }},'Use in chat')));
+    c.appendChild(b); G.appendChild(c);
+  });
+}
+function renderBizForm(biz, fields){
+  const F=$('#bizForm'); F.innerHTML='';
+  const labels={name:'Business name',type:'Type of business',services:'Services',customers:'Customers',area:'Service area',hours:'Hours',voice:'Voice / tone',booking_link:'Booking link',phone:'Phone',email:'Email',owner:'Owner name',qualified:'QUALIFIED means',nurture:'NURTURE means',not_fit:'NOT A FIT means',faq:'FAQ (the receptionist may only answer from this)',offer:'What you offer (for outreach)',audience:'Audience (for content)',pricing:'Pricing notes'};
+  fields.forEach(f=>{ F.appendChild(el('label',{class:'f'},labels[f]||f)); F.appendChild(f==='faq'||f==='services'?el('textarea',{class:'f','data-biz':f,style:'min-height:56px'},biz[f]||''):el('input',{class:'f','data-biz':f,value:biz[f]||''})); });
+}
+$('#bizSave').addEventListener('click', async()=>{ const body={}; $$('#bizForm [data-biz]').forEach(i=>body[i.dataset.biz]=i.value); try{ await apiPost('/api/business',body); $('#bizStatus').textContent='Profile saved. Every skill now uses it.'; $('#bizStatus').className='note ok'; }catch(e){ $('#bizStatus').textContent=e.message; $('#bizStatus').className='note err'; } });
+function renderPrompts(p){
+  $('#promptCount').textContent=(p.items||[]).length+' shown of '+p.total;
+  const L=$('#promptList'); L.innerHTML='';
+  (p.items||[]).forEach(x=>{ L.appendChild(el('div',{class:'item',style:'cursor:default'}, el('div',{}, el('b',{},x.title), ' ', el('span',{class:'tag'},x.pack)), el('div',{class:'note',style:'margin-top:4px;white-space:pre-wrap'},x.text), el('div',{class:'row',style:'margin-top:6px'}, el('button',{class:'btn sm primary',onclick:()=>{ input.value=x.text; showView('chat'); input.focus(); autoGrow(); }},'Use in chat'), el('button',{class:'btn sm',onclick:()=>{ $('#agentGoal').value=x.text; showView('agent'); }},'Give to agent'), el('button',{class:'btn sm',onclick:()=>{ try{ navigator.clipboard.writeText(x.text); toast('Copied'); }catch(e){} }},'Copy')))); });
+  if(!(p.items||[]).length) L.appendChild(el('span',{class:'note'},'No prompts match.'));
+}
+$('#promptGo').addEventListener('click', async()=>{ try{ renderPrompts(await apiGet('/api/prompts?limit=120&q='+encodeURIComponent($('#promptQuery').value))); }catch(e){ toast(e.message,true);} });
+$('#promptQuery').addEventListener('keydown',e=>{ if(e.key==='Enter') $('#promptGo').click(); });
+async function kbSearch(){ const q=$('#kbQuery').value.trim(); if(!q) return; const H=$('#kbHits'); H.innerHTML='<span class="note">Searching…</span>';
+  try{ const j=await apiGet('/api/knowledge/search?k=10&q='+encodeURIComponent(q)+'&pack='+encodeURIComponent($('#kbPack').value)); H.innerHTML='';
+    (j.hits||[]).forEach(h=>{ const it=el('div',{class:'item'}, el('div',{}, el('b',{},h.title), ' ', el('span',{class:'tag'},h.pack), el('span',{class:'m'},' '+h.file.split('/').pop()+' · '+h.score)), el('div',{class:'note'},h.snippet)); it.addEventListener('click',()=>openKbFile(h.file)); H.appendChild(it); });
+    if(!(j.hits||[]).length) H.appendChild(el('span',{class:'note'},'No matches.'));
+  }catch(e){ H.innerHTML=''; H.appendChild(el('span',{class:'note err'},e.message)); } }
+$('#kbGo').addEventListener('click', kbSearch); $('#kbQuery').addEventListener('keydown',e=>{ if(e.key==='Enter') kbSearch(); });
+$('#kbReindex').addEventListener('click', async()=>{ try{ const r=await apiPost('/api/knowledge/ingest',{}); toast('Indexed '+r.chunks+' passages from '+r.files+' files'); loadVault(); }catch(e){ toast(e.message,true);} });
+function showPack(x){ setKTab('packs'); $('#packTitle').textContent=x.title; const F=$('#packFiles'); F.innerHTML=''; x.files.forEach(f=>{ const it=el('div',{class:'item'}, f.split('/').slice(-1)[0], el('span',{class:'m'},' '+f)); it.addEventListener('click',()=>openKbFile(f)); F.appendChild(it); }); $('#packText').textContent=''; }
+async function openKbFile(f){ setKTab('packs'); try{ const r=await apiGet('/api/knowledge/file?path='+encodeURIComponent(f)); $('#packTitle').textContent=f; $('#packText').textContent=r.text; }catch(e){ toast(e.message,true);} }
+
+// ============================================================ ops & crm ====
+function setOTab(t){ $$('[data-otab]').forEach(b=>b.classList.toggle('on',b.dataset.otab===t)); ['dash','leads','appts','seq','carousel'].forEach(x=>$('#otab-'+x).style.display=(x===t)?'':'none'); }
+$$('[data-otab]').forEach(b=>b.addEventListener('click',()=>setOTab(b.dataset.otab)));
+const fmtMoney=v=>v==null?'—':('$'+Number(v).toLocaleString(undefined,{maximumFractionDigits:0}));
+async function loadOps(){
+  try{
+    const [c, car]=await Promise.all([apiGet('/api/crm'), apiGet('/api/carousels')]);
+    state.crm=c; renderDash(c.dashboard); renderLeads(c); renderAppts(c); renderSeqs(c); renderCarousels(car);
+  }catch(e){ toast(e.message,true); }
+}
+function renderDash(d){
+  const K=$('#kpis'); K.innerHTML='';
+  d.metrics.forEach(m=>{ const v=m.value==null?'—':(m.fmt==='money'?fmtMoney(m.value):(m.fmt==='pct'?(Math.round(m.value*10)/10)+'%':m.value)); const ch=m.change==null?'':((m.change>=0?'▲ ':'▼ ')+Math.abs(m.change)+'%'); K.appendChild(el('div',{class:'panel'}, el('div',{class:'m',style:'text-transform:uppercase;letter-spacing:1px'},m.label), el('div',{style:'font-size:26px;font-weight:700;margin-top:4px;font-family:var(--mono)'},String(v)), el('div',{class:'note',style:'color:'+(m.change>=0?'var(--ok)':'var(--bad)')},ch||(m.value==null?'no data yet':'')))); });
+  const C=$('#revChart'); C.innerHTML=''; const mx=Math.max(1,...d.trend.map(t=>t.value));
+  if(!d.trend.length) C.appendChild(el('span',{class:'note'},'No revenue entries yet. Add this week\'s number below; the chart draws only what you enter.'));
+  d.trend.forEach(t=>C.appendChild(el('div',{style:'flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%'}, el('span',{class:'m'},fmtMoney(t.value)), el('div',{style:'width:100%;height:'+Math.max(4,Math.round(t.value/mx*110))+'px;background:linear-gradient(180deg,var(--accent),var(--accent2));border-radius:6px 6px 0 0'}), el('span',{class:'m'},t.label))));
+  const B=$('#revBreakdown'); B.innerHTML=''; const tot=d.breakdown.reduce((s,b)=>s+b.value,0)||1;
+  if(!d.breakdown.length) B.appendChild(el('span',{class:'note'},'—'));
+  d.breakdown.forEach(b=>B.appendChild(el('div',{style:'display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)'}, el('span',{style:'min-width:90px'},b.category), el('span',{style:'flex:1;height:6px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden'}, el('i',{style:'display:block;height:100%;width:'+Math.round(b.value/tot*100)+'%;background:var(--accent)'})), el('span',{class:'m'},Math.round(b.value/tot*100)+'%'))));
+  const A=$('#activity'); A.innerHTML=''; (d.activity||[]).forEach(a=>A.appendChild(el('div',{class:'item',style:'cursor:default'}, el('span',{class:'m'},fmtT(a.ts)+' · '+a.kind+' · '), a.desc))); if(!(d.activity||[]).length) A.appendChild(el('span',{class:'note'},'Nothing logged yet.'));
+  const R=$('#reviewBox'); const r=d.last_review; R.innerHTML=''; if(!r) R.textContent='No review yet.'; else [['What changed',r.what_changed],['Why',r.why],['Bottleneck',r.bottleneck],['ONE action',r.one_action],['Last week',r.check_last_week]].forEach(([k,v])=>{ if(v) R.appendChild(el('div',{style:'margin-bottom:6px'}, el('b',{style:'color:var(--accent)'},k+': '), v)); });
+}
+$('#revAdd').addEventListener('click', async()=>{ try{ await apiPost('/api/crm/revenue',{period:$('#revPeriod').value,value:parseFloat($('#revValue').value),source:$('#revSource').value}); $('#revValue').value=''; loadOps(); }catch(e){ toast(e.message,true);} });
+$('#reviewGo').addEventListener('click', async()=>{ $('#reviewGo').disabled=true; $('#reviewBox').textContent='Reviewing real numbers with the local model…'; try{ await apiPost('/api/crm/review',{notes:$('#reviewNotes').value}); loadOps(); }catch(e){ $('#reviewBox').textContent='Error: '+e.message; } $('#reviewGo').disabled=false; });
+function leadForm(l){ $('#leadId').value=l.id||''; ['name','company','role','contact','location','source','hook','next_action','notes'].forEach(k=>{ const idm={next_action:'leadNext'}; const e=$('#'+(idm[k]||('lead'+k[0].toUpperCase()+k.slice(1)))); if(e) e.value=l[k]||''; }); $('#leadStatus').value=l.status||'new'; }
+function renderLeads(c){
+  const S=$('#leadStatus'); if(!S.options.length) c.statuses.forEach(s=>S.appendChild(el('option',{value:s},s)));
+  const L=$('#leadList'); L.innerHTML=''; $('#leadCount').textContent=c.leads.length+' leads';
+  const fillSel=(sel)=>{ const cur=sel.value; sel.innerHTML=''; sel.appendChild(el('option',{value:''},'none')); c.leads.forEach(l=>sel.appendChild(el('option',{value:l.id},(l.name||l.company||l.id)+(l.contact?' · '+l.contact:'')))); sel.value=cur; };
+  fillSel($('#apLead')); fillSel($('#seqLead'));
+  if(!c.leads.length) L.appendChild(el('span',{class:'note'},'No leads yet. Add one here, say "/lead …" in chat, or let the agent do it.'));
+  c.leads.forEach(l=>{ const sc=l.score; const it=el('div',{class:'item'}, el('div',{}, el('b',{},l.name||l.company||'(unnamed)'), l.company&&l.name?' · '+l.company:'', ' ', el('span',{class:'tag '+(l.status==='booked'?'on':(l.status==='do-not-contact'||l.status==='not-a-fit'?'bad':''))},l.status), sc?el('span',{class:'tag '+(sc.bucket==='call today'?'on':(sc.bucket==='park'?'bad':'warn'))},sc.total+' · '+sc.bucket):null),
+      el('div',{class:'m'},(l.contact||'')+(l.source?' · '+l.source:'')+(l.next_action?' · next: '+l.next_action:'')), sc&&sc.talking_point?el('div',{class:'note'},'Talk: '+sc.talking_point):null, l.hook?el('div',{class:'note'},'Hook: '+l.hook):null);
+    it.addEventListener('click',()=>leadForm(l)); L.appendChild(it); });
+}
+$('#leadSave').addEventListener('click', async()=>{ const body={id:$('#leadId').value||undefined,name:$('#leadName').value,company:$('#leadCompany').value,role:$('#leadRole').value,contact:$('#leadContact').value,location:$('#leadLocation').value,source:$('#leadSource').value,hook:$('#leadHook').value,status:$('#leadStatus').value,next_action:$('#leadNext').value,notes:$('#leadNotes').value}; try{ const l=await apiPost('/api/crm/lead',body); $('#leadStatusMsg').textContent='Saved '+(l.name||l.id); leadForm(l); loadOps(); }catch(e){ $('#leadStatusMsg').textContent=e.message; } });
+$('#leadNew').addEventListener('click',()=>leadForm({}));
+$('#leadScore').addEventListener('click', async()=>{ $('#leadScore').disabled=true; $('#leadStatusMsg').textContent='Scoring with the local model (fit · intent · reach)…'; try{ await apiPost('/api/crm/score',{}); $('#leadStatusMsg').textContent='Scored.'; loadOps(); }catch(e){ $('#leadStatusMsg').textContent=e.message; } $('#leadScore').disabled=false; });
+function renderAppts(c){
+  const L=$('#apList'); L.innerHTML=''; if(!c.appointments.length) L.appendChild(el('span',{class:'note'},'No appointments yet.'));
+  c.appointments.forEach(a=>L.appendChild(el('div',{class:'item',style:'cursor:default'}, el('div',{}, el('b',{},a.name||a.contact||'?'), ' ', el('span',{class:'tag '+(a.status==='booked'?'on':(a.status==='no-show'?'bad':''))},a.status)), el('div',{class:'m'},a.when+(a.tz?' '+a.tz:'')+(a.service?' · '+a.service:'')+(a.contact?' · '+a.contact:'')), a.notes?el('div',{class:'note'},a.notes):null,
+    el('div',{class:'row',style:'margin-top:6px'}, el('button',{class:'btn sm',onclick:async()=>{ await apiPost('/api/crm/appointment/update',{id:a.id,status:'done'}); loadOps(); }},'Done'), el('button',{class:'btn sm',onclick:async()=>{ await apiPost('/api/crm/appointment/update',{id:a.id,status:'no-show'}); if(confirm('Start the no-show recovery sequence?')) await apiPost('/api/crm/sequence',{kind:'no_show',lead_id:a.lead_id||null,contact:a.contact,name:a.name}); loadOps(); }},'No-show'), el('button',{class:'btn sm danger',onclick:async()=>{ if(confirm('Delete appointment?')){ await apiPost('/api/crm/appointment/delete',{id:a.id}); loadOps(); } }},'Delete')))));
+}
+$('#apBook').addEventListener('click', async()=>{ try{ await apiPost('/api/crm/appointment',{name:$('#apName').value,contact:$('#apContact').value,when:$('#apWhen').value,tz:$('#apTz').value,service:$('#apService').value,notes:$('#apNotes').value,lead_id:$('#apLead').value||null}); toast('Booked'); loadOps(); }catch(e){ toast(e.message,true);} });
+function renderSeqs(c){
+  const K=$('#seqKind'); if(!K.options.length) c.sequence_types.forEach(k=>K.appendChild(el('option',{value:k},k.replace('_',' '))));
+  const L=$('#seqList'); L.innerHTML=''; const due=(c.dashboard.due||[]); $('#seqDue').textContent=due.length+' due now';
+  const act=c.sequences.filter(s=>s.status==='active'); if(!c.sequences.length) L.appendChild(el('span',{class:'note'},'No sequences yet.'));
+  c.sequences.slice(0,30).forEach(s=>{ const it=el('div',{class:'item',style:'cursor:default'}, el('div',{}, el('b',{},s.kind.replace('_',' ')), ' → ', s.name||s.contact||s.lead_id||'?', ' ', el('span',{class:'tag '+(s.status==='active'?'on':'')},s.status)));
+    s.steps.forEach(st=>{ const isDue=due.some(d=>d.seq===s.id&&d.n===st.n); const row=el('div',{style:'display:flex;gap:6px;align-items:center;margin-top:4px;font-size:12px'}, el('span',{class:'tag '+(st.status==='sent'?'on':(isDue?'warn':''))},'touch '+st.n+' · '+st.status), el('span',{class:'m'},'due '+st.due.replace('T',' ')), el('span',{class:'note',style:'flex:1'},st.intent.slice(0,70)+'…'));
+      if(s.status==='active' && st.status!=='sent' && st.status!=='skipped'){ row.appendChild(el('button',{class:'btn sm primary',onclick:async()=>{ try{ const r=await apiPost('/api/crm/sequence/draft',{id:s.id,n:st.n}); fillComposer(r.draft); state.seqStep={id:s.id,n:st.n}; showView('mail'); toast('Draft ready in Mail. Send it there, then mark the touch sent.'); }catch(e){ toast(e.message,true);} }},'Draft now')); row.appendChild(el('button',{class:'btn sm',onclick:async()=>{ await apiPost('/api/crm/sequence/step',{id:s.id,n:st.n,status:'sent'}); loadOps(); }},'Mark sent')); }
+      it.appendChild(row); });
+    if(s.status==='active') it.appendChild(el('div',{class:'row',style:'margin-top:6px'}, el('button',{class:'btn sm danger',onclick:async()=>{ await apiPost('/api/crm/sequence/stop',{id:s.id}); loadOps(); }},'Stop sequence')));
+    L.appendChild(it); });
+}
+$('#seqStart').addEventListener('click', async()=>{ try{ const lead=(state.crm.leads||[]).find(l=>l.id===$('#seqLead').value); await apiPost('/api/crm/sequence',{kind:$('#seqKind').value,lead_id:$('#seqLead').value||null,contact:$('#seqContact').value||(lead&&lead.contact)||'',name:$('#seqName').value||(lead&&lead.name)||''}); toast('Sequence started'); loadOps(); }catch(e){ toast(e.message,true);} });
+function renderCarousels(car){
+  const L=$('#carLayout'); if(!L.options.length) Object.entries(car.layouts||{}).forEach(([k,v])=>L.appendChild(el('option',{value:k},k.replace(/_/g,' ')+' · '+v)));
+  const b=car.brand||{}; $('#brandBg').value=b.bg||''; $('#brandText').value=b.text||''; $('#brandAccent').value=b.accent||''; $('#brandHandle').value=b.handle||'';
+  const C=$('#carList'); C.innerHTML=''; if(!(car.items||[]).length) C.appendChild(el('span',{class:'note'},'No carousels yet.'));
+  (car.items||[]).forEach(c=>{ const box=el('div',{class:'item',style:'cursor:default'}, el('div',{}, el('b',{},c.topic), el('span',{class:'m'},' · '+c.layout+' · '+fmtT(c.ts)))); const strip=el('div',{class:'media',style:'display:flex;gap:6px;flex-wrap:wrap;margin-top:6px'}); (c.slides||[]).forEach(s=>{ if(s.url) strip.appendChild(el('img',{src:s.url,style:'width:120px;border-radius:6px;border:1px solid var(--line);cursor:pointer',onclick:()=>window.open(s.url,'_blank')})); }); box.appendChild(strip); box.appendChild(el('div',{class:'note',style:'white-space:pre-wrap;margin-top:6px'},(c.caption||'')+'\n'+(c.hashtags||[]).join(' '))); box.appendChild(el('div',{class:'row',style:'margin-top:6px'}, el('button',{class:'btn sm',onclick:()=>{ (c.slides||[]).forEach(s=>{ if(s.url) state.attachments.add(s.url); }); showView('mail'); }},'Email slides'))); C.appendChild(box); });
+}
+$('#carGo').addEventListener('click', async()=>{ const topic=$('#carTopic').value.trim(); if(!topic) return; $('#carGo').disabled=true; $('#carStatus').textContent='Writing slides with the local model, then rendering PNGs…'; $('.nav[data-view="ops"]').classList.add('busy'); try{ await apiPost('/api/carousel',{topic,audience:$('#carAudience').value,layout:$('#carLayout').value,slides:parseInt($('#carSlides').value),extra:$('#carExtra').value}); $('#carStatus').textContent='Done.'; loadOps(); }catch(e){ $('#carStatus').textContent='Error: '+e.message; } $('#carGo').disabled=false; $('.nav[data-view="ops"]').classList.remove('busy'); });
+$('#brandSave').addEventListener('click', async()=>{ try{ await apiPost('/api/brand',{bg:$('#brandBg').value,text:$('#brandText').value,accent:$('#brandAccent').value,handle:$('#brandHandle').value}); toast('Brand saved'); }catch(e){ toast(e.message,true);} });
+
+// ============================================================ boot ====
+async function checkBackend(){
+  try{ const r = await fetch('/api/telemetry'); const j = await r.json(); if(r.ok && j.system) return; }catch(e){}
+  const b = $('#banner');
+  b.innerHTML = '&#9888; This port is still answered by the OLD server process (started before the upgrade, owned by another account). '
+    + 'Reboot, or end it from an elevated PowerShell: <b>Get-Process pythonw | Where-Object SessionId -eq 0 | Stop-Process -Force</b> '
+    + '&mdash; the new JARVIS core is already standing by on this port and takes over instantly.';
+  b.style.display = '';
+}
+checkBackend();
+loadModels().then(loadSettings); loadMemory(); loadImages(); loadVideos(); loadAccounts(); pollJobs(false); updateCurVid();
+input.focus();
+if(document.fonts && document.fonts.ready){ document.fonts.ready.then(autoGrow); } else { autoGrow(); }
+
+// ============================================================ genesis (first boot) ====
+// AIXMOS introduces itself, states the mission, learns who it serves and what they are building,
+// shows every capability with live status, and writes a first build plan. Reopen from the rail (🛰).
+const G = { data:null, step:0, role:'', answers:{}, plan:null };
+const gEsc = s => String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function gMd(md){
+  const lines = gEsc(md).split('\n'); let out='', list=null;
+  const inline = t => t.replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>');
+  const close = ()=>{ if(list){ out+='</'+list+'>'; list=null; } };
+  for(const l of lines){
+    let m;
+    if((m=l.match(/^(#{1,3})\s+(.*)/))){ close(); out+='<h'+m[1].length+'>'+inline(m[2])+'</h'+m[1].length+'>'; }
+    else if((m=l.match(/^\s*[-*]\s+(.*)/))){ if(list!=='ul'){ close(); out+='<ul>'; list='ul'; } out+='<li>'+inline(m[1])+'</li>'; }
+    else if((m=l.match(/^\s*\d+[.)]\s+(.*)/))){ if(list!=='ol'){ close(); out+='<ol>'; list='ol'; } out+='<li>'+inline(m[1])+'</li>'; }
+    else if(l.trim()){ close(); out+='<p>'+inline(l)+'</p>'; } else close();
+  }
+  close(); return out;
+}
+const gRoot = document.createElement('div'); gRoot.id='genesis'; document.body.appendChild(gRoot);
+function gShell(title, sub, body, actions){
+  const dots = [0,1,2,3,4].map(i=>'<i class="'+(i<=G.step?'on':'')+'"></i>').join('');
+  gRoot.innerHTML = '<div class="gx"><div class="gx-top"><span style="font-family:var(--mono);color:var(--accent);font-size:12px;letter-spacing:.2em">GENESIS</span>'
+    + '<div class="dots">'+dots+'</div><button class="gx-x" id="gxLater">Later ✕</button></div>'
+    + '<h2>'+title+'</h2><p class="sub">'+sub+'</p>'+body+'<div class="gx-actions">'+(actions||'')+'</div></div>';
+  $('#gxLater').onclick = gClose;
+}
+function gClose(){ gRoot.classList.remove('show'); try{ sessionStorage.setItem('aixmos-genesis-later','1'); }catch(e){} if(location.hash==='#genesis') history.replaceState(null,'',location.pathname); }
+async function gOpen(step){
+  try{ G.data = await apiGet('/api/genesis'); }catch(e){ toast('Genesis unavailable: '+e.message, true); return; }
+  const st = G.data.state||{}; G.role = st.role||G.role; G.answers = Object.assign({}, st.answers||{});
+  G.plan = st.plan ? {plan:st.plan, skills:st.skills||[]} : null;
+  G.step = step==null ? 0 : step; gRoot.classList.add('show'); gRender();
+}
+function gRender(){ [gBoot,gRole,gIntake,gPowers,gPlan][G.step](); gRoot.scrollTop=0; }
+function gSpeak(text){ try{ const u=new SpeechSynthesisUtterance(text); u.rate=1.02; speechSynthesis.cancel(); speechSynthesis.speak(u); }catch(e){} }
+
+function gBoot(){
+  const M = G.data.mission, name = G.data.assistant||'AIXMOS';
+  const reactor = '<svg class="gx-reactor" viewBox="0 0 64 64"><circle cx="32" cy="32" r="29" fill="none" stroke="var(--accent)" stroke-width="1.2" opacity=".45"/>'
+    + '<circle class="spin" cx="32" cy="32" r="24" fill="none" stroke="var(--accent)" stroke-width="3" stroke-dasharray="11 7" stroke-linecap="round"/>'
+    + '<circle class="spin-rev" cx="32" cy="32" r="17" fill="none" stroke="var(--accent2)" stroke-width="2" stroke-dasharray="4 5"/>'
+    + '<polygon points="32,21 42.5,39 21.5,39" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/><circle class="core" cx="32" cy="32" r="5" fill="var(--accent)"/></svg>';
+  const who = G.answers.owner ? ', '+gEsc(G.answers.owner) : '';
+  gShell('Hello'+who+'. I am '+gEsc(name)+'.', gEsc(M.name)+' &middot; '+gEsc(M.tagline),
+    reactor + '<div class="gx-lines" id="gxLines">'+M.lines.map(l=>'<div class="ln">'+gEsc(l)+'</div>').join('')+'</div>'
+    + '<div class="gx-principles">'+M.principles.map(p=>'<div class="gx-card"><b>'+gEsc(p[0])+'</b><span>'+gEsc(p[1])+'</span></div>').join('')+'</div>',
+    '<button class="gx-btn" id="gxHear">&#128266; Hear it</button><button class="gx-btn go" id="gxNext">Let&rsquo;s begin &rarr;</button>');
+  const lns = $$('#gxLines .ln'); lns.forEach((l,i)=>setTimeout(()=>l.classList.add('on'), 350+i*900));
+  $('#gxHear').onclick = ()=>gSpeak('Hello. I am '+name+'. '+M.lines.join(' '));
+  $('#gxNext').onclick = ()=>{ try{speechSynthesis.cancel();}catch(e){} G.step=1; gRender(); };
+}
+function gRole(){
+  gShell('First, who are you?', 'Student, employee, or joining the TMMT operator pathway? This decides what I load, how I help and what I will not do for you. Change it any time from the &#128752; button.',
+    '<div class="gx-roles">'+G.data.roles.map(r=>'<button class="gx-role'+(G.role===r.id?' sel':'')+'" data-r="'+r.id+'"><div class="ic">'+r.icon+'</div><h3>'+gEsc(r.title)+'</h3><p>'+gEsc(r.desc)+'</p></button>').join('')+'</div>',
+    '<button class="gx-btn" id="gxBack">&larr; Back</button><button class="gx-btn go" id="gxNext"'+(G.role?'':' disabled')+'>Continue &rarr;</button>');
+  $$('.gx-role').forEach(b=>b.onclick=()=>{ G.role=b.dataset.r; gRender(); });
+  $('#gxBack').onclick=()=>{ G.step=0; gRender(); };
+  $('#gxNext').onclick=()=>{ G.step=2; gRender(); };
+}
+function gIntake(){
+  const qs = (G.data.questions_by_role||{})[G.role] || G.data.questions, prof = G.data.profile||{};
+  const R = (G.data.roles||[]).find(r=>r.id===G.role) || {};
+  const body = '<div class="gx-form">'+qs.map(q=>{
+    const v = G.answers[q.id] || (q.profile && prof[q.profile]) || '';
+    const lab = '<label>'+gEsc(q.label)+(q.required?' <span class="req">*</span>':'')+'</label>';
+    if(q.choices) return '<div class="gx-q">'+lab+'<div class="gx-pills">'+q.choices.map(c=>'<button class="gx-pill'+(v===c?' sel':'')+'" data-q="'+q.id+'" data-v="'+gEsc(c)+'">'+gEsc(c)+'</button>').join('')+'</div></div>';
+    return '<div class="gx-q">'+lab+'<textarea data-q="'+q.id+'" placeholder="'+gEsc(q.ph||'')+'">'+gEsc(v)+'</textarea></div>';
+  }).join('')+'</div>';
+  gShell(gEsc(R.intake_title||'Tell me what you are building.'), gEsc(R.intake_sub||'The more you give me, the sharper the plan. Everything stays on this machine.'), body,
+    '<button class="gx-btn" id="gxBack">&larr; Back</button><button class="gx-btn go" id="gxNext">Save &amp; show me what you can do &rarr;</button>');
+  $$('.gx-pill').forEach(b=>b.onclick=()=>{ G.answers[b.dataset.q]=b.dataset.v; $$('.gx-pill[data-q="'+b.dataset.q+'"]').forEach(x=>x.classList.toggle('sel', x===b)); });
+  $$('.gx-q textarea').forEach(t=>t.oninput=()=>{ G.answers[t.dataset.q]=t.value; });
+  $$('.gx-q textarea').forEach(t=>{ if(t.value) G.answers[t.dataset.q]=t.value; });
+  $('#gxBack').onclick=()=>{ G.step=1; gRender(); };
+  $('#gxNext').onclick=async()=>{
+    const miss = qs.filter(q=>q.required && !(G.answers[q.id]||'').trim());
+    if(miss.length){ toast('Please answer: '+miss.map(q=>q.label).join(' / '), true); return; }
+    try{ await apiPost('/api/genesis/intake',{role:G.role, answers:G.answers}); G.data = await apiGet('/api/genesis'); G.step=3; gRender(); }
+    catch(e){ toast('Could not save: '+e.message, true); }
+  };
+}
+function gPowers(){
+  const body = G.data.catalog.map(g=>'<div class="gx-group">'+gEsc(g.group)+'</div><div class="gx-caps">'+g.items.map((c,i)=>
+    '<div class="gx-cap"><div class="hd"><span style="font-size:18px">'+c.icon+'</span><b>'+gEsc(c.name)+'</b><span class="gx-st '+c.status+'">'+c.status+'</span></div>'
+    + '<p>'+gEsc(c.what)+'</p>'
+    + (c.try ? '<button class="gx-try" data-try="'+gEsc(c.try)+'">Try: '+gEsc(c.try.length>46?c.try.slice(0,46)+'…':c.try)+'</button>' : '')
+    + (c.name==='Operator console' && G.data.console ? '<button class="gx-try" data-open="/operator">Open console</button>' : '')
+    + '</div>').join('')+'</div>').join('');
+  gShell('Here is everything I can do for you.', '<b style="color:#3ddc97">ready</b> works now &middot; <b style="color:var(--warn)">setup</b> needs an account or key under Integrations &middot; press Try to see it live.', body,
+    '<button class="gx-btn" id="gxBack">&larr; Back</button><button class="gx-btn go" id="gxNext">Write my first build plan &rarr;</button>');
+  $$('.gx-try[data-try]').forEach(b=>b.onclick=()=>{ gClose(); showView('chat'); input.value=b.dataset.try; autoGrow(); send(); });
+  $$('.gx-try[data-open]').forEach(b=>b.onclick=()=>window.open(b.dataset.open,'_blank'));
+  $('#gxBack').onclick=()=>{ G.step=2; gRender(); };
+  $('#gxNext').onclick=()=>{ G.step=4; gRender(); };
+}
+async function gPlan(){
+  const done = p => {
+    const sk = (p.skills||[]);
+    gShell('Your first build plan.', 'Saved to our conversation too, so we can pick it straight up in chat.',
+      '<div class="gx-plan">'+gMd(p.plan)+'</div>'
+      + (sk.length ? '<p class="sub" style="margin-top:14px">Switch on a skill now: '+sk.map(s=>'<button class="gx-pill" data-sk="'+gEsc(s)+'">/skill '+gEsc(s)+'</button>').join(' ')+'</p>' : ''),
+      '<button class="gx-btn" id="gxRedo">Rewrite plan</button>'+(G.data.console?'<button class="gx-btn" id="gxConsole">Open operator console</button>':'')+'<button class="gx-btn go" id="gxDone">Enter the command deck &rarr;</button>');
+    let pick = '';
+    $$('.gx-pill[data-sk]').forEach(b=>b.onclick=()=>{ pick = pick===b.dataset.sk?'':b.dataset.sk; $$('.gx-pill[data-sk]').forEach(x=>x.classList.toggle('sel', x.dataset.sk===pick)); });
+    $('#gxRedo').onclick=()=>{ G.plan=null; gRender(); };
+    if($('#gxConsole')) $('#gxConsole').onclick=()=>window.open('/operator','_blank');
+    $('#gxDone').onclick=async()=>{ try{ await apiPost('/api/genesis/complete',{skill:pick}); }catch(e){} gClose(); showView('chat'); loadMemory(); toast(pick?('Skill on: '+pick):'Welcome aboard. Let’s build.'); };
+  };
+  if(G.plan){ done(G.plan); return; }
+  gShell('Planning your first build…', 'Reading your intake and the playbook vault, then drafting with the local model. About a minute or two on a small machine.',
+    '<div class="gx-plan"><p><span class="gx-spin"></span>Thinking it through…</p></div>', '');
+  try{ G.plan = await apiPost('/api/genesis/plan',{}); done(G.plan); }
+  catch(e){ gShell('Plan hit a snag.', gEsc(e.message), '', '<button class="gx-btn" id="gxBack">&larr; Back</button><button class="gx-btn go" id="gxRetry">Try again</button>');
+    $('#gxBack').onclick=()=>{ G.step=3; gRender(); }; $('#gxRetry').onclick=()=>gRender(); }
+}
+(function gBootstrap(){
+  const b = document.createElement('button'); b.className='nav'; b.innerHTML='&#128752;<span class="badge"></span><span class="tip">Mission &amp; intro</span>';
+  b.addEventListener('click', ()=>gOpen(0));
+  const sp = document.querySelector('.rail .spacer'); if(sp) sp.parentNode.insertBefore(b, sp);
+  // Auto-open only on a true first boot (no intake saved yet) or when asked for via #genesis.
+  // Once the intake exists the intro is reachable from the rail; it never nags on every load again.
+  let dismissed=false; try{ dismissed = sessionStorage.getItem('aixmos-genesis-later')==='1'; }catch(e){}
+  apiGet('/api/genesis').then(d=>{ const st=d.state||{}; if(location.hash==='#genesis' || (!st.done && !st.intake_ts && !dismissed)) gOpen(st.intake_ts && !st.plan ? 4 : 0); }).catch(()=>{});
+})();
+</script>
+</body>
+</html>
