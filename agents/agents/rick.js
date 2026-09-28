@@ -17,7 +17,7 @@ const path = require("path");
 const https = require("https");
 
 const ANON_KEY =
-  "REDACTED_JWT";
+  process.env.SUPABASE_ANON_KEY;
 const SUPABASE_URL = "https://uapxakmlwnpfsftfeezx.supabase.co";
 const SLACK_OPS = "C0B8ZD1D11N";
 const PORTAL = "https://tmmt-command-center.vercel.app/operator/training";

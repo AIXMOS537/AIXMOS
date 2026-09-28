@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "models": [
+    {
+      "id": "llama3.2:3b",
+      "role": "default",
+      "ollama_tag": "llama3.2:3b",
+      "size_bytes": 2019377440,
+      "ram_required_gb": 4,
+      "use_for": "general chat, Operations Brain persona base"
+    },
+    {
+      "id": "qwen2.5:1.5b",
+      "role": "fast",
+      "ollama_tag": "qwen2.5:1.5b",
+      "size_bytes": 986045152,
+      "ram_required_gb": 2,
+      "use_for": "snappy responses on weakest machines, fallback when RAM is tight"
+    },
+    {
+      "id": "phi3:mini",
+      "role": "reasoning",
+      "ollama_tag": "phi3:mini",
+      "size_bytes": 2393232672,
+      "ram_required_gb": 4,
+      "use_for": "code, structured reasoning, technical questions"
+    }
+  ],
+  "custom_models": [
+    {
+      "id": "tmmt-brain",
+      "based_on": "llama3.2:3b",
+      "modelfile": "_brain/Modelfile.tmmt-brain",
+      "role": "primary",
+      "use_for": "TMMT × AIXMOS Operations Brain with persona baked in"
+    }
+  ],
+  "notes": "Sizes are approximate from ollama.com registry. The download-models script verifies actual sha256 from Ollama's registry, not from this manifest."
+}

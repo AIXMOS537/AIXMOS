@@ -1,0 +1,10 @@
+{
+  "project": "AIXMOS",
+  "nodes": {
+    "carry-mac":  {"role": "primary",  "lanes": {"ccr": 3456, "litellm": 4001, "omniroute": 20128, "ollama": 11434}},
+    "brainiac":   {"role": "remote",   "ip": "100.64.0.1", "lanes": {"litellm": 4000, "omniroute": 20128}, "known_issues": ["ssh wedged - needs hands-on key install", "litellm db down - parked out of CCR"]},
+    "rick":       {"role": "remote",   "transport": "syncthing", "cmd": "rick-send"}
+  },
+  "front_door": "ccr :3456 (oc/occ wrappers)",
+  "notes": "plain `claude` = Anthropic Max, never routed"
+}
