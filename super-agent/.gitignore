@@ -1,0 +1,22 @@
+# Runtime and vendored weights - regenerable or re-downloadable, and 211 MB of
+# whisper binaries do not belong in history.
+whisper/
+__pycache__/
+*.pyc
+
+# Conversation log. Local runtime data, and it can carry whatever was said to
+# the assistant - keep it out of any repo that might ever get a remote.
+memory/
+
+# vendored pure-python deps (pip install --target vendor requests)
+vendor/
+
+# installer build artefacts (payload is hundreds of MB; the exe ships via Releases)
+installer/cache/
+installer/payload.zip
+installer/build/
+installer/*.spec
+installer/aixmos.ico
+installer/stub/*.exe
+installer/build.log
+dist/
