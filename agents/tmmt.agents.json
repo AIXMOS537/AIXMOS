@@ -1,0 +1,88 @@
+{
+  "agents": [
+    {
+      "id": "rick",
+      "label": "RICK — X right hand (M1 Max)",
+      "script": "rick",
+      "requiresDocker": false
+    },
+    {
+      "id": "jarvis",
+      "label": "JARVIS - ops assistant",
+      "script": "jarvis",
+      "requiresDocker": false
+    },
+    {
+      "id": "moose",
+      "label": "MOOSE",
+      "script": "moose",
+      "requiresDocker": false
+    },
+    {
+      "id": "vision",
+      "label": "VISION",
+      "script": "vision",
+      "requiresDocker": false
+    },
+    {
+      "id": "captain",
+      "label": "CAPTAIN",
+      "script": "captain",
+      "requiresDocker": false
+    },
+    {
+      "id": "wonderwoman",
+      "label": "WONDER WOMAN",
+      "script": "wonderwoman",
+      "requiresDocker": false
+    },
+    {
+      "id": "flyguy",
+      "label": "FLYGUY",
+      "script": "flyguy",
+      "requiresDocker": false
+    },
+    {
+      "id": "bob",
+      "label": "BOB",
+      "script": "bob",
+      "requiresDocker": false
+    },
+    {
+      "id": "sticks",
+      "label": "STICKS - overdue scan",
+      "script": "sticks",
+      "requiresDocker": false
+    },
+    {
+      "id": "brief",
+      "label": "BRIEFING - daily briefing",
+      "script": "brief",
+      "requiresDocker": false
+    },
+    {
+      "id": "contacts",
+      "label": "CONTACTS",
+      "script": "contacts",
+      "requiresDocker": false
+    },
+    {
+      "id": "scheduler",
+      "label": "SCHEDULER - scheduled jobs",
+      "script": "scheduler",
+      "requiresDocker": false
+    },
+    {
+      "id": "chummo",
+      "label": "CHUMMO",
+      "script": "chummo",
+      "requiresDocker": false
+    },
+    {
+      "id": "tank",
+      "label": "TANK - infra stack (Docker)",
+      "script": "tank:up",
+      "requiresDocker": true
+    }
+  ]
+}

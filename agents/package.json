@@ -1,0 +1,36 @@
+{
+  "name": "aixmos-agent-network",
+  "version": "2.0.0",
+  "private": true,
+  "description": "AIXMOS Claude-powered agent network",
+  "main": "orchestrator.js",
+  "scripts": {
+    "start": "node orchestrator.js",
+    "jarvis": "node jarvis.js",
+    "jarvis:vote": "node jarvis.js --vote",
+    "infra": "node jarvis.js",
+    "tank:up": "node tank.js --up",
+    "tank:down": "node tank.js --down",
+    "tank:status": "node tank.js --status",
+    "sticks:scan": "node sticks.js --scan",
+    "sticks:push": "node sticks.js --push-ghl",
+    "chummo": "node orchestrator.js chummo",
+    "moose": "node moose.js",
+    "vision": "node vision.js",
+    "captain": "node captain.js",
+    "wonderwoman": "node wonderwoman.js",
+    "wonder-woman": "node wonderwoman.js",
+    "tank": "node tank.js",
+    "flyguy": "node flyguy.js",
+    "bob": "node bob.js",
+    "sticks": "node sticks.js",
+    "brief": "node briefing.js",
+    "contacts": "node contacts.js",
+    "scheduler": "node scheduler.js",
+    "projectx": "node projectx-feed.js",
+    "projectx:feed": "node projectx-feed.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.68.0"
+  }
+}
