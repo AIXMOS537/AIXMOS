@@ -1,0 +1,34 @@
+name = "aixmos-gateway"
+main = "src/index.js"
+compatibility_date = "2025-06-01"
+
+# deploy.sh creates the KV store and writes the real id here automatically.
+[[kv_namespaces]]
+binding = "AIXMOS_KV"
+id = "64fb993c87c74c139f6e4dac027cc851"
+
+# Public free tier runs on Cloudflare Workers AI (scales, keeps your home brain private).
+[ai]
+binding = "AI"
+
+# STRONGLY-CONSISTENT LEDGER — wallets/credits/quota counters live here, not KV.
+# KV is eventually consistent + non-atomic → debits race under load (double-spend).
+# The Durable Object serializes every op per account. SQLite backend = free-plan friendly.
+[[durable_objects.bindings]]
+name = "LEDGER"
+class_name = "Ledger"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Ledger"]
+
+# CUSTOM DOMAIN (uncomment once you add a domain to this Cloudflare account — see resale/CUSTOM_DOMAIN.md).
+# Then `npx wrangler deploy` serves the product at your brand instead of *.workers.dev.
+# routes = [
+#   { pattern = "app.YOURBRAND.com", custom_domain = true }
+# ]
+
+# Free-lane model name on your Ollama box (team/Tailscale only) + the Workers AI model for the public free tier.
+[vars]
+OLLAMA_MODEL = "llama3.1"
+WORKERS_AI_MODEL = "@cf/meta/llama-3.1-8b-instruct"
