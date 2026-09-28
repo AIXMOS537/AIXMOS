@@ -1,0 +1,55 @@
+AIXMOS STICK  -  TMMT + PROJECT AIXMOS (JARVIS) ON ONE DRIVE
+============================================================
+
+TWO WAYS TO USE IT
+
+A) ANY WINDOWS PC THAT ALREADY TURNS ON  (the normal way)
+   1. Plug the stick in.
+   2. Open it, double-click  START-HERE.bat
+   3. Press Enter  ->  the offline brain + JARVIS start and open in the browser.
+   Menu also has: TMMT shell, kit status, ask the brain, install JARVIS on
+   this PC for good, and STOP (use it before you unplug).
+   Nothing is installed. The PC is untouched when the stick comes out.
+
+B) BOOT A SURFACE / PC FROM THE STICK  (no Windows needed - broken PC, borrowed PC)
+   Only works if the stick was built bootable (STICK-MANIFEST / "aixmos bootstick check").
+   Surface Pro:
+     1. Shut the Surface down completely.
+     2. Hold VOLUME-DOWN. Press and release POWER. Keep holding VOLUME-DOWN
+        until the spinning dots / Debian menu appear.
+     3. Pick "Live". When the desktop is up, open a terminal on the stick and run:
+            bash BOOTED-START-JARVIS.sh
+        or, for the plain offline LLM:
+            bash BOOTED-RUN-LLM.sh
+   If the Surface refuses to boot it (red screen / skips the stick): hold
+   VOLUME-UP + POWER to open Surface UEFI -> Security -> Secure Boot ->
+   "Microsoft & 3rd party CA". That is a firmware setting only you should change.
+   Other PCs: tap F12 / F11 / F9 / Esc at power-on for the boot menu.
+
+WHAT IS ON IT
+   AIXMOS-KIT\            the aixmos command surface (same commands everywhere)
+   TMMT-WORK\TMMT-canon   THE TMMT app, full git history
+   TMMT-WORK\CommandCenter  ops CLI, dashboards, tmmt-os (keys removed)
+   TMMT-WORK\Automation\project-aixmos   JARVIS - UI, agent, vault, skills, CRM,
+                          whisper captions, memory, the AI Building Kit
+   AIXMOS-BRAIN\          business brain: SOPs, playbooks, memory
+   PERSONAL\              Desktop, Documents, Downloads from the Surface
+   _RUNTIME\win\          portable Python, Node, Git, Ollama, ffmpeg
+   _RUNTIME\ollama\       the offline models (qwen 3B / 7B)
+   _INSTALLERS\AIXMOS-4THEPEOPLE\   THE JARVIS installer - read its START-HERE.txt
+                          Windows: AIXMOS-4THEPEOPLE-Setup.exe (role picker:
+                          TMMT Operator / AIXMOS Movement / Both, Genesis first boot)
+                          Mac/Linux: mac-linux\install.sh or AIXMOS-Install.command
+                          Verify with SHA256SUMS.txt
+
+WHAT IS NOT ON IT - ON PURPOSE
+   - Live production keys (tmmt-os .env.local, TMMT-canon .env) and JARVIS's
+     settings.json (your image/video/email API keys). If this stick is lost,
+     nothing on it can touch the business. Re-enter JARVIS keys in its
+     Settings page; copy .env files by hand only on a stick that stays home.
+   - node_modules (run  npm ci  in the TMMT shell; needs internet).
+   - The live Supabase database. It lives online. Offline you get the code,
+     the history, the brain and the local AI - not live bookings or leads.
+
+OWNER GATES STILL APPLY
+   No blind push. Deploys, money, sends and signing stay with the owner.

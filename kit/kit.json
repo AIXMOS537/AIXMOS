@@ -1,0 +1,209 @@
+{
+  "kit": "AIXMOS-KIT",
+  "version": "1.0.0",
+  "generated": "2026-09-01",
+  "owner": "Muhammad Taha (AIXMOS)",
+  "purpose": "One canonical map of every lane, command and endpoint. Read by every script so no path is ever hardcoded again. Identical on C:, on a flashdrive, and on the Mac.",
+  "workspace": {
+    "windows": "C:/Users/AIXMOS",
+    "darwin": "$HOME",
+    "portable": "<detected drive root>"
+  },
+  "lanes": {
+    "canon": {
+      "local": "TMMT-canon",
+      "drive": "TMMT-WORK/TMMT-canon",
+      "repo": "https://github.com/AIXMOS537/TMMT.git",
+      "branch": "master",
+      "role": "THE TMMT app. Only source of truth for app code.",
+      "app": true
+    },
+    "commandcenter": {
+      "local": "CommandCenter",
+      "drive": "TMMT-WORK/CommandCenter",
+      "repo": "https://github.com/AIXMOS537/tmmt-command-hub.git",
+      "branch": "main",
+      "role": "ops CLI, dashboards, closed-loop, watchtower"
+    },
+    "tmmtos": {
+      "local": "CommandCenter/tmmt-os",
+      "drive": "TMMT-WORK/CommandCenter/tmmt-os",
+      "repo": "https://github.com/AIXMOS537/tmmt-os.git",
+      "branch": "master",
+      "role": "operator/ops surface. Holds the live prod env.",
+      "secrets": true
+    },
+    "brain": {
+      "local": "AIXMOS-Brain",
+      "drive": "AIXMOS-BRAIN",
+      "repo": "https://github.com/AIXMOS537/aixmos-brain.git",
+      "branch": "main",
+      "role": "business brain: SOPs, playbooks, memory. Product-safe."
+    },
+    "vault": {
+      "local": "Personal-Brain",
+      "drive": "_VAULT/personal-brain",
+      "role": "private family/personal. NEVER on a drive that leaves the house.",
+      "private": true
+    },
+    "teamdrive": {
+      "local": "TMMT-TEAM-DRIVE",
+      "drive": "TMMT-WORK/TMMT-TEAM-DRIVE",
+      "role": "onboarding kit handed to a new machine"
+    },
+    "automation": {
+      "local": "Automation",
+      "drive": "TMMT-WORK/Automation",
+      "role": "scheduled tasks: WorkSync, Free-RAM, crimson-shadow"
+    },
+    "kit": {
+      "local": "AIXMOS-KIT",
+      "drive": "AIXMOS-KIT",
+      "role": "this kit. The portable command surface."
+    }
+  },
+  "scan_lanes": [
+    "commandcenter",
+    "automation",
+    "brain",
+    "kit"
+  ],
+  "scan_extra": [
+    "Desktop",
+    "Documents/WindowsPowerShell",
+    "Documents/PowerShell"
+  ],
+  "retired": [
+    {
+      "path": "TMMT",
+      "retired": "2026-08-26",
+      "reason": "Shallow orphan clone off the contractor's April base (Metavibez4L/TMMT). Its .git is gone; only an empty node_modules husk remains. No package.json.",
+      "replacedBy": "canon"
+    },
+    {
+      "path": "Brain",
+      "reason": "Empty stub (vault/00-Dashboard only). The real brain is AIXMOS-Brain.",
+      "replacedBy": "brain"
+    }
+  ],
+  "local_ai": {
+    "runtime": "ollama",
+    "endpoint": "http://localhost:11434",
+    "store": ".ollama/models",
+    "store_gb": 6.16,
+    "models": [
+      {
+        "name": "qwen7b-max:latest",
+        "gb": 4.7,
+        "use": "default reasoning model"
+      },
+      {
+        "name": "qwen3b-max:latest",
+        "gb": 1.9,
+        "use": "fast / low-RAM machines"
+      },
+      {
+        "name": "qwen2.5:3b",
+        "gb": 1.9,
+        "use": "base for the two Modelfiles"
+      }
+    ],
+    "modelfiles": "LocalModels",
+    "ceiling": "7B Q4 is the maximum this Surface Pro 4 can carry (2 cores, 1GB iGPU)."
+  },
+  "online": {
+    "supabase": {
+      "project_ref": "uapxakmlwnpfsftfeezx",
+      "host": "db.uapxakmlwnpfsftfeezx.supabase.co",
+      "region": "us-west-2",
+      "postgres": "17.6.1.105",
+      "serves": [
+        "tmmt-app",
+        "tmmt-os"
+      ],
+      "live_migrations": 224,
+      "repo_migrations": 32,
+      "ledger_snapshot": "TMMT-canon/supabase/schema/live-ledger-2026-09-01.tsv",
+      "baseline_script": "TMMT-canon/scripts/backfill-schema.ps1 (.sh on mac)",
+      "drift_note": "192 migrations applied to prod were never written back. Run the baseline script to close it; re-run after anything lands live."
+    },
+    "vercel": {
+      "team": "aixmos537",
+      "team_id": "team_UzatfZkJUpFKABaO6cZTQUq7",
+      "projects": [
+        "tmmt-ops",
+        "aixmos-landing",
+        "tmmt-command-center",
+        "aixmos-offer",
+        "tmmt-training-site"
+      ],
+      "linked": {
+        "tmmt-ops": "AIXMOS537/TMMT"
+      },
+      "deploy": "OWNER-GATED. Do not deploy without an explicit go."
+    },
+    "mesh": {
+      "provider": "tailscale",
+      "core": [
+        "fleet",
+        "brainiac-7",
+        "watchtower",
+        "tmmts-macbook-pro"
+      ]
+    }
+  },
+  "bootstick": {
+    "why": "One stick: plug into any Windows PC and run START-HERE.bat, or boot the Surface from it (Debian Live). Built by bin/bootstick.ps1.",
+    "stage": "C:/AIXMOS-BOOTSTICK",
+    "boot_label": "AIXBOOT",
+    "data_label": "AIXMOS-X",
+    "models": "_RUNTIME/ollama/models",
+    "installer": {
+      "why": "The one shippable JARVIS installer (4THEPEOPLE bundle, from installer/build_installer.py). AIXMOS-Setup.exe is retired.",
+      "windows": "_INSTALLERS/AIXMOS-4THEPEOPLE/AIXMOS-4THEPEOPLE-Setup.exe",
+      "mac_linux": "_INSTALLERS/AIXMOS-4THEPEOPLE/mac-linux/install.sh",
+      "readme": "_INSTALLERS/AIXMOS-4THEPEOPLE/START-HERE.txt"
+    },
+    "exclude_dirs": ["node_modules", ".next", ".turbo", ".vercel", "test-results", "playwright-report", "__pycache__", ".pytest_cache", "$RECYCLE.BIN", ".claude"],
+    "exclude_files": [".env", ".env.local", ".env.local.*", ".env.production", ".env.production.*", ".env.development.local", ".env.test.local", ".env.vercel", ".env.vercel.*", ".env.legacy"],
+    "exclude_dirs_extra": {
+      "automation": ["project-aixmos/dist", "project-aixmos/installer/cache", "project-aixmos/installer/build"]
+    },
+    "exclude_files_extra": {
+      "automation": ["payload.zip", "settings.json.bak*"]
+    },
+    "strip": ["TMMT-WORK/Automation/project-aixmos/memory/settings.json"],
+    "extras": [
+      { "local": "TMMT-worktrees", "drive": "TMMT-WORK/TMMT-worktrees" },
+      { "local": "TMMT-GOKIT", "drive": "TMMT-WORK/TMMT-GOKIT" },
+      { "local": "LocalModels", "drive": "_RUNTIME/ollama/Modelfiles" },
+      { "local": "Automation/project-aixmos/dist/AIXMOS-4THEPEOPLE", "drive": "_INSTALLERS/AIXMOS-4THEPEOPLE" },
+      { "local": "Desktop", "drive": "PERSONAL/Desktop" },
+      { "local": "Documents", "drive": "PERSONAL/Documents" },
+      { "local": "Downloads", "drive": "PERSONAL/Downloads" }
+    ],
+    "runtimes": {
+      "python": { "find": "python", "drive": "_RUNTIME/win/python", "exe": "python.exe" },
+      "node":   { "find": "node",   "drive": "_RUNTIME/win/node",   "exe": "node.exe" },
+      "git":    { "find": "git",    "drive": "_RUNTIME/win/git",    "exe": "cmd/git.exe", "up": 1 },
+      "ollama": { "find": "ollama", "drive": "_RUNTIME/win/ollama", "exe": "ollama.exe",
+                  "xd": ["cuda_*", "rocm_*"], "xf": ["unins*", "*.tmp", "ollama app.exe", "app.ico"] },
+      "ffmpeg": { "find": "ffmpeg", "drive": "_RUNTIME/win/ffmpeg", "exe": "ffmpeg.exe", "only": ["ffmpeg.exe", "ffprobe.exe"] }
+    },
+    "linux_ollama": {
+      "why": "The brain for the booted (Debian Live) side. Official ollama-linux-amd64.tar.zst, CPU parts only (bin/extract-linux-ollama.py). Match the Windows Ollama version.",
+      "release": "v0.34.0",
+      "local": "AIXMOS-RUNTIMES/linux/ollama",
+      "drive": "_RUNTIME/linux/ollama",
+      "exe": "bin/ollama"
+    },
+    "boot_dirs": ["EFI", "boot", "live", ".disk", "isolinux"],
+    "boot_files": ["BOOTED-RUN-LLM.sh", "md5sum.txt", "sha256sum.txt"]
+  },
+  "gates": {
+    "push": "No blind push. Owner go required before commit/push on canon.",
+    "deploy": "Vercel deploy blocked by owner gate.",
+    "secrets": "Live prod keys live only in tmmt-os/.env.local. Never copy to a drive that leaves the house.",
+    "vault": "Personal-Brain goes to _VAULT only, never the business lane."
+  }
+}

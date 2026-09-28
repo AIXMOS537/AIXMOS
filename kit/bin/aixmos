@@ -1,0 +1,168 @@
+#!/usr/bin/env bash
+# aixmos - the same command surface as bin/aixmos.ps1, for macOS and Linux.
+#
+# This is the half the bootable stick runs. It reads the identical kit.json, so
+# a lane has one definition across all three shapes: this Surface, a plugged-in
+# stick, and the booted image the M1 builds.
+set -uo pipefail
+
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$HERE/../lib/paths.sh"
+
+c_cyan=$'\033[36m'; c_grey=$'\033[90m'; c_green=$'\033[32m'
+c_red=$'\033[31m';  c_yellow=$'\033[33m'; c_off=$'\033[0m'
+
+hd()   { printf '\n  %s%s%s\n  %s%s%s\n' "$c_cyan" "$1" "$c_off" "$c_grey" "$(printf '%*s' ${#1} '' | tr ' ' '-')" "$c_off"; }
+ok()   { printf '  %s[ OK ]%s %s\n'  "$c_green"  "$c_off" "$1"; }
+bad()  { printf '  %s[FAIL]%s %s\n'  "$c_red"    "$c_off" "$1"; }
+warn() { printf '  %s[warn]%s %s\n'  "$c_yellow" "$c_off" "$1"; }
+note() { printf '  %s%-14s%s%s\n'    "$c_grey" "$1" "$c_off" "$2"; }
+
+OLLAMA="$(_kit_json "k['local_ai']['endpoint']")"
+ollama_up() { curl -fsS --max-time 3 "$OLLAMA/api/tags" >/dev/null 2>&1; }
+net_up()    { curl -fsS --max-time 4 https://api.github.com >/dev/null 2>&1; }
+
+cmd_status() {
+  hd 'AIXMOS KIT'
+  note 'Kit'          "$(kit_version)  ($KIT_MODE)"
+  note 'Running from' "$KIT_ROOT"
+  note 'Workspace'    "$KIT_WORKSPACE"
+  note 'Machine'      "$(hostname)"
+
+  hd 'LANES'
+  for n in $(kit_lanes); do
+    p="$(kit_lane "$n")"
+    if [ -d "$p" ]; then ok "$(printf '%-14s %s' "$n" "$p")"
+    else warn "$(printf '%-14s not here: %s' "$n" "$p")"; fi
+  done
+
+  hd 'OFFLINE BRAIN'
+  if ollama_up; then ok "ollama up - $(ollama list 2>/dev/null | tail -n +2 | awk '{print $1}' | paste -sd', ' -)"
+  else bad "ollama not answering on $OLLAMA"; fi
+
+  hd 'LIVE SIDE'
+  if net_up; then ok 'internet reachable'; else warn 'offline - local lanes still work'; fi
+  note 'supabase' "$(_kit_json "k['online']['supabase']['project_ref']")"
+  note 'vercel'   "$(_kit_json "k['online']['vercel']['team']")"
+  printf '\n  %saixmos doctor   find drift before it bites%s\n\n' "$c_grey" "$c_off"
+}
+
+cmd_lanes() {
+  hd 'LANES (from kit.json)'
+  for n in $(kit_lanes); do
+    printf '  %s%-14s%s %s\n' "$c_off" "$n" "$c_off" "$(_kit_json "k['lanes']['$n'].get('role','')")"
+    printf '  %s%-14s %s%s\n' "$c_grey" '' "$(kit_lane "$n")" "$c_off"
+  done
+  printf '\n'
+}
+
+cmd_doctor() {
+  problems=0
+  hd 'DOCTOR'
+
+  echo '  lanes present'
+  miss=0
+  for n in $(kit_lanes); do
+    p="$(kit_lane "$n")"
+    [ -d "$p" ] || { warn "$n missing at $p"; miss=$((miss+1)); problems=$((problems+1)); }
+  done
+  [ "$miss" -eq 0 ] && ok 'all lanes accounted for'
+
+  echo; echo '  repos'
+  for n in $(kit_lanes); do
+    p="$(kit_lane "$n")"
+    [ -d "$p/.git" ] || continue
+    dirty="$(git -C "$p" status --porcelain 2>/dev/null | wc -l | tr -d ' ')"
+    br="$(git -C "$p" rev-parse --abbrev-ref HEAD 2>/dev/null)"
+    if [ "$dirty" -gt 0 ]; then
+      warn "$(printf '%-14s %s  %s uncommitted' "$n" "$br" "$dirty")"; problems=$((problems+1))
+    else
+      ok "$(printf '%-14s %s  clean' "$n" "$br")"
+    fi
+  done
+
+  echo; echo '  offline brain'
+  if ollama_up; then
+    have="$(ollama list 2>/dev/null | tail -n +2 | awk '{print $1}')"
+    for m in $(_kit_json "' '.join(x['name'] for x in k['local_ai']['models'])"); do
+      if echo "$have" | grep -qx "$m"; then ok "$m"
+      else warn "$m missing - pull or rebuild it"; problems=$((problems+1)); fi
+    done
+  else
+    bad 'ollama down - the kit cannot answer offline'; problems=$((problems+1))
+  fi
+
+  echo; echo '  schema drift (repo vs live)'
+  mig="$(kit_lane canon)/supabase/migrations"
+  if [ -d "$mig" ]; then
+    repo="$(find "$mig" -maxdepth 1 -name '*.sql' | wc -l | tr -d ' ')"
+    live="$(_kit_json "k['online']['supabase']['live_migrations']")"
+    if [ "$repo" -lt "$live" ]; then
+      bad "repo has $repo migrations, live has $live - $((live-repo)) went straight to prod"
+      problems=$((problems+1))
+    else ok "repo $repo / live $live"; fi
+  else
+    warn 'no migrations folder in canon'; problems=$((problems+1))
+  fi
+
+  echo
+  [ "$problems" -eq 0 ] && ok 'clean' || warn "$problems thing(s) want attention"
+  echo
+}
+
+cmd_ai() {
+  q="$*"
+  [ -z "$q" ] && { bad 'aixmos ai "your question"'; return; }
+  ollama_up || { bad 'offline brain is down - start Ollama'; return; }
+  model="$(_kit_json "k['local_ai']['models'][0]['name']")"
+  hd "OFFLINE BRAIN ($model)"
+  echo
+  python3 - "$OLLAMA" "$model" "$q" <<'PY'
+import json,sys,urllib.request
+end,model,q = sys.argv[1],sys.argv[2],sys.argv[3]
+body=json.dumps({"model":model,"prompt":q,"stream":False}).encode()
+r=urllib.request.Request(end+"/api/generate",data=body,headers={"Content-Type":"application/json"})
+try:
+    out=json.load(urllib.request.urlopen(r,timeout=300)).get("response","")
+    for line in out.split("\n"): print("  "+line)
+except Exception as e:
+    print("  failed:",e)
+PY
+  echo
+}
+
+cmd_online() {
+  hd 'LIVE SIDE'
+  net_up || warn 'no internet right now - this is the last known map'
+  note 'supabase'   "$(_kit_json "k['online']['supabase']['project_ref']")"
+  note 'migrations' "live $(_kit_json "k['online']['supabase']['live_migrations']")  /  repo $(_kit_json "k['online']['supabase']['repo_migrations']")"
+  echo
+  note 'vercel team' "$(_kit_json "k['online']['vercel']['team']")"
+  warn "$(_kit_json "k['online']['vercel']['deploy']")"
+  hd 'GATES'
+  for g in push deploy secrets vault; do
+    printf '  %s%-9s %s%s\n' "$c_yellow" "$g" "$(_kit_json "k['gates']['$g']")" "$c_off"
+  done
+  echo
+}
+
+cmd_help() {
+  hd 'AIXMOS - ONE COMMAND SURFACE, EVERY MACHINE'
+  printf '  %-22s%s\n' 'aixmos'        'where am I, what is up, what is missing'
+  printf '  %-22s%s\n' 'aixmos lanes'  'every lane and where it resolves'
+  printf '  %-22s%s\n' 'aixmos doctor' 'find drift: missing lanes, dirty repos, schema gap'
+  printf '  %-22s%s\n' 'aixmos ai "q"' 'ask the offline brain (no internet needed)'
+  printf '  %-22s%s\n' 'aixmos online' 'the live side + the owner gates'
+  printf '  %-22s%s\n' 'aixmos help'   'this'
+  printf '\n  %sEvery path comes from kit.json. Change a lane there, not in a script.%s\n\n' "$c_grey" "$c_off"
+}
+
+case "${1:-status}" in
+  status|'') cmd_status ;;
+  lane|lanes) cmd_lanes ;;
+  doctor)    cmd_doctor ;;
+  ai|ask)    shift; cmd_ai "$@" ;;
+  online)    cmd_online ;;
+  help|-h|--help) cmd_help ;;
+  *) bad "unknown: $1"; cmd_help ;;
+esac
