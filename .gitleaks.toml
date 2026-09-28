@@ -1,0 +1,14 @@
+[extend]
+useDefault = true
+
+# Redaction placeholders left by the 2026-09-28 history cleanup, and one reviewed false positive.
+[allowlist]
+description = "reviewed placeholders"
+regexes = [
+  '''appX{14}''',
+  '''REDACTED_JWT''',
+  '''\$\{SUPABASE_ANON_KEY:\?[^}]*\}''',
+]
+paths = [
+  '''brain/onboarding-offboarding\.md''',
+]
