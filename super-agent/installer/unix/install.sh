@@ -8,7 +8,7 @@
 # Installs to ~/AIXMOS, keeps memory/ on re-run (conversation, settings, CRM, media),
 # creates a Python venv with requests + pillow, installs Ollama if missing, pulls
 # qwen2.5:3b, writes start/stop launchers, starts the server and opens the first-boot intro.
-set -u
+set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 DEST="$HOME/AIXMOS"; PORT=8770; ROLE=""; OLLAMA=1; MODEL=1; LAUNCH=1
 MODEL_NAME="qwen2.5:3b"
@@ -20,6 +20,7 @@ while [ $# -gt 0 ]; do
     --no-ollama) OLLAMA=0 ;;
     --no-model) MODEL=0 ;;
     --no-launch) LAUNCH=0 ;;
+    *) echo "Unknown option: $1"; exit 2 ;;
   esac; shift
 done
 say(){ printf '\n\033[36m>>> %s\033[0m\n' "$*"; }
@@ -62,21 +63,30 @@ echo "    $($PY --version)"
 say "[2/6] Unpacking AIXMOS to $DEST"
 mkdir -p "$DEST"
 TMP="$(mktemp -d)"
-"$PY" - "$ZIP" "$TMP" <<'EOF'
-import sys, zipfile; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])
+trap 'rm -rf -- "$TMP"' EXIT
+"$PY" - "$ZIP" "$DEST" <<'EOF'
+import sys, zipfile
+from pathlib import Path
+root = Path(sys.argv[2]).resolve()
+with zipfile.ZipFile(sys.argv[1]) as archive:
+    for item in archive.infolist():
+        relative = Path(item.filename)
+        target = (root / relative).resolve()
+        if target == root or root not in target.parents:
+            raise ValueError("Unsafe archive path")
+        if relative.parts[0] == "memory" and relative.parts[1:2] != ("kit",) and target.exists():
+            continue
+        if item.is_dir():
+            target.mkdir(parents=True, exist_ok=True)
+        else:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(archive.read(item))
 EOF
-if [ -d "$DEST/memory" ]; then
-  # keep the user's memory; refresh only the kit (app content)
-  rm -rf "$DEST/memory/kit"; cp -R "$TMP/memory/kit" "$DEST/memory/kit"
-  rm -rf "$TMP/memory"; echo "    existing memory kept"
-fi
-cp -R "$TMP"/. "$DEST"/; rm -rf "$TMP"
 
 say "[3/6] Python environment (requests, pillow)"
-"$PY" -m venv "$DEST/.venv" 2>/dev/null || warn "venv unavailable; using system python"
-VPY="$DEST/.venv/bin/python"; [ -x "$VPY" ] || VPY="$PY"
-"$VPY" -m pip install --quiet --upgrade pip >/dev/null 2>&1
-"$VPY" -m pip install --quiet requests pillow || warn "pip install failed; image rendering may be limited"
+"$PY" -m venv "$DEST/.venv"
+VPY="$DEST/.venv/bin/python"
+"$VPY" -m pip install --quiet requests pillow
 
 say "[4/6] Ollama + local model"
 if ! command -v ollama >/dev/null; then
@@ -104,16 +114,16 @@ say "[5/6] Role, launchers"
 import sys, os; sys.path.insert(0, sys.argv[1])
 from aixmos import genesis; genesis.seed(sys.argv[2]); print("    role:", sys.argv[2])
 EOF
-cat > "$DEST/start-aixmos.sh" <<EOF
-#!/usr/bin/env bash
-cd "$DEST"
-curl -s -o /dev/null http://127.0.0.1:$PORT/api/telemetry || { nohup "$VPY" project_aixmos_server.py $PORT >/dev/null 2>&1 & sleep 3; }
-( command -v open >/dev/null && open http://localhost:$PORT ) || ( command -v xdg-open >/dev/null && xdg-open http://localhost:$PORT ) || echo "Open http://localhost:$PORT"
+"$VPY" - "$DEST" "$VPY" "$PORT" <<'EOF'
+import sys, shlex
+from pathlib import Path
+root = Path(sys.argv[1]).resolve()
+for name, action in (("start", "start --open"), ("stop", "stop")):
+    command = shlex.join([sys.argv[2], str(root / "aixmos_local.py")])
+    (root / (name + "-aixmos.sh")).write_text("#!/usr/bin/env bash\nexec " + command + " " + action + " --port " + sys.argv[3] + "\n")
 EOF
-cat > "$DEST/stop-aixmos.sh" <<EOF
-#!/usr/bin/env bash
-pkill -f "project_aixmos_server.py $PORT" && echo "AIXMOS stopped."
-EOF
+"$VPY" "$DEST/aixmos_local.py" pair --client json --config "$DEST/aixmos-mcp.json" --replace
+
 chmod +x "$DEST/start-aixmos.sh" "$DEST/stop-aixmos.sh"
 if [ "$OS" = "Darwin" ]; then
   cp "$DEST/start-aixmos.sh" "$HOME/Desktop/AIXMOS.command" 2>/dev/null && chmod +x "$HOME/Desktop/AIXMOS.command"

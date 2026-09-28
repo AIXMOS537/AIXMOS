@@ -1,3 +1,5 @@
+> Current client release: see [LOCAL-AGENT.md](LOCAL-AGENT.md) for version 2.1.0, direct Claude/Cursor pairing, lifecycle commands and tested limits. The original project documentation below describes the broader legacy application. Shell execution uses normal user permissions, not an OS sandbox. The legacy free public image setting is enabled by default.
+
 # Project AIXMOS — JARVIS super agent
 
 Private, local-first assistant on `http://localhost:8770`. Python 3 standard library plus two

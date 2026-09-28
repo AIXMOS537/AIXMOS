@@ -80,7 +80,7 @@ static class AixmosSetup
             if (Encoding.ASCII.GetString(tail, 8, 8) != Magic) throw new InvalidDataException("no AIXMOS payload attached to this exe");
             long len = BitConverter.ToInt64(tail, 0);
             long start = fs.Length - 16 - len;
-            if (start <= 0) throw new InvalidDataException("bad payload length");
+            if (len <= 0 || start <= 0) throw new InvalidDataException("bad payload length");
             var slice = new SubStream(fs, start, len);
             Directory.CreateDirectory(dest);
             bool keepMemory = Directory.Exists(Path.Combine(dest, "memory"));
@@ -93,11 +93,11 @@ static class AixmosSetup
                     string name = e.FullName.Replace('\\', '/');
                     if (keepMemory && name.StartsWith("memory/") && !name.StartsWith("memory/kit/")) continue;
                     string target = Path.GetFullPath(Path.Combine(dest, name.Replace('/', '\\')));
-                    if (!target.StartsWith(root, StringComparison.OrdinalIgnoreCase)) continue; // zip-slip guard
+                    if (!target.StartsWith(root, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("Unsafe archive path");
                     if (name.EndsWith("/")) { Directory.CreateDirectory(target); continue; }
                     Directory.CreateDirectory(Path.GetDirectoryName(target));
                     try { e.ExtractToFile(target, true); }
-                    catch (IOException) { Console.WriteLine("    in use, left as is: " + name); }
+                    catch (IOException ex) { throw new IOException("Cannot update " + name + ". Stop AIXMOS and close paired clients before upgrading.", ex); }
                     if (++n % 200 == 0) Console.Write("    " + n + " / " + total + " files\r");
                 }
                 Console.WriteLine("    " + n + " files in place" + (keepMemory ? " (existing memory kept)" : "") + "        ");

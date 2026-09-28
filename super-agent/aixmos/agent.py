@@ -81,12 +81,14 @@ def t_search_files(a, ctx):
     pat = re.compile(a["pattern"], re.I)
     hits = []
     for dp, dn, fn in os.walk(p):
-        dn[:] = [d for d in dn if d not in ("node_modules", ".git", "__pycache__", "vendor")]
+        dn[:] = [d for d in dn if d not in ("node_modules", ".git", "__pycache__", "vendor")
+                 and any(media.inside(r, os.path.join(dp, d)) for r in ctx["roots"])]
         for f in fn:
             fp = os.path.join(dp, f)
-            if os.path.getsize(fp) > 2_000_000:
-                continue
             try:
+                fp = _safe(fp, ctx)
+                if os.path.getsize(fp) > 2_000_000:
+                    continue
                 with open(fp, "r", encoding="utf-8", errors="ignore") as fh:
                     for i, line in enumerate(fh, 1):
                         if pat.search(line):
