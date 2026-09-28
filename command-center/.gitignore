@@ -1,0 +1,20 @@
+# Secrets
+.env
+.env.local
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# macOS
+.DS_Store
+._*
+
+# Local notes
+*.local.md
+
+# TMMT MANAGEMENT is its own repo (AIXMOS537/TMMT) — do not track inline
+/TMMT MANAGEMENT/
+"TMMT MANAGEMENT~HEAD"

@@ -1,0 +1,25 @@
+{
+  "name": "tmmt",
+  "description": "Copy to config/tmmt_integration.json and edit table names to match your stack.",
+  "airtable": {
+    "base_id": "appcenWUju039rD7b",
+    "primary_table_id": "tbl4gndUYeiOUWYRR",
+    "primary_view_id": "viwuJ5HJDh6RoplEb",
+    "snapshot_tables": ["tbl4gndUYeiOUWYRR"]
+  },
+  "supabase": {
+    "url": "https://uapxakmlwnpfsftfeezx.supabase.co",
+    "snapshot_tables": ["rentals", "staff", "vendors", "bookings", "customers"]
+  },
+  "vercel": {
+    "app_url": "https://tmmt-c919-two.vercel.app",
+    "login_path": "/login",
+    "snapshot_paths": []
+  },
+  "prompts": {
+    "command_center_snapshot": "tmmt_command_center_snapshot",
+    "morning": "morning_command",
+    "midday": "midday_rescue",
+    "money": "daily_money_check"
+  }
+}

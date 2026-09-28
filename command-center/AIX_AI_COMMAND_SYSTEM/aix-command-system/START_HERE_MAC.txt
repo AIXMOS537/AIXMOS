@@ -1,0 +1,24 @@
+AIX AI Command System — Mac quick start
+======================================
+
+1. Plug in this flash drive.
+2. Open Cursor → File → Open Folder → choose:
+      /Volumes/LEXAR/aix-command-system
+   (If your drive has a different name, pick that volume instead.)
+
+3. In Cursor terminal:
+
+      chmod +x scripts/*.sh
+      ./scripts/setup-mac.sh
+
+4. Edit .env — add:
+      AIRTABLE_API_KEY=pat...   (from airtable.com/create/tokens)
+      AIRTABLE_BASE_ID=app...   (from your base URL)
+
+5. Run:
+
+      ./scripts/aix list
+      ./scripts/aix airtable list-templates
+      ./scripts/aix airtable get-table --table "Vehicles"
+
+See README.md and IMPLEMENTATION.md for all commands.

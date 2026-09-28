@@ -1,0 +1,2 @@
+VehicleID,Make,Model,Year,Status,CurrentLocation,Owner,RevenueSharePct,DailyRate,MaintenanceStatus,Notes
+V001,Toyota,RAV4,2022,available,Central Lot,Operator,50,85,scheduled,Sample shared lot vehicle

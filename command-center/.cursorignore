@@ -1,0 +1,17 @@
+# Rename to .cursorignore if macOS allows, or paste into Cursor Settings.
+# Large / generated
+**/node_modules/
+**/.venv/
+**/__pycache__/
+**/.git/
+**/*.zip
+
+# Secrets
+.env
+.env.local
+.env.production
+!.env.example
+
+# OS
+.DS_Store
+._*

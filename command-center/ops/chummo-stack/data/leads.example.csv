@@ -1,0 +1,6 @@
+Lead Name,Business Line,Source,Phone,Email,Status,Owner,Estimated Value,Probability,Next Action,Next Action Due,Last Touch Date,Objection,Close Lost Reason,Notes
+Maria Lopez,credit,Instagram,555-201-0001,maria@example.com,New Lead,VA Sales,97,40,Send first SMS,2026-05-20,,,Wants funding pathway
+James Reed,dealer,Referral,555-201-0002,james@example.com,Contacted,Operator A,3750,55,Book discovery call,2026-05-19,,,Qualified for dealer track
+Priya Shah,rentals,GHL,555-201-0003,priya@example.com,inquiry,VA Fleet,500,20,Confirm vehicle dates,2026-05-20,,,Turo lead — weekend rental
+Tom Ellis,credit,Scorecard,555-201-0004,tom@example.com,Proposal Sent,Muhammad,7500,70,Follow up on contract,2026-05-18,,,Needs LLC + infrastructure — escalation
+Nina Park,credit,Outbound,555-201-0005,nina@example.com,Closed Lost,VA Sales,97,0,Nurture Q3,2026-06-01,2026-05-10,Price,,
