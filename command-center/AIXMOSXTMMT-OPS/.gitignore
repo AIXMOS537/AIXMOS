@@ -1,0 +1,12 @@
+.env
+config/paths.json
+data/n8n/*
+!data/n8n/.gitkeep
+data/logs/*
+!data/logs/.gitkeep
+node_modules/
+apps/clock/node_modules/
+apps/clock/dist/
+.DS_Store
+Thumbs.db
+*.log

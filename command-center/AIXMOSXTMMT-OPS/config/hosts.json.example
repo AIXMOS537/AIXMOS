@@ -1,0 +1,7 @@
+{
+  "nas": "nas",
+  "prime": "prime",
+  "ops-1": "ops-1",
+  "ops-2": "ops-2",
+  "comment": "Tailscale MagicDNS hostnames — copy to hosts.json (gitignored) if you use custom names"
+}

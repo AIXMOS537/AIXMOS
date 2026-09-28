@@ -1,0 +1,18 @@
+{
+  "ventures": [
+    {
+      "slug": "tmmt-rentals",
+      "name": "TMMT Rentals",
+      "clickup_list_id": "111",
+      "default_tag": "tmmt-rentals",
+      "status": "active"
+    },
+    {
+      "slug": "archived-thing",
+      "name": "Old Venture",
+      "clickup_list_id": "222",
+      "default_tag": "old",
+      "status": "archived"
+    }
+  ]
+}

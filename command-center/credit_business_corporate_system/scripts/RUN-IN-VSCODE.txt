@@ -1,0 +1,27 @@
+RUN IN VS CODE / CURSOR (Windows PowerShell)
+==========================================
+
+OPTION A - Terminal:
+  cd D:\credit_business_corporate_system\scripts
+  powershell -ExecutionPolicy Bypass -File .\prepare-mac-migration.ps1
+
+OPTION B - VS Code Task:
+  Terminal > Run Task > "Mac Migration: Build Bundle"
+
+FLAGS:
+  -SkipCopy          Only refresh agents + mac-setup.sh + manifest (fast)
+  -IncludeCursorZip  Add cursor-settings-windows.zip
+  -IncludeSensitive  Copy Personal/ folder (PII)
+  -InitGit           git init in bundled all_in_one_platform
+
+OUTPUT: D:\MacMigrationBundle
+
+IF SCRIPT BLOCKED:
+  Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+
+ON MAC:
+  chmod +x mac-setup.sh
+  ./mac-setup.sh ~/Projects
+  cd ~/Projects/all_in_one_platform && npm run dev
+
+USB TIP: exFAT = read/write on Windows AND Mac (back up before reformat).

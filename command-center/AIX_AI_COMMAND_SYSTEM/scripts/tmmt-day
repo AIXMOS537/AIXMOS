@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+# TMMT daily driver — status, morning prompt, optional live snapshot.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
+
+# shellcheck disable=SC1091
+[[ -f "$ROOT/.env" ]] && source "$ROOT/scripts/load-env.sh" 2>/dev/null || true
+if [[ -f "$ROOT/.env" ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source "$ROOT/.env"
+  set +a
+fi
+
+AIX="$ROOT/scripts/aix"
+TMMT_APP="${VERCEL_APP_URL:-https://tmmt-c919-two.vercel.app}"
+TMMT_APP="${TMMT_APP%/}"
+
+bold() { printf '\033[1m%s\033[0m\n' "$*"; }
+ok()   { printf '  \033[32m✓\033[0m %s\n' "$*"; }
+warn() { printf '  \033[33m!\033[0m %s\n' "$*"; }
+hr()   { printf '\n%s\n\n' "────────────────────────────────────────"; }
+
+bold "TMMT — $(date '+%A, %B %-d %Y')"
+hr
+
+bold "1. Connection check"
+"$AIX" integrate status 2>/dev/null | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+c = d.get('credentials', {})
+for k, v in c.items():
+    print(f\"  {'✓' if v else '○'} {k}\")
+print(f\"  Base: {d.get('airtable_base_id', '—')}\")
+print(f\"  Supabase tables: {len(d.get('supabase_tables', []))}\")
+" 2>/dev/null || "$AIX" integrate status
+
+hr
+bold "2. Morning prompt (copy into ChatGPT or Claude)"
+"$AIX" show morning 2>/dev/null || "$AIX" show morning_command
+
+hr
+bold "3. Quick links"
+ok "TMMT OS login:    $TMMT_APP/login"
+ok "Internal dash:    $TMMT_APP/internal/dashboard"
+ok "Public intake:    $TMMT_APP/intake"
+ok "Airtable base:    https://airtable.com/appcenWUju039rD7b"
+
+hr
+bold "4. Live snapshot"
+
+has_airtable=false
+has_supabase=false
+has_openai=false
+[[ -n "${AIRTABLE_API_KEY:-}" ]] && has_airtable=true
+[[ -n "${SUPABASE_KEY:-}" ]] && has_supabase=true
+[[ -n "${OPENAI_API_KEY:-}" ]] && has_openai=true
+
+if ! $has_airtable && ! $has_supabase; then
+  warn "Skipped — add AIRTABLE_API_KEY and/or SUPABASE_KEY to .env"
+  warn "See ONE_PAGE_START.md"
+  hr
+  exit 0
+fi
+
+if $has_airtable && $has_supabase && $has_openai; then
+  ok "Running full TMMT snapshot + AI summary…"
+  "$AIX" integrate tmmt-snapshot --prompt-name tmmt_command_center_snapshot 2>/dev/null \
+    || "$AIX" integrate tmmt-snapshot
+elif $has_airtable || $has_supabase; then
+  ok "Running data snapshot (no OPENAI_API_KEY — raw JSON)…"
+  OPENAI_API_KEY= "$AIX" integrate tmmt-snapshot 2>/dev/null || "$AIX" integrate tmmt-snapshot
+else
+  warn "Could not run snapshot."
+fi
+
+hr
+bold "Done. Midday: run \`./scripts/aix show midday\` or \`./scripts/tmmt-day --midday\`"
+
+if [[ "${1:-}" == "--midday" ]]; then
+  hr
+  bold "Midday rescue prompt"
+  "$AIX" show midday 2>/dev/null || "$AIX" show midday_rescue
+fi

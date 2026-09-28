@@ -1,0 +1,20 @@
+{
+  "name": "aixmosxtmmt-ops",
+  "version": "1.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Portable empire ops — Mac + Windows flash drive",
+  "scripts": {
+    "setup": "node scripts/setup.mjs",
+    "doctor": "node scripts/doctor.mjs",
+    "start": "node scripts/start.mjs",
+    "stop": "node scripts/stop.mjs",
+    "sync-nas": "node scripts/sync-to-nas.mjs",
+    "clock:install": "npm install --prefix apps/clock",
+    "clock:dev": "npm run dev --prefix apps/clock",
+    "clock:build": "npm run build --prefix apps/clock"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

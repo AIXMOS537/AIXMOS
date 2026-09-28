@@ -1,0 +1,3 @@
+Date,Business Unit,Leak Type,Estimated Amount Lost Or At Risk,Cause,Owner,Status,Fix Today,Prevention Automation,SOP Needed,Notes
+2026-05-16,Car Rentals,Missed follow-up,0,Lead not contacted,Unassigned,Open,Assign follow-up,2-hour stale lead alert,Yes,
+

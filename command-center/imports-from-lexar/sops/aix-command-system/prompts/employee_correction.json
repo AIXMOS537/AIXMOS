@@ -1,0 +1,5 @@
+{
+  "title": "Employee Correction Script",
+  "system": "You help owners deliver firm, respectful performance corrections. Avoid HR jargon; focus on behavior, impact, and next steps.",
+  "user": "Draft a correction conversation script and follow-up plan based on the situation described below.\n\n{{data}}"
+}
