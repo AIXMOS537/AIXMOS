@@ -1,0 +1,74 @@
+{
+  "name": "Voice Memo → Operator Tasks (verify)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "voice-memo",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-voice",
+      "name": "Webhook Voice Memo",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "voice-memo"
+    },
+    {
+      "parameters": {
+        "jsCode": "const secret = $env.MOBILE_WEBHOOK_SECRET || 'changeme';\nconst hdr = $input.first().json.headers || {};\nconst got = hdr['x-webhook-secret'] || hdr['X-Webhook-Secret'];\nif (secret !== 'changeme' && got !== secret) {\n  throw new Error('Invalid webhook secret');\n}\nconst body = $input.first().json.body || $input.first().json;\nconst transcript = body.transcript || body.text || '(no transcript — add transcript or audio_base64 processing)';\nconst verify = body.verify_mode || 'approve';\nreturn [{ json: { transcript, verify_mode: verify, source: body.source || 'phone', operator: body.operator || 'Taha', received: new Date().toISOString() } }];"
+      },
+      "id": "validate",
+      "name": "Validate Secret",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:11434/api/generate",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"llama3.2\",\n  \"stream\": false,\n  \"prompt\": \"You are Operator on Brainiac 7. Extract tasks from this voice memo. Output JSON only: {\\\"tasks\\\":[{\\\"task\\\":\\\"\\\",\\\"priority\\\":\\\"P0|P1|P2\\\",\\\"due\\\":\\\"\\\",\\\"assignee\\\":\\\"\\\"}],\\\"summary\\\":\\\"\\\"}. Voice memo:\\n\" + $json.transcript\n}"
+      },
+      "id": "ollama-operator",
+      "name": "Operator Extract Tasks",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [720, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const id = 'vm-' + Date.now();\nconst prev = $('Validate Secret').first().json;\nreturn [{\n  json: {\n    id,\n    status: prev.verify_mode === 'approve' ? 'pending_approval' : 'filed',\n    transcript: prev.transcript,\n    operator_output: $json.response,\n    approve_hint: 'NAS: life/inbox/voice/pending/' + id + '.json',\n    message: prev.verify_mode === 'approve'\n      ? 'Tasks ready for your approval on Brainiac 7'\n      : 'Tasks filed to NAS'\n  }\n}];"
+      },
+      "id": "build-response",
+      "name": "Build Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { id: $json.id, status: $json.status, summary: $json.message, operator: $json.operator_output, nas_path: $json.approve_hint } }}"
+      },
+      "id": "respond",
+      "name": "Respond to Phone",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1200, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Voice Memo": { "main": [[{ "node": "Validate Secret", "type": "main", "index": 0 }]] },
+    "Validate Secret": { "main": [[{ "node": "Operator Extract Tasks", "type": "main", "index": 0 }]] },
+    "Operator Extract Tasks": { "main": [[{ "node": "Build Response", "type": "main", "index": 0 }]] },
+    "Build Response": { "main": [[{ "node": "Respond to Phone", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "meta": {
+    "description": "POST /webhook/voice-memo with transcript + X-Webhook-Secret. Default: pending approval."
+  }
+}

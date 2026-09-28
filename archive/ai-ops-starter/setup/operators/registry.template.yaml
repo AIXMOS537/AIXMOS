@@ -1,0 +1,61 @@
+# Copy to registry.yaml and fill in your locations/operators.
+# Brainiac 7 = owner supreme node. All others tier down.
+
+supreme:
+  tier: 7
+  hostname: brainiac-7
+  display_name: Brainiac 7
+  owner: Taha
+  project_path: C:\AI-OPS-STARTER
+  tailscale: brainiac-7
+
+locations:
+  - code: home
+    name: Owner Home
+    nas_path: locations/home
+    nodes:
+      - id: brainiac-7
+        tier: 7
+        hostname: brainiac-7
+        role: supreme_intellect
+
+  - code: hq
+    name: Main Office
+    nas_path: locations/hq
+    nodes:
+      - id: brainiac-6-hq
+        tier: 6
+        hostname: brainiac-6-hq
+        operator: Site Lead
+        upstream: brainiac-7
+      - id: brainiac-4-jane
+        tier: 4
+        hostname: brainiac-4-jane
+        operator: Jane Doe
+        upstream: brainiac-6-hq
+
+  - code: wh-east
+    name: Warehouse East
+    nas_path: locations/wh-east
+    nodes:
+      - id: brainiac-5-wh-east
+        tier: 5
+        hostname: brainiac-5-wh-east
+        operator: Warehouse Brain
+        upstream: brainiac-7
+
+  - code: field
+    name: Field / Client Sites
+    nas_path: locations/field
+    nodes:
+      - id: brainiac-2-tablet-01
+        tier: 2
+        hostname: brainiac-2-tablet-01
+        operator: Field Team
+        upstream: brainiac-7
+        mode: thin_client  # WebUI via Tailscale to upstream only
+
+escalation:
+  human: Taha
+  supreme_node: brainiac-7
+  nas_escalations: locations/*/escalations/

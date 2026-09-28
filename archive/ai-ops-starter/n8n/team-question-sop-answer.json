@@ -1,0 +1,57 @@
+{
+  "name": "Team Question → SOP Answer",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "team-question",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-team-question",
+      "name": "Webhook Team Question",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "team-question-sop"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:11434/api/generate",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"qwen2.5:7b\",\n  \"stream\": false,\n  \"prompt\": \"You are Counsel aboard Brainiac 7. Answer ONLY from internal SOP/knowledge. If unknown, say DOC_GAP. Sharp, lucid, no fabrication.\\n\\nQuestion: \" + $json.body.question + \"\\n\\nContext: \" + ($json.body.context || \"\")\n}",
+        "options": { "timeout": 120000 }
+      },
+      "id": "ollama-counsel",
+      "name": "Ollama Counsel Answer",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [520, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { answer: $json.response, agent: 'Counsel', host: 'brainiac-7', source: 'local-ollama' } }}"
+      },
+      "id": "respond-answer",
+      "name": "Respond Answer",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [800, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Team Question": {
+      "main": [[{ "node": "Ollama Counsel Answer", "type": "main", "index": 0 }]]
+    },
+    "Ollama Counsel Answer": {
+      "main": [[{ "node": "Respond Answer", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "meta": {
+    "description": "Brainiac 7 — POST /webhook/team-question; Counsel answers from SOP/knowledge"
+  }
+}

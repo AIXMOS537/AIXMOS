@@ -1,0 +1,10 @@
+.env
+*.log
+.DS_Store
+Thumbs.db
+__pycache__/
+.venv/
+node_modules/
+data/
+backups/*.zip
+nas/mount-test/

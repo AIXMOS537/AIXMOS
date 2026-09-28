@@ -1,0 +1,223 @@
+# AI-OPS operator registry — Muhammad Taha & HQ team
+# Rollout order matters: deploy phases 1→5 in sequence. Kayleigh = pending hire.
+
+supreme:
+  tier: 7
+  hostname: brainiac-7
+  display_name: Brainiac 7
+  owner: Muhammad Taha
+  project_path: C:\AI-OPS-STARTER
+  tailscale: brainiac-7
+  nas_operator_path: locations/home/operators/brainiac-7
+
+admin:
+  device: macbook-admin
+  role: kit_edit_sync_flash
+  tailscale: macbook-admin
+
+# --- DEPLOY IN THIS ORDER (do not skip phases) ---
+rollout:
+  phase_1:
+    who: Muhammad Taha
+    action: First command on Brainiac 7 — install stack, NAS, supreme node
+    command: .\scripts\phase1-windows-bootstrap.ps1
+    status: ready
+  phase_2:
+    who: Dominique Bibbs
+    node: brainiac-4-hq-dominique
+    status: next
+  phase_3:
+    who: [Mr Michael, Mr Dyson]
+    nodes: [brainiac-4-hq-michael, brainiac-3-hq-dyson]
+    status: queued
+  phase_4:
+    who: [Nathan West, Claryn Troup (Mystique / Ryn)]
+    nodes: [brainiac-3-hq-nathan, brainiac-4-hq-claryn]
+    status: queued
+    notes: Ryn = Claryn — same person; Mystique comms lane
+  phase_5:
+    who: Kayleigh Bristow
+    node: brainiac-5-hq-kayleigh
+    status: pending_hire
+    notes: Does not work for you yet — provision when she starts
+  phase_heroes:
+    who: [Tahir Muhammad (Superman), Tayyeba Tahir (Superwoman)]
+    when: After phase 4 stable, or when you choose
+    status: queued
+  phase_office_taha:
+    who: Muhammad Taha on-site
+    node: brainiac-6-hq-taha
+    when: When you regularly work from HQ PC
+    status: optional
+
+locations:
+  - code: home
+    name: Owner Home
+    nas_path: locations/home
+    nodes:
+      - id: brainiac-7
+        tier: 7
+        hostname: brainiac-7
+        display_name: Brainiac 7
+        operator: Muhammad Taha
+        role: supreme_intellect
+        upstream: null
+        rollout_phase: 1
+
+  - code: hq
+    name: Main Office
+    nas_path: locations/hq
+    nodes:
+      - id: brainiac-6-hq-taha
+        tier: 6
+        hostname: brainiac-6-hq-taha
+        display_name: Brainiac 6 — HQ (Muhammad Taha)
+        operator: Muhammad Taha
+        role: regional_brain
+        upstream: brainiac-7
+        rollout_phase: office_optional
+
+      - id: brainiac-5-hq-tahir
+        tier: 5
+        hostname: brainiac-5-hq-tahir
+        display_name: Brainiac 5 — Tahir Muhammad (Superman)
+        operator: Tahir Muhammad
+        role: senior_advisor
+        archetype: Superman
+        upstream: brainiac-7
+        executive_lane: Oracle
+        rollout_phase: heroes
+        notes: Father — supreme judgment, strategy, moral clarity; escalates only what needs Brainiac 7
+
+      - id: brainiac-5-hq-tayyeba
+        tier: 5
+        hostname: brainiac-5-hq-tayyeba
+        display_name: Brainiac 5 — Tayyeba Tahir (Superwoman)
+        operator: Tayyeba Tahir
+        role: senior_operator
+        archetype: Superwoman
+        upstream: brainiac-7
+        executive_lane: Operator
+        rollout_phase: heroes
+        notes: Sister — strength, follow-through, accountability; peer to Superman tier
+
+      - id: brainiac-5-hq-kayleigh
+        tier: 5
+        hostname: brainiac-5-hq-kayleigh
+        display_name: Brainiac 5 — Kayleigh Bristow
+        operator: Kayleigh Bristow
+        role: executive_assistant
+        upstream: brainiac-7
+        executive_lane: Operator
+        rollout_phase: 5
+        status: pending_hire
+        notes: NOT ACTIVE YET — deploy last when she joins
+
+      - id: brainiac-4-hq-dominique
+        tier: 4
+        hostname: brainiac-4-hq-dominique
+        display_name: Brainiac 4 — Dominique Bibbs
+        operator: Dominique Bibbs
+        role: operator_station
+        upstream: brainiac-7
+        executive_lane: Operator
+        rollout_phase: 2
+
+      - id: brainiac-4-hq-michael
+        tier: 4
+        hostname: brainiac-4-hq-michael
+        display_name: Brainiac 4 — Mr Michael
+        operator: Mr Michael
+        role: operator_station
+        upstream: brainiac-7
+        executive_lane: Operator
+        rollout_phase: 3
+
+      - id: brainiac-4-hq-claryn
+        tier: 4
+        hostname: brainiac-4-hq-claryn
+        display_name: Brainiac 4 — Claryn Troup (Mystique / Ryn)
+        operator: Claryn Troup
+        aliases: [Ryn, Mystique]
+        role: communications_lead
+        upstream: brainiac-7
+        executive_lane: Counsel
+        rollout_phase: 4
+        notes: Ryn is Claryn — deploy with Nathan; Counsel / Mystique lane
+
+      - id: brainiac-3-hq-dyson
+        tier: 3
+        hostname: brainiac-3-hq-dyson
+        display_name: Brainiac 3 — Mr Dyson
+        operator: Mr Dyson
+        role: field_operator
+        upstream: brainiac-7
+        executive_lane: Operator
+        rollout_phase: 3
+
+      - id: brainiac-3-hq-nathan
+        tier: 3
+        hostname: brainiac-3-hq-nathan
+        display_name: Brainiac 3 — Nathan West
+        operator: Nathan West
+        role: operator_station
+        upstream: brainiac-7
+        executive_lane: Operator
+        rollout_phase: 4
+
+      - id: brainiac-2-hq-shared
+        tier: 2
+        hostname: brainiac-2-hq-shared
+        display_name: Brainiac 2 — HQ Shared
+        operator: HQ Shared Tablet
+        role: thin_client
+        upstream: brainiac-7
+        mode: thin_client
+        upstream_webui: http://brainiac-7:3000
+        rollout_phase: optional
+
+escalation:
+  human: Muhammad Taha
+  supreme_node: brainiac-7
+  supreme_webui: http://brainiac-7:3000
+  senior_advisor_superman: brainiac-5-hq-tahir
+  senior_operator_superwoman: brainiac-5-hq-tayyeba
+  pending_assistant: brainiac-5-hq-kayleigh
+  comms_mystique: brainiac-4-hq-claryn
+  nas_escalations_glob: locations/*/escalations/
+  review_cadence: Taha daily on Brainiac 7; Superman/Superwoman review before escalating to 7
+
+provisioning:
+  phase_1_taha:
+    run_on: brainiac-7
+    command: .\scripts\phase1-windows-bootstrap.ps1
+  phase_2_dominique:
+    command: .\scripts\provision-brainiac-node.ps1 -Tier 4 -Location hq -Operator dominique -DisplayName "Brainiac 4 — Dominique Bibbs"
+  phase_3_michael:
+    command: .\scripts\provision-brainiac-node.ps1 -Tier 4 -Location hq -Operator michael -DisplayName "Brainiac 4 — Mr Michael"
+  phase_3_dyson:
+    command: .\scripts\provision-brainiac-node.ps1 -Tier 3 -Location hq -Operator dyson -DisplayName "Brainiac 3 — Mr Dyson"
+  phase_4_nathan:
+    command: .\scripts\provision-brainiac-node.ps1 -Tier 3 -Location hq -Operator nathan -DisplayName "Brainiac 3 — Nathan West"
+  phase_4_claryn_mystique:
+    command: .\scripts\provision-brainiac-node.ps1 -Tier 4 -Location hq -Operator claryn -DisplayName "Brainiac 4 — Claryn Troup (Mystique / Ryn)"
+    notes: Ryn = Claryn — one person, one node
+  phase_5_kayleigh_pending:
+    command: .\scripts\provision-brainiac-node.ps1 -Tier 5 -Location hq -Operator kayleigh -DisplayName "Brainiac 5 — Kayleigh Bristow"
+    do_not_run_until: hired
+  phase_heroes_superman:
+    command: .\scripts\provision-brainiac-node.ps1 -Tier 5 -Location hq -Operator tahir -DisplayName "Brainiac 5 — Tahir Muhammad (Superman)"
+  phase_heroes_superwoman:
+    command: .\scripts\provision-brainiac-node.ps1 -Tier 5 -Location hq -Operator tayyeba -DisplayName "Brainiac 5 — Tayyeba Tahir (Superwoman)"
+team_roster:
+  active_rollout:
+    - { phase: 1, name: Muhammad Taha, node: brainiac-7 }
+    - { phase: 2, name: Dominique Bibbs, node: brainiac-4-hq-dominique }
+    - { phase: 3, name: Mr Michael, node: brainiac-4-hq-michael }
+    - { phase: 3, name: Mr Dyson, node: brainiac-3-hq-dyson }
+    - { phase: 4, name: Nathan West, node: brainiac-3-hq-nathan }
+    - { phase: 4, name: Claryn Troup, aliases: [Ryn, Mystique], node: brainiac-4-hq-claryn }
+    - { phase: 5, name: Kayleigh Bristow, node: brainiac-5-hq-kayleigh, status: PENDING HIRE }
+  heroes:
+    - { name: Tahir Muhammad, archetype: Superman, node: brainiac-5-hq-tahir }
+    - { name: Tayyeba Tahir, archetype: Superwoman, node: brainiac-5-hq-tayyeba }
