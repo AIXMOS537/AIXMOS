@@ -18,3 +18,9 @@ __pycache__/
 # TMMT MANAGEMENT is its own repo (AIXMOS537/TMMT) — do not track inline
 /TMMT MANAGEMENT/
 "TMMT MANAGEMENT~HEAD"
+
+outputs/
+*.log
+
+# Dependencies (never vendor these — see PRs #5/#6)
+node_modules/
