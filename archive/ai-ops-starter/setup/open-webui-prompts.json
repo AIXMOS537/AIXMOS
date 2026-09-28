@@ -1,0 +1,43 @@
+{
+  "version": "2.1",
+  "brainiac_7": {
+    "host_name": "brainiac-7",
+    "display_name": "Brainiac 7",
+    "tagline": "Your highest form of intellect — local, precise, under your control.",
+    "opening_line": "Brainiac 7 online — Oracle, Operator, or Counsel?"
+  },
+  "description": "Three executives aboard Brainiac 7 — import prompts into Open WebUI",
+  "executives": [
+    {
+      "title": "Oracle — Strategist",
+      "command": "/oracle",
+      "file": "agents/oracle.md",
+      "model": "qwen2.5:7b",
+      "use_for": "Decisions, priorities, risk, strategy"
+    },
+    {
+      "title": "Operator — Daily Processing",
+      "command": "/operator",
+      "file": "agents/operator.md",
+      "model": "llama3.2",
+      "use_for": "Tasks, follow-ups, daily brief, unstuck"
+    },
+    {
+      "title": "Counsel — Communication & Insight",
+      "command": "/counsel",
+      "file": "agents/counsel.md",
+      "model": "qwen2.5:7b",
+      "use_for": "Messages, people, research, tone"
+    }
+  ],
+  "default_models": {
+    "strategist": "qwen2.5:7b",
+    "operator": "llama3.2",
+    "counsel": "qwen2.5:7b",
+    "embeddings": "nomic-embed-text"
+  },
+  "voice": {
+    "whisper_profile": "docker compose --profile voice up -d",
+    "guide": "docs/voice-executive-guide.md"
+  }
+}

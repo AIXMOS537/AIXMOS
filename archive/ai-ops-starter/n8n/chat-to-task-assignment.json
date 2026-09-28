@@ -1,0 +1,71 @@
+{
+  "name": "Chat Message → Task Assignment",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chat-to-task",
+        "responseMode": "responseNode"
+      },
+      "id": "webhook-chat",
+      "name": "Webhook Chat",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "chat-to-task"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:11434/api/generate",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"llama3.2\",\n  \"stream\": false,\n  \"prompt\": \"You are Operator aboard Brainiac 7, executive processor of reality. Parse this chat into a task board row: Owner, Task, Priority P0-P2, Due, Definition of done. Output JSON only.\\n\\nChat: \" + $json.body.message\n}"
+      },
+      "id": "ollama-operator",
+      "name": "Ollama Operator",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [520, 300]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "fileName": "=/workflows/tasks-inbox.jsonl",
+        "dataPropertyName": "response"
+      },
+      "id": "append-task-log",
+      "name": "Append Task Log",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [760, 300],
+      "notes": "Optional: write to mounted volume or NAS path via SMB node"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { task: $json.response, agent: 'Operator', host: 'brainiac-7' } }}"
+      },
+      "id": "respond-task",
+      "name": "Respond Task",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1000, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Chat": {
+      "main": [[{ "node": "Ollama Operator", "type": "main", "index": 0 }]]
+    },
+    "Ollama Operator": {
+      "main": [[{ "node": "Append Task Log", "type": "main", "index": 0 }]]
+    },
+    "Append Task Log": {
+      "main": [[{ "node": "Respond Task", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "meta": {
+    "description": "Brainiac 7 — POST /webhook/chat-to-task; Operator parses chat to task JSON"
+  }
+}

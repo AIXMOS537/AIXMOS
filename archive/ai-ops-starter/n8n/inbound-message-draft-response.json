@@ -1,0 +1,62 @@
+{
+  "name": "Inbound Message → Counsel Draft (verify)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "inbound-message",
+        "responseMode": "responseNode"
+      },
+      "id": "webhook-inbound",
+      "name": "Webhook Inbound Message",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "inbound-message"
+    },
+    {
+      "parameters": {
+        "jsCode": "const secret = $env.MOBILE_WEBHOOK_SECRET || 'changeme';\nconst hdr = $input.first().json.headers || {};\nconst got = hdr['x-webhook-secret'] || hdr['X-Webhook-Secret'];\nif (secret !== 'changeme' && got !== secret) throw new Error('Invalid webhook secret');\nconst body = $input.first().json.body || $input.first().json;\nreturn [{ json: {\n  from: body.from || 'Unknown',\n  channel: body.channel || 'message',\n  body: body.body || body.text || '',\n  verify_mode: body.verify_mode || 'approve'\n}}];"
+      },
+      "id": "validate-inbound",
+      "name": "Validate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:11434/api/generate",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"qwen2.5:7b\",\n  \"stream\": false,\n  \"prompt\": \"You are Counsel (Mystique lane) on Brainiac 7. Draft a reply to this message in the user's voice. Use NAS contact rules if mentioned. Output:\\nDRAFT:\\n...\\nTONE:\\n...\\nSEND_NOW: yes|no (no if legal/money/angry/new client)\\nESCALATE_BRAINIAC_7: yes|no\\n\\nFrom: \" + $json.from + \"\\nChannel: \" + $json.channel + \"\\nMessage:\\n\" + $json.body\n}"
+      },
+      "id": "ollama-counsel",
+      "name": "Counsel Draft Reply",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [720, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: 'draft_ready', from: $('Validate').first().json.from, draft: $json.response, nas_path: 'life/comms/drafts/pending/', note: 'Copy draft to send — or open Brainiac 7 WebUI Counsel chat' } }}"
+      },
+      "id": "respond-draft",
+      "name": "Respond Draft",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [960, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Inbound Message": { "main": [[{ "node": "Validate", "type": "main", "index": 0 }]] },
+    "Validate": { "main": [[{ "node": "Counsel Draft Reply", "type": "main", "index": 0 }]] },
+    "Counsel Draft Reply": { "main": [[{ "node": "Respond Draft", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "meta": {
+    "description": "POST /webhook/inbound-message — Counsel drafts reply; you approve before sending."
+  }
+}

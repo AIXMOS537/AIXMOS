@@ -1,0 +1,2 @@
+Read START-HERE-FLASH.md
+Deploy steps: docs\DEPLOY-ORDER.md

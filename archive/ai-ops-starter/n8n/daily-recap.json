@@ -1,0 +1,56 @@
+{
+  "name": "Daily Recap",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "cronExpression", "expression": "0 17 * * 1-5" }]
+        }
+      },
+      "id": "cron-daily",
+      "name": "Weekdays 5pm",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:11434/api/generate",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"llama3.2\",\n  \"stream\": false,\n  \"prompt\": \"You are Operator aboard Brainiac 7. Produce a daily recap: completed, in-progress, blockers, P0 for tomorrow. Voice-friendly, concise. Input data:\\n\" + ($json.tasks || \"No task feed connected — connect NAS or task log.\")\n}"
+      },
+      "id": "ollama-recap",
+      "name": "Ollama Daily Recap",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [520, 300]
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "=/workflows/daily-recap-{{ $now.format('yyyy-MM-dd') }}.md",
+        "dataPropertyName": "response"
+      },
+      "id": "write-recap",
+      "name": "Write Recap File",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [760, 300],
+      "notes": "Point to NAS mount or copy to Z:\\exports\\n8n\\"
+    }
+  ],
+  "connections": {
+    "Weekdays 5pm": {
+      "main": [[{ "node": "Ollama Daily Recap", "type": "main", "index": 0 }]]
+    },
+    "Ollama Daily Recap": {
+      "main": [[{ "node": "Write Recap File", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "meta": {
+    "description": "Brainiac 7 — weekday 5pm Operator daily recap via Ollama; connect task input node as needed"
+  }
+}

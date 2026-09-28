@@ -1,0 +1,55 @@
+{
+  "name": "Meeting Transcript → Action Items",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "meeting-actions",
+        "responseMode": "responseNode"
+      },
+      "id": "webhook-meeting",
+      "name": "Webhook Meeting",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "meeting-actions"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:11434/api/generate",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"qwen2.5:7b\",\n  \"stream\": false,\n  \"prompt\": \"You are Operator aboard Brainiac 7. Extract action items from this meeting transcript. Format: | Owner | Action | Due | Priority |. Clear accountability, no nagging tone.\\n\\nTranscript:\\n\" + $json.body.transcript\n}"
+      },
+      "id": "ollama-operator-meeting",
+      "name": "Ollama Operator Actions",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [520, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { action_items: $json.response, agent: 'Operator', host: 'brainiac-7' } }}"
+      },
+      "id": "respond-actions",
+      "name": "Respond Actions",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [800, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Meeting": {
+      "main": [[{ "node": "Ollama Operator Actions", "type": "main", "index": 0 }]]
+    },
+    "Ollama Operator Actions": {
+      "main": [[{ "node": "Respond Actions", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "meta": {
+    "description": "Brainiac 7 — POST /webhook/meeting-actions; Operator extracts action items"
+  }
+}
