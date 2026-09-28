@@ -1,0 +1,1288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="AIXMOS — AI-powered operations for modern teams. License, train, and scale with operator-backed playbooks." />
+  <title>AIXMOS — AI Operations Platform</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #050816;
+      --bg-soft: #0b1024;
+      --surface: rgba(255, 255, 255, 0.06);
+      --surface-strong: rgba(255, 255, 255, 0.1);
+      --border: rgba(255, 255, 255, 0.12);
+      --text: #f4f6ff;
+      --muted: #9aa3c7;
+      --accent: #1440c4;
+      --accent-soft: rgba(20, 64, 196, 0.35);
+      --glow: 0 0 80px rgba(20, 64, 196, 0.35);
+      --radius: 16px;
+      --radius-sm: 12px;
+      --container: min(1120px, 100% - 48px);
+      --nav-h: 72px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+    }
+
+    body {
+      margin: 0;
+      font-family: "DM Sans", system-ui, -apple-system, sans-serif;
+      background: radial-gradient(1200px 600px at 10% -10%, rgba(20, 64, 196, 0.35), transparent 55%),
+        radial-gradient(900px 500px at 90% 0%, rgba(120, 80, 255, 0.18), transparent 50%),
+        var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    img { max-width: 100%; display: block; }
+    a { color: inherit; text-decoration: none; }
+
+    .skip-link {
+      position: absolute;
+      left: -9999px;
+      top: auto;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+    }
+    .skip-link:focus {
+      left: 16px;
+      top: 16px;
+      width: auto;
+      height: auto;
+      padding: 10px 14px;
+      background: #fff;
+      color: #000;
+      border-radius: 8px;
+      z-index: 10000;
+    }
+
+    .container {
+      width: var(--container);
+      margin-inline: auto;
+    }
+
+    /* —— Nav —— */
+    .site-header {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      backdrop-filter: blur(14px);
+      background: rgba(5, 8, 22, 0.72);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-inner {
+      height: var(--nav-h);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      font-size: 1.05rem;
+    }
+
+    .brand-mark {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--accent), #6b8cff);
+      box-shadow: var(--glow);
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+      font-size: 0.95rem;
+      color: var(--muted);
+    }
+
+    .nav-links a:hover { color: var(--text); }
+    .nav-links a.is-active {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .nav-ctas {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+      padding: 0 18px;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .btn { transition: none; }
+    }
+
+    .btn-ghost {
+      background: transparent;
+      border-color: var(--border);
+      color: var(--text);
+    }
+    .btn-ghost:hover { border-color: rgba(255, 255, 255, 0.35); }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), #3d6dff);
+      color: #fff;
+      box-shadow: 0 8px 28px rgba(20, 64, 196, 0.45);
+    }
+    .btn-primary:hover { transform: translateY(-1px); }
+    @media (prefers-reduced-motion: reduce) {
+      .btn-primary:hover { transform: none; }
+    }
+
+    .nav-toggle {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+    }
+
+    .nav-toggle-lines {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .nav-toggle-lines span {
+      display: block;
+      width: 20px;
+      height: 2px;
+      background: currentColor;
+      border-radius: 2px;
+    }
+
+    /* —— Mobile drawer —— */
+    .nav-drawer-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.55);
+      z-index: 90;
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity 0.28s ease, visibility 0.28s ease;
+    }
+
+    .nav-drawer {
+      position: fixed;
+      top: 0;
+      right: 0;
+      height: 100dvh;
+      width: min(88vw, 320px);
+      z-index: 100;
+      background: rgba(255, 255, 255, 0.98);
+      color: #0a0f1f;
+      box-shadow: -12px 0 40px rgba(0, 0, 0, 0.25);
+      transform: translateX(100%);
+      transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.32s;
+      visibility: hidden;
+      display: flex;
+      flex-direction: column;
+      padding: calc(var(--nav-h) - 12px) 20px 24px;
+      overflow-y: auto;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .nav-drawer-backdrop,
+      .nav-drawer {
+        transition: none;
+      }
+    }
+
+    body.drawer-open .nav-drawer-backdrop {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+    }
+
+    body.drawer-open .nav-drawer {
+      transform: translateX(0);
+      visibility: visible;
+    }
+
+    .nav-drawer-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .nav-drawer-title {
+      font-weight: 700;
+      font-size: 1rem;
+      letter-spacing: 0.06em;
+    }
+
+    .nav-drawer-close {
+      min-width: 44px;
+      min-height: 44px;
+      border-radius: 12px;
+      border: 1px solid rgba(10, 15, 31, 0.12);
+      background: #fff;
+      cursor: pointer;
+      font-size: 1.25rem;
+      line-height: 1;
+    }
+
+    .nav-drawer-links {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .nav-drawer-links a {
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      border-radius: 10px;
+      font-weight: 500;
+      color: #1a2238;
+    }
+    .nav-drawer-links a:hover,
+    .nav-drawer-links a:focus-visible {
+      background: rgba(20, 64, 196, 0.08);
+      outline: none;
+    }
+
+    .nav-drawer-ctas {
+      margin-top: auto;
+      padding-top: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .nav-drawer-ctas .btn {
+      width: 100%;
+      min-height: 48px;
+    }
+
+    .nav-drawer-ctas .btn-ghost {
+      border-color: rgba(10, 15, 31, 0.15);
+      color: #0a0f1f;
+    }
+
+    .nav-drawer-ctas .btn-primary {
+      color: #fff;
+    }
+
+    /* —— Reveal —— */
+    .reveal {
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.55s ease, transform 0.55s ease;
+    }
+    .reveal.reveal-visible {
+      opacity: 1;
+      transform: none;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .reveal {
+        opacity: 1;
+        transform: none;
+        transition: none;
+      }
+    }
+
+    /* —— Hero —— */
+    .hero {
+      padding: clamp(48px, 8vw, 96px) 0 clamp(56px, 10vw, 120px);
+      min-height: min(88vh, 820px);
+      display: flex;
+      align-items: center;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: clamp(32px, 6vw, 64px);
+      align-items: center;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--muted);
+      margin-bottom: 16px;
+    }
+    .eyebrow-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 12px var(--accent);
+    }
+
+    .hero h1 {
+      font-family: "Instrument Serif", Georgia, serif;
+      font-weight: 400;
+      font-size: clamp(2.4rem, 4vw + 1rem, 3.6rem);
+      line-height: 1.08;
+      margin: 0 0 20px;
+    }
+
+    .hero-lead {
+      color: var(--muted);
+      font-size: 1.1rem;
+      max-width: 52ch;
+      margin-bottom: 28px;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 40px;
+    }
+
+    .hero-stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: clamp(16px, 3vw, 32px);
+      padding-top: 8px;
+      border-top: 1px solid var(--border);
+    }
+
+    .stat {
+      min-width: 120px;
+    }
+    .stat strong {
+      display: block;
+      font-size: 1.5rem;
+      font-weight: 700;
+    }
+    .stat span {
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    .hero-card {
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: linear-gradient(160deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+      padding: 28px;
+      box-shadow: var(--glow);
+    }
+
+    .hero-card h3 {
+      margin: 0 0 12px;
+      font-size: 1.1rem;
+    }
+    .hero-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    /* —— Ticker —— */
+    .ticker {
+      border-block: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.02);
+      padding: 14px 0;
+      overflow: hidden;
+    }
+    .ticker-inner {
+      display: flex;
+      gap: 48px;
+      white-space: nowrap;
+      animation: ticker 28s linear infinite;
+      color: var(--muted);
+      font-size: 0.85rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    @keyframes ticker {
+      from { transform: translateX(0); }
+      to { transform: translateX(-50%); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .ticker-inner { animation: none; white-space: normal; flex-wrap: wrap; justify-content: center; }
+    }
+
+    /* —— Sections —— */
+    section {
+      padding: clamp(64px, 10vw, 112px) 0;
+    }
+
+    .section-head {
+      max-width: 640px;
+      margin-bottom: 40px;
+    }
+    .section-head h2 {
+      font-family: "Instrument Serif", Georgia, serif;
+      font-weight: 400;
+      font-size: clamp(2rem, 2vw + 1.4rem, 2.6rem);
+      margin: 0 0 12px;
+    }
+    .section-head p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 1.05rem;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 14px;
+    }
+
+    /* About */
+    .about-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+    .about-card {
+      padding: 24px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--surface);
+    }
+    .about-card h3 { margin: 0 0 8px; font-size: 1.05rem; }
+    .about-card p { margin: 0; color: var(--muted); font-size: 0.95rem; }
+
+    /* Services / menu */
+    .menu-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      align-items: stretch;
+    }
+
+    .menu-card {
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--bg-soft);
+      padding: 28px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      cursor: default;
+    }
+
+    .menu-card.featured {
+      border-color: rgba(20, 64, 196, 0.55);
+      background: linear-gradient(180deg, rgba(20, 64, 196, 0.2), rgba(5, 8, 22, 0.9));
+      box-shadow: var(--glow);
+      cursor: pointer;
+    }
+
+    .menu-card h3 { margin: 0; font-size: 1.15rem; }
+    .price {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    .price small { font-size: 0.95rem; font-weight: 500; color: var(--muted); }
+    .menu-card ul {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+    .menu-card li {
+      padding: 6px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .menu-card li:last-child { border-bottom: 0; }
+
+    .badge {
+      align-self: flex-start;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(20, 64, 196, 0.25);
+      color: #dbe4ff;
+    }
+
+    /* Agents */
+    .agent-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+    .agent {
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      padding: 20px;
+      background: var(--surface);
+    }
+    .agent h4 { margin: 0 0 6px; font-size: 0.95rem; }
+    .agent p { margin: 0; font-size: 0.85rem; color: var(--muted); }
+
+    /* Journey */
+    .journey-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 40px;
+      align-items: start;
+    }
+    .journey-col ul {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .journey-col li {
+      padding: 16px 0;
+      border-bottom: 1px solid var(--border);
+      color: var(--muted);
+    }
+    .journey-col li strong { color: var(--text); display: block; margin-bottom: 4px; }
+
+    .journey-target {
+      position: sticky;
+      top: calc(var(--nav-h) + 24px);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      padding: 28px;
+      background: linear-gradient(145deg, rgba(20, 64, 196, 0.15), var(--surface));
+    }
+    .journey-target h3 { margin: 0 0 10px; }
+    .journey-target p { margin: 0; color: var(--muted); font-size: 0.95rem; }
+
+    /* AIXMODE */
+    .aixmode-section {
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      padding: clamp(32px, 5vw, 48px);
+      background: radial-gradient(600px 280px at 0% 0%, rgba(20, 64, 196, 0.35), transparent 60%),
+        var(--bg-soft);
+    }
+    .aixmode-inner {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
+      align-items: center;
+    }
+    .aixmode-section h2 {
+      font-family: "Instrument Serif", Georgia, serif;
+      font-weight: 400;
+      font-size: clamp(1.8rem, 2vw + 1.2rem, 2.4rem);
+      margin: 0 0 12px;
+    }
+    .aixmode-section p { margin: 0; color: var(--muted); }
+
+    /* Partner */
+    .partner-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      align-items: center;
+      justify-content: space-between;
+      padding: 28px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--surface);
+    }
+    .partner-logos {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      color: var(--muted);
+      font-size: 0.85rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    /* Apply */
+    .apply-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
+      align-items: start;
+    }
+    .apply-copy h2 {
+      font-family: "Instrument Serif", Georgia, serif;
+      font-weight: 400;
+      font-size: clamp(1.8rem, 2vw + 1.2rem, 2.3rem);
+      margin: 0 0 16px;
+    }
+    .apply-copy p { color: var(--muted); margin: 0 0 20px; }
+
+    .apply-list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .apply-list li {
+      position: relative;
+      padding-left: 28px;
+      margin-bottom: 14px;
+      color: var(--muted);
+    }
+    .apply-list li::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0.55em;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #1440c4;
+    }
+
+    .apply-form-embed {
+      border-radius: var(--radius);
+      border: 2px dashed rgba(255, 255, 255, 0.2);
+      min-height: 420px;
+      overflow: hidden;
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .apply-form-embed iframe {
+      display: block;
+    }
+
+    /* Footer */
+    .site-footer {
+      padding: 40px 0 48px;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    .footer-inner {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .footer-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+    .footer-links a:hover { color: var(--text); }
+
+    /* —— 768 —— */
+    @media (max-width: 768px) {
+      :root {
+        --container: min(1120px, 100% - 32px);
+      }
+
+      .nav-links,
+      .nav-ctas { display: none; }
+
+      .nav-toggle { display: inline-flex; }
+
+      .hero {
+        min-height: auto;
+        padding-bottom: 56px;
+      }
+
+      .hero-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-stats {
+        gap: 20px;
+        padding-top: 20px;
+      }
+
+      .about-grid { grid-template-columns: 1fr; }
+
+      .menu-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .menu-card.featured {
+        gap: 16px;
+      }
+
+      .agent-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .journey-layout {
+        grid-template-columns: 1fr;
+        gap: 28px;
+      }
+
+      .journey-target {
+        position: static;
+        margin-top: 8px;
+      }
+
+      .aixmode-inner {
+        grid-template-columns: 1fr;
+      }
+
+      .apply-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* —— ~480 —— */
+    @media (max-width: 480px) {
+      .container {
+        width: 100%;
+        max-width: none;
+        margin-inline: 0;
+        padding-inline: 16px;
+      }
+
+      .agent-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <div
+    id="nav-drawer-backdrop"
+    class="nav-drawer-backdrop"
+    aria-hidden="true"
+    hidden
+  ></div>
+
+  <div
+    id="nav-drawer"
+    class="nav-drawer"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Mobile navigation"
+    aria-hidden="true"
+    inert
+  >
+    <div class="nav-drawer-head">
+      <span class="nav-drawer-title">Menu</span>
+      <button type="button" class="nav-drawer-close" id="nav-drawer-close" aria-label="Close menu">×</button>
+    </div>
+    <nav class="nav-drawer-links" aria-label="Mobile">
+      <a href="#about" data-nav-target="about">About</a>
+      <a href="#services" data-nav-target="services">Services</a>
+      <a href="#agents" data-nav-target="agents">System</a>
+      <a href="#journey" data-nav-target="journey">Journey</a>
+      <a href="#aixmode" data-nav-target="aixmode">AIXMODE</a>
+      <a href="#partner" data-nav-target="partner">Partner</a>
+      <a href="#apply" data-nav-target="apply">Apply</a>
+    </nav>
+    <div class="nav-drawer-ctas">
+      <a class="btn btn-ghost" href="#apply">Apply now</a>
+      <a class="btn btn-primary" data-ghl-href="checkout97" href="[PASTE YOUR LINK]" target="_blank" rel="noopener noreferrer">Join — $97/mo</a>
+    </div>
+  </div>
+
+  <header class="site-header">
+    <div class="container nav-inner">
+      <a class="brand" href="#top" aria-label="AIXMOS home">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span>AIXMOS</span>
+      </a>
+
+      <nav class="nav-links" aria-label="Primary">
+        <a href="#about" data-nav-target="about">About</a>
+        <a href="#services" data-nav-target="services">Services</a>
+        <a href="#agents" data-nav-target="agents">System</a>
+        <a href="#journey" data-nav-target="journey">Journey</a>
+        <a href="#aixmode" data-nav-target="aixmode">AIXMODE</a>
+        <a href="#partner" data-nav-target="partner">Partner</a>
+        <a href="#apply" data-nav-target="apply">Apply</a>
+      </nav>
+
+      <div class="nav-ctas">
+        <a class="btn btn-ghost" href="#apply">Apply now</a>
+        <a class="btn btn-primary" data-ghl-href="checkout97" href="[PASTE YOUR LINK]" target="_blank" rel="noopener noreferrer">Join — $97/mo</a>
+      </div>
+
+      <button
+        type="button"
+        class="nav-toggle"
+        id="nav-toggle"
+        aria-expanded="false"
+        aria-controls="nav-drawer"
+        aria-label="Open menu"
+      >
+        <span class="nav-toggle-lines" aria-hidden="true">
+          <span></span><span></span><span></span>
+        </span>
+      </button>
+    </div>
+  </header>
+
+  <main id="main">
+    <div id="top"></div>
+
+    <section class="hero" aria-labelledby="hero-heading">
+      <div class="container hero-grid reveal">
+        <div class="hero-content">
+          <p class="eyebrow"><span class="eyebrow-dot" aria-hidden="true"></span> Operator-grade AI systems</p>
+          <h1 id="hero-heading">Run revenue, support, and fulfillment on one AIXMOS spine.</h1>
+          <p class="hero-lead">
+            License proven workflows, plug in autonomous agents, and keep humans in the loop where judgment matters — without rebuilding your stack from scratch.
+          </p>
+          <div class="hero-actions">
+            <a class="btn btn-primary" data-ghl-href="checkout97" href="[PASTE YOUR LINK]" target="_blank" rel="noopener noreferrer">Start for $97/mo</a>
+            <a class="btn btn-ghost" href="#services">Compare plans</a>
+          </div>
+          <div class="hero-stats">
+            <div class="stat"><strong>48h</strong><span>to first live workflow</span></div>
+            <div class="stat"><strong>12+</strong><span>vertical playbooks</span></div>
+            <div class="stat"><strong>SLA</strong><span>operator-backed routing</span></div>
+          </div>
+        </div>
+        <div class="hero-card">
+          <h3>What you ship this week</h3>
+          <p>
+            Intake → triage → resolution templates with audit trails. Drop into your CRM or helpdesk; AIXMOS agents execute with guardrails you control.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <div class="ticker reveal" aria-hidden="true">
+      <div class="container">
+        <div class="ticker-inner">
+          <span>Workflow licensing</span>
+          <span>Human-in-the-loop</span>
+          <span>Audit-ready logs</span>
+          <span>Multi-agent routing</span>
+          <span>Workflow licensing</span>
+          <span>Human-in-the-loop</span>
+          <span>Audit-ready logs</span>
+          <span>Multi-agent routing</span>
+        </div>
+      </div>
+    </div>
+
+    <section id="about" class="reveal">
+      <div class="container">
+        <div class="section-head">
+          <span class="pill">About</span>
+          <h2>Built for teams that cannot afford brittle automation.</h2>
+          <p>AIXMOS packages operator playbooks as repeatable systems — so every handoff is documented, measurable, and improvable.</p>
+        </div>
+        <div class="about-grid">
+          <article class="about-card">
+            <h3>Composable agents</h3>
+            <p>Swap models and tools without rewriting flows. One spine, many surfaces.</p>
+          </article>
+          <article class="about-card">
+            <h3>Guardrailed execution</h3>
+            <p>Policies, approvals, and escalation paths ship as first-class primitives.</p>
+          </article>
+          <article class="about-card">
+            <h3>Evidence by default</h3>
+            <p>Every step emits structured logs for compliance and coaching.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="services" class="reveal">
+      <div class="container">
+        <div class="section-head">
+          <span class="pill">Services</span>
+          <h2>Pick the runway that matches your risk.</h2>
+          <p>All plans include core routing, templates, and documentation. Upgrade when you need LLC-grade assets or a full base build.</p>
+        </div>
+        <div class="menu-grid">
+          <article class="menu-card">
+            <span class="badge">Starter</span>
+            <h3>Operator access</h3>
+            <p class="price">$97<small>/mo</small></p>
+            <ul>
+              <li>Shared playbook library</li>
+              <li>Community office hours</li>
+              <li>Email support</li>
+            </ul>
+          </article>
+          <article
+            class="menu-card featured"
+            data-ghl-card="checkout97"
+            role="link"
+            tabindex="0"
+            aria-label="Open $97 per month checkout"
+          >
+            <span class="badge">Most chosen</span>
+            <h3>Launch lane</h3>
+            <p class="price">$97<small>/mo</small></p>
+            <ul>
+              <li>Live workflow in under 48 hours</li>
+              <li>Two agent seats included</li>
+              <li>Checkout: external GHL link</li>
+            </ul>
+            <span class="btn btn-primary" style="margin-top: auto; align-self: flex-start;">Join $97/mo</span>
+          </article>
+          <article
+            class="menu-card featured"
+            data-ghl-card="checkoutLLC"
+            role="link"
+            tabindex="0"
+            aria-label="Open LLC checkout"
+          >
+            <span class="badge">LLC bundle</span>
+            <h3>LLC kit</h3>
+            <p class="price">$397</p>
+            <ul>
+              <li>Entity-ready document pack</li>
+              <li>Brand + policy templates</li>
+              <li>One onboarding intensive</li>
+            </ul>
+            <span class="btn btn-ghost" style="margin-top: auto; align-self: flex-start;">Get LLC kit</span>
+          </article>
+        </div>
+        <div class="menu-grid" style="margin-top: 20px;">
+          <article
+            class="menu-card featured"
+            data-ghl-card="checkout3750"
+            role="link"
+            tabindex="0"
+            aria-label="Open base build checkout"
+            style="grid-column: 1 / -1;"
+          >
+            <span class="badge">Base build</span>
+            <h3>White-glove base</h3>
+            <p class="price">$3,750</p>
+            <ul>
+              <li>Custom spine mapped to your tools</li>
+              <li>Two workflow engineering sprints</li>
+              <li>30-day hypercare</li>
+            </ul>
+            <span class="btn btn-primary" style="margin-top: auto; align-self: flex-start;">Book base build</span>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="agents" class="reveal">
+      <div class="container">
+        <div class="section-head">
+          <span class="pill">Agents</span>
+          <h2>Specialists that know when to escalate.</h2>
+          <p>Each agent ships with default prompts, tools, and review gates you can tune per lane.</p>
+        </div>
+        <div class="agent-grid">
+          <div class="agent"><h4>Router</h4><p>Classifies intent and assigns the right specialist.</p></div>
+          <div class="agent"><h4>Closer</h4><p>Follows scripts with compliance checkpoints.</p></div>
+          <div class="agent"><h4>Concierge</h4><p>Handles scheduling, reminders, and confirmations.</p></div>
+          <div class="agent"><h4>Analyst</h4><p>Summarizes tickets and surfaces anomalies.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="journey" class="reveal">
+      <div class="container">
+        <div class="section-head">
+          <span class="pill">Journey</span>
+          <h2>From kickoff to live traffic in three beats.</h2>
+          <p>We mirror how operators actually ship: narrow scope, harden, then expand surface area.</p>
+        </div>
+        <div class="journey-layout">
+          <div class="journey-col">
+            <ul>
+              <li><strong>Week 0 — Map</strong>Inventory systems, owners, and failure modes. Pick the first workflow.</li>
+              <li><strong>Week 1 — Wire</strong>Connect tools, policies, and human approvals inside AIXMOS.</li>
+              <li><strong>Week 2+ — Scale</strong>Add agents, channels, and reporting without losing traceability.</li>
+            </ul>
+          </div>
+          <aside class="journey-target" aria-label="Journey highlight">
+            <h3>Sticky brief</h3>
+            <p>On larger screens this card stays in view while you read the timeline. On mobile it stacks naturally with comfortable spacing.</p>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <section id="aixmode" class="aixmode-section reveal">
+      <div class="container aixmode-inner">
+        <div>
+          <span class="pill">AIXMODE</span>
+          <h2>Simulation mode for leadership reviews.</h2>
+          <p>Replay decisions with alternate policies, compare outcomes, and export narratives your board can follow.</p>
+        </div>
+        <div>
+          <p style="color: var(--muted); margin: 0 0 16px;">Toggle AIXMODE from the control plane whenever you need a dry run before flipping production switches.</p>
+          <a class="btn btn-ghost" href="#apply">Talk with us</a>
+        </div>
+      </div>
+    </section>
+
+    <section id="partner" class="reveal">
+      <div class="container">
+        <div class="section-head">
+          <span class="pill">Partner</span>
+          <h2>Bring AIXMOS behind your consultancy or studio.</h2>
+          <p>Co-sell implementation sprints, share margins on base builds, and keep clients on a supported spine.</p>
+        </div>
+        <div class="partner-row">
+          <div class="partner-logos">
+            <span>Systems integrators</span>
+            <span>RevOps studios</span>
+            <span>Boutique agencies</span>
+          </div>
+          <a class="btn btn-primary" data-ghl-href="operatorApply" href="[PASTE YOUR LINK]">Apply to partner</a>
+        </div>
+      </div>
+    </section>
+
+    <section id="apply" class="reveal">
+      <div class="container apply-grid">
+        <div class="apply-copy">
+          <span class="pill">Apply</span>
+          <h2>Ready when you are.</h2>
+          <p>Tell us about your volume, tools, and compliance needs. We respond with a concrete plan and timeline.</p>
+          <ul class="apply-list">
+            <li>Dedicated onboarding manager for base builds</li>
+            <li>Security questionnaire available on request</li>
+            <li>MSA + DPA templates for enterprise procurement</li>
+            <li>Weekly office hours for licensed operators</li>
+          </ul>
+        </div>
+        <div>
+          <div class="apply-form-embed" id="ghl-form-placeholder">
+            <iframe
+              src="[YOUR DOMAIN]/apply/aixmos-intake-form.html"
+              title="AIXMOS intake form"
+              loading="lazy"
+              referrerpolicy="no-referrer-when-downgrade"
+              style="width: 100%; min-height: 520px; border: 0; border-radius: var(--radius); background: rgba(255, 255, 255, 0.02);"
+            ></iframe>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer reveal">
+    <div class="container footer-inner">
+      <p>© 2026 AIXMOS. All rights reserved.</p>
+      <nav class="footer-links" aria-label="Footer">
+        <a href="#services">Plans</a>
+        <a href="#apply">Contact</a>
+        <a data-ghl-href="operatorApply" href="[PASTE YOUR LINK]">Operator application</a>
+      </nav>
+    </div>
+  </footer>
+
+  <script>
+    const AIXMOS_GHL = {
+      checkout97: "[PASTE YOUR LINK]",
+      checkoutLLC: "[PASTE YOUR LINK]",
+      checkout3750: "[PASTE YOUR LINK]",
+      operatorApply: "[PASTE YOUR LINK]",
+    };
+    window.AIXMOS_GHL = AIXMOS_GHL;
+
+    function prefersReducedMotion() {
+      return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    }
+
+    function wireGhlFromConfig() {
+      document.querySelectorAll("[data-ghl-href]").forEach((el) => {
+        const key = el.getAttribute("data-ghl-href");
+        const url = AIXMOS_GHL[key];
+        if (url) el.setAttribute("href", url);
+      });
+
+      document.querySelectorAll("[data-ghl-card]").forEach((card) => {
+        const key = card.getAttribute("data-ghl-card");
+        const url = AIXMOS_GHL[key];
+        if (!url) return;
+
+        const open = () => {
+          window.open(url, "_blank", "noopener,noreferrer");
+        };
+
+        card.addEventListener("click", open);
+        card.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            open();
+          }
+        });
+      });
+    }
+
+    function initReveal() {
+      if (prefersReducedMotion()) {
+        document.querySelectorAll(".reveal").forEach((el) => el.classList.add("reveal-visible"));
+        return;
+      }
+
+      const io = new IntersectionObserver(
+        (entries, obs) => {
+          entries.forEach((entry) => {
+            if (!entry.isIntersecting) return;
+            entry.target.classList.add("reveal-visible");
+            obs.unobserve(entry.target);
+          });
+        },
+        { root: null, rootMargin: "0px 0px -10% 0px", threshold: 0.08 }
+      );
+
+      document.querySelectorAll(".reveal").forEach((el) => io.observe(el));
+    }
+
+    function initNavScrollSpy() {
+      const targets = document.querySelectorAll("[data-nav-target]");
+      const sectionIds = ["about", "services", "agents", "journey", "aixmode", "partner", "apply"];
+      const sections = sectionIds.map((id) => document.getElementById(id)).filter(Boolean);
+      if (!sections.length || !targets.length) return;
+
+      const setActive = (id) => {
+        targets.forEach((el) => {
+          el.classList.toggle("is-active", el.getAttribute("data-nav-target") === id);
+        });
+      };
+
+      const io = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) setActive(entry.target.id);
+          });
+        },
+        { root: null, rootMargin: "-42% 0px -42% 0px", threshold: 0 }
+      );
+
+      sections.forEach((sec) => io.observe(sec));
+    }
+
+    function initDrawer() {
+      const body = document.body;
+      const toggle = document.getElementById("nav-toggle");
+      const drawer = document.getElementById("nav-drawer");
+      const backdrop = document.getElementById("nav-drawer-backdrop");
+      const closeBtn = document.getElementById("nav-drawer-close");
+
+      if (!toggle || !drawer || !backdrop) return;
+
+      let lastFocus = null;
+      const focusableSelector =
+        'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])';
+
+      function getFocusables() {
+        return Array.from(drawer.querySelectorAll(focusableSelector)).filter(
+          (el) => el.offsetParent !== null || el === closeBtn
+        );
+      }
+
+      function setOpen(open) {
+        body.classList.toggle("drawer-open", open);
+        toggle.setAttribute("aria-expanded", open ? "true" : "false");
+        toggle.setAttribute("aria-label", open ? "Close menu" : "Open menu");
+        drawer.setAttribute("aria-hidden", open ? "false" : "true");
+        backdrop.setAttribute("aria-hidden", open ? "false" : "true");
+        if (open) {
+          backdrop.hidden = false;
+          drawer.removeAttribute("inert");
+        } else {
+          backdrop.hidden = true;
+          drawer.setAttribute("inert", "");
+        }
+
+        if (open) {
+          lastFocus = document.activeElement;
+          const focusables = getFocusables();
+          const firstNav = drawer.querySelector(".nav-drawer-links a");
+          const toFocus = firstNav || focusables[0];
+          if (toFocus) toFocus.focus({ preventScroll: true });
+        } else {
+          if (lastFocus && typeof lastFocus.focus === "function") {
+            lastFocus.focus({ preventScroll: true });
+          } else {
+            toggle.focus({ preventScroll: true });
+          }
+        }
+      }
+
+      function closeDrawer() {
+        setOpen(false);
+      }
+
+      toggle.addEventListener("click", () => {
+        const open = !body.classList.contains("drawer-open");
+        setOpen(open);
+      });
+
+      backdrop.addEventListener("click", closeDrawer);
+      closeBtn.addEventListener("click", closeDrawer);
+
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && body.classList.contains("drawer-open")) {
+          e.preventDefault();
+          closeDrawer();
+        }
+      });
+
+      drawer.querySelectorAll("a").forEach((link) => {
+        link.addEventListener("click", () => {
+          closeDrawer();
+        });
+      });
+
+      drawer.addEventListener("keydown", (e) => {
+        if (e.key !== "Tab" || !body.classList.contains("drawer-open")) return;
+        const focusables = getFocusables();
+        if (!focusables.length) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      });
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      wireGhlFromConfig();
+      initDrawer();
+      initReveal();
+      initNavScrollSpy();
+    });
+  </script>
+</body>
+</html>
