@@ -1,0 +1,25 @@
+name = "llm-lane-router"
+main = "src/index.js"
+compatibility_date = "2025-06-01"
+
+# Account secrets and lane entitlements. Read-mostly, so KV is the right shape
+# here — unlike balances, which need the Durable Object below.
+[[kv_namespaces]]
+binding = "ACCOUNTS"
+id = "REPLACE_WITH_YOUR_KV_ID"
+
+# Credit balances and free-call caps. See src/ledger.js for why this cannot be KV.
+[[durable_objects.bindings]]
+name = "LEDGER"
+class_name = "Ledger"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Ledger"]
+
+[vars]
+LOCAL_URL = "http://localhost:11434/v1/chat/completions"
+HOSTED_AVAILABLE = "true"
+
+# Set with `wrangler secret put <NAME>` — never commit these:
+#   PAID_KEY, HOSTED_KEY
