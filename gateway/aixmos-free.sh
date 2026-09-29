@@ -3,12 +3,12 @@
 # $0 per use, private (never leaves your network). No gateway secret needed.
 #
 # Setup once (per employee device, after they're on the TMMT Tailscale network):
-#   export AIXMOS_OLLAMA="http://100.64.0.1:11434"   # brain PC (brainiac-7) Tailscale IP
+#   export AIXMOS_OLLAMA="http://<brain-pc-tailscale-ip>:11434"   # brain PC (brainiac-7) Tailscale IP
 #   export AIXMOS_MODEL="tmmt-brain:latest"               # or llama3.1:8b
 # Use:
 #   bash aixmos-free.sh "summarize this customer message: ..."
 
-OLLAMA="${AIXMOS_OLLAMA:-http://100.64.0.1:11434}"
+OLLAMA="${AIXMOS_OLLAMA:?set AIXMOS_OLLAMA to your Ollama host, e.g. http://<brain-pc>:11434}"
 MODEL="${AIXMOS_MODEL:-tmmt-brain:latest}"
 [ -n "$*" ] || { echo 'Usage: bash aixmos-free.sh "your prompt"'; exit 1; }
 
