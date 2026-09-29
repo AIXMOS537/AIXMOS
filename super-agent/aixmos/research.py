@@ -83,7 +83,7 @@ def search(query, n=8):
 
 # ----------------------------------------------------------------- fetch ----
 # Shared address space (CGNAT, which Tailscale uses), "this network", benchmarking: not covered by is_private.
-_BLOCKED_NETS = [ipaddress.ip_network(n) for n in ("100.64.0.1/10", "0.0.0.0/8", "198.18.0.0/15")]
+_BLOCKED_NETS = [ipaddress.ip_network(n) for n in ("100.64.0.0/10", "0.0.0.0/8", "198.18.0.0/15")]
 
 def _blocked_ip(ip):
     a = ipaddress.ip_address(ip.split("%", 1)[0])
