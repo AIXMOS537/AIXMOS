@@ -402,7 +402,7 @@ class Handler(BaseHTTPRequestHandler):
                 ap = crm.book(out)
                 final = "Booked: %s on %s%s (%s). Please confirm the time and timezone with them." % (ap["name"] or ap["contact"], ap["when"], (" " + ap["tz"]) if ap["tz"] else "", ap["service"] or "appointment")
             else:
-                final = surfaces.run_intent(self, intent, req)   # e.g. /pathway: one implementation, shared with /v1
+                final = surfaces.run_intent(self, intent, req)   # e.g. /vault: one implementation, shared with /v1
         except Exception as e:
             final = "That capability hit an error: %s" % (str(e) or e.__class__.__name__)
         self._event({"message": {"role": "assistant", "content": final}, "done": True})

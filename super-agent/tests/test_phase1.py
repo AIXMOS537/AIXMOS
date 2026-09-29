@@ -13,7 +13,7 @@ os.environ["AIXMOS_MEMDIR"] = os.path.join(TMP, "memory")
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path[:0] = [ROOT, os.path.join(ROOT, "vendor")]
 
-from aixmos import settings, agent, research, media, knowledge, imagegen, genesis, pathway, intents  # noqa: E402
+from aixmos import settings, agent, research, media, knowledge, imagegen, genesis, intents  # noqa: E402
 import project_aixmos_server as srv  # noqa: E402
 
 assert settings.MEMDIR.startswith(TMP), "tests must never touch the real memory folder"
@@ -164,22 +164,20 @@ class ImageDefault(unittest.TestCase):
 # ------------------------------------------------------------ who-are-you onboarding ----
 class Onboarding(unittest.TestCase):
     def setUp(self):
-        for f in (genesis.FILE, pathway.FILE):
-            if os.path.exists(f):
-                os.remove(f)
+        if os.path.exists(genesis.FILE):
+            os.remove(genesis.FILE)
 
     def test_roles_offered_and_aliases(self):
         ids = [r["id"] for r in genesis.ROLES]
-        for r in ("student", "employee", "tmmt_pathway", "tmmt_operator", "aixmos_member"):
-            self.assertIn(r, ids)
+        self.assertEqual(sorted(ids), ["aixmos_member", "employee", "everything", "student"])
         self.assertEqual(genesis.normalize_role("builder"), "aixmos_member")
-        self.assertEqual(genesis.normalize_role("both"), "both")
+        self.assertEqual(genesis.normalize_role("all"), "everything")
         self.assertEqual(genesis.normalize_role("root"), "")
 
     def test_each_role_has_its_own_questions(self):
         self.assertIn("school", [q["id"] for q in genesis.questions_for("student")])
         self.assertIn("policy", [q["id"] for q in genesis.questions_for("employee")])
-        self.assertIn("vertical", [q["id"] for q in genesis.questions_for("tmmt_pathway")])
+        self.assertIn("building", [q["id"] for q in genesis.questions_for("aixmos_member")])
 
     def test_student_guardrails(self):
         genesis.save_intake("student", {"owner": "Sam", "building": "biology essay"})
@@ -192,52 +190,86 @@ class Onboarding(unittest.TestCase):
                                          "policy": "Yes, strict rules"})
         self.assertIn("Yes, strict rules", genesis.mission_context())
 
-    def test_pathway_plan_and_vault_pack(self):
-        genesis.save_intake("tmmt_pathway", {"owner": "Dee", "building": "own my city"})
-        ctx = genesis.mission_context()
-        self.assertIn("CANDIDATE", ctx)
-        self.assertIn("0 of 15", ctx)
-        self.assertTrue(os.path.isfile(os.path.join(pathway.PACK, "modules.md")))
-        self.assertIn("Module 1", genesis._fallback_plan(genesis.state(), []))
-        self.assertFalse(genesis.view()["console"])     # candidates don't get the operator console
-
     def test_everything_role_is_full_station(self):
-        self.assertEqual(genesis.normalize_role("all"), "everything")
-        self.assertTrue(genesis.is_operator("everything") and genesis.is_tmmt("everything"))
         genesis.save_intake("everything", {"owner": "Kai", "building": "a booking app"})
-        self.assertIn("Licensed TMMT operator", genesis.mission_context())
-        self.assertEqual(genesis.catalog()[0]["group"], "TMMT operator + everything")
-        self.assertTrue(os.path.isfile(os.path.join(pathway.PACK, "modules.md")))
+        self.assertEqual(genesis.state()["role"], "everything")
+        self.assertFalse(genesis.view()["console"])
+        self.assertIn("# Your first build plan", genesis._fallback_plan(genesis.state(), []))
 
 
-class PathwayOnFirstStart(unittest.TestCase):
-    def test_installer_seeded_role_gets_the_pack_at_boot(self):
+# ------------------------------------------------ 2.1.1: no business-network (TMMT) access ----
+class RetiredRoles(unittest.TestCase):
+    """Installs from before 2.1.1 may carry a retired role; they must land on the plain builder role."""
+    def test_retired_roles_become_builder(self):
+        for r in genesis.RETIRED_ROLES + ("pathway", "candidate", "operator"):
+            self.assertEqual(genesis.normalize_role(r), "aixmos_member", r)
+        with open(genesis.FILE, "w", encoding="utf-8") as f:     # what an old installer.seed_genesis() wrote
+            f.write('{"role": "%s"}' % genesis.RETIRED_ROLES[0])
+        self.assertEqual(genesis.state()["role"], "aixmos_member")
+        self.assertNotIn("operator", genesis.mission_context().lower())
+        os.remove(genesis.FILE)
+
+    def test_pathway_commands_are_gone(self):
+        for cmd in ("/pathway", "/pathway done 2", "/cert"):
+            d = intents.detect(cmd)
+            self.assertTrue(d is None or d.get("kind") not in ("pathway", "cert"), cmd)
+        self.assertNotIn("/pathway", " ".join(genesis.COMMANDS))
+        with self.assertRaises(ImportError):
+            from aixmos import pathway  # noqa: F401
+
+    def test_no_console_or_pathway_routes(self):
+        import inspect
         from aixmos import surfaces
-        shutil.rmtree(pathway.PACK, ignore_errors=True)
-        with open(genesis.FILE, "w", encoding="utf-8") as f:     # what installer.seed_genesis() writes
-            f.write('{"role": "tmmt_pathway"}')
-        surfaces.boot_index()
-        self.assertTrue(os.path.isfile(os.path.join(pathway.PACK, "modules.md")))
+        src = inspect.getsource(surfaces)
+        for route in ('"/operator"', '"/api/pathway"', '"/api/pathway/module"'):
+            self.assertNotIn(route, src)
 
+    def test_installer_removes_what_old_installers_left(self):
+        import importlib.util
+        from unittest import mock
+        spec = importlib.util.spec_from_file_location("aixmos_installer", os.path.join(ROOT, "installer", "installer.py"))
+        inst = importlib.util.module_from_spec(spec); spec.loader.exec_module(inst)
+        self.assertNotIn("tmmt", " ".join(inst.ROLES.values()))
+        dest, home = os.path.join(TMP, "old-install"), os.path.join(TMP, "fake-home")
+        for parts in inst.RETIRED_PATHS:
+            p = os.path.join(dest, *parts)
+            if parts[-1].endswith((".html", ".json")):
+                os.makedirs(os.path.dirname(p), exist_ok=True); open(p, "w").write("x")
+            else:
+                os.makedirs(p, exist_ok=True); open(os.path.join(p, "a.md"), "w").write("x")
+        os.makedirs(os.path.join(dest, "memory", "knowledge"), exist_ok=True)
+        open(os.path.join(dest, "memory", "knowledge", "index.json"), "w").write("{}")
+        os.makedirs(os.path.join(dest, "memory", "kit", "my-own-notes"), exist_ok=True)    # user content must survive
+        os.makedirs(os.path.join(home, "Desktop"), exist_ok=True)
+        lnk = os.path.join(home, "Desktop", "TMMT Operator Console.lnk")  # tmmt-retired
+        open(lnk, "w").write("x")
+        with mock.patch("os.path.expanduser", return_value=home):       # never the real desktop
+            inst.remove_retired(dest, lambda *a, **k: None)
+        for parts in inst.RETIRED_PATHS:
+            self.assertFalse(os.path.exists(os.path.join(dest, *parts)), parts)
+        self.assertFalse(os.path.exists(lnk))
+        self.assertFalse(os.path.exists(os.path.join(dest, "memory", "knowledge", "index.json")))
+        self.assertTrue(os.path.isdir(os.path.join(dest, "memory", "kit", "my-own-notes")))
 
-class Pathway(unittest.TestCase):
-    def setUp(self):
-        if os.path.exists(pathway.FILE):
-            os.remove(pathway.FILE)
-
-    def test_progress_and_commands(self):
-        self.assertEqual(len(pathway.modules()), 15)
-        self.assertIn("0 of 15", pathway.command(""))
-        self.assertIn("1 of 15", pathway.command("done 1"))
-        self.assertIn("Module 7", pathway.command("7"))
-        self.assertIn("70+", pathway.command("rubric"))
-        self.assertIn("$97/mo", pathway.command("doors"))
-        with self.assertRaises(ValueError):
-            pathway.mark(99)
-
-    def test_chat_command_detected(self):
-        self.assertEqual(intents.detect("/pathway done 2"), {"kind": "pathway", "arg": "done 2"})
-        self.assertEqual(intents.detect("/cert")["kind"], "pathway")
+    def test_no_tmmt_in_anything_that_ships(self):
+        """Guard: first-party files carry no TMMT roles, prices, playbooks, console or private repo. The only allowed
+        mentions are the migration lines for older installs, each marked with a tmmt-retired comment."""
+        import re
+        rx = re.compile(r"(?i)tmmt|/pathway\b|operator seat|dealer bundle|ops kit|\$97\b|AIXMOS537/TMMT|hailmary")
+        files = ["aixmos_local.py", "LOCAL-AGENT.md", "project_aixmos_server.py", "context_tools.py", "index.html", "README.md",
+                 "TODO.md", os.path.join("installer", "installer.py"), os.path.join("installer", "build_installer.py"),
+                 os.path.join("installer", "build_local_installer.py"), os.path.join("installer", "unix", "install.sh"),
+                 os.path.join("installer", "bundle", "START-HERE.txt"), os.path.join("installer", "stub", "AixmosSetup.cs")]
+        files += [os.path.join("aixmos", f) for f in os.listdir(os.path.join(ROOT, "aixmos")) if f.endswith(".py")]
+        hits = []
+        for rel in files:
+            p = os.path.join(ROOT, rel)
+            if not os.path.isfile(p):
+                continue
+            for n, line in enumerate(open(p, encoding="utf-8", errors="replace"), 1):
+                if rx.search(line) and "tmmt-retired" not in line:
+                    hits.append("%s:%d %s" % (rel, n, line.strip()[:90]))
+        self.assertEqual(hits, [], "TMMT content found in shipped files:\n" + "\n".join(hits))
 
 
 if __name__ == "__main__":

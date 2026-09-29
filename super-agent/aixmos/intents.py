@@ -7,10 +7,9 @@ VID_NOUNS = r"(?:video|clip|animation|movie|film|reel)"
 MAKE_VERBS = r"(?:generate|create|make|draw|render|paint|design|produce|show me|give me|build|imagine|visualize|visualise)"
 EDIT_WORDS = r"(?:trim|cut|crop|speed up|slow down|slow-mo|slowmo|mute|reverse|caption|subtitle|black and white|grayscale|greyscale|resize|rotate|flip|fade|brighter|darker|louder|quieter|gif|extract the audio|add text|overlay|watermark|stabili[sz]e|vertical|9:16|square|zoom|sepia|blur|sharpen|volume|loop)"
 BUILD_NOUNS = r"(?:script|app|application|project|website|landing page|cli|tool|program|dashboard|api|bot|scraper|automation|spreadsheet|report)"
-SLASH = r"^/(image|img|video|vid|edit|email|mail|agent|run|carousel|vault|kb|skill|use|lead|book|research|google|web|search|factcheck|fact-check|xref|pathway|cert)\s*(.*)$"
+SLASH = r"^/(image|img|video|vid|edit|email|mail|agent|run|carousel|vault|kb|skill|use|lead|book|research|google|web|search|factcheck|fact-check|xref)\s*(.*)$"
 ALIAS = {"img": "image", "vid": "video", "mail": "email", "run": "agent", "kb": "vault", "use": "skill",
-         "google": "research", "web": "research", "search": "research", "factcheck": "research", "fact-check": "research", "xref": "research",
-         "cert": "pathway"}
+         "google": "research", "web": "research", "search": "research", "factcheck": "research", "fact-check": "research", "xref": "research"}
 
 def detect(text, has_video=False):
     t = (text or "").strip()
@@ -28,7 +27,7 @@ def detect(text, has_video=False):
             return {"kind": "edit", "instruction": rest}
         if kind == "agent":
             return {"kind": "agent", "goal": rest}
-        if kind in ("carousel", "vault", "skill", "lead", "book", "research", "pathway"):
+        if kind in ("carousel", "vault", "skill", "lead", "book", "research"):
             return {"kind": kind, "arg": rest}
         return {"kind": kind, "prompt": rest}
     if re.match(r"^agent\s*[:,-]\s*\S", low):

@@ -6,7 +6,7 @@
 // On launch it reads its own tail, extracts the payload straight into the install dir (default
 // %LOCALAPPDATA%\AIXMOS, no admin), keeps the user's memory/ folder except memory/kit, then hands
 // off to the bundled Python runtime: runtime\python.exe setup\installer.py --installed-dir <dir>
-// plus any flags the user passed (--role, --tmmt-dev, --no-model, ...).
+// plus any flags the user passed (--role, --no-model, ...).
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;

@@ -17,9 +17,7 @@ No PyInstaller, no SDK: the stub compiles with the csc.exe every Windows 10/11 s
   vendor/              requests + pillow (cp314 wheels, match the bundled runtime)
   whisper/             whisper-cli.exe + DLLs + ggml-base.en.bin
   bin/                 ffmpeg.exe + ffprobe.exe
-  memory/kit/          the AI Building Kit + tmmt-operator-kit (regenerated through the brain's
-                       allowlist / domain / PII gates on every build)
-  operator/            TMMT operator console (generated handout from CommandCenter)
+  memory/kit/          the AI Building Kit
   runtime/             python-3.14.x-embed-amd64
 GATE: the build refuses to ship if any payload text file carries a live-looking secret.
 """
@@ -36,11 +34,7 @@ EXE_NAME = "AIXMOS-4THEPEOPLE-Setup.exe"
 APP_FILES = ["aixmos_local.py", "LOCAL-AGENT.md", "project_aixmos_server.py", "context_tools.py", "index.html", "README.md", "TODO.md"]
 SKIP_DIRS = {"__pycache__", ".git", "node_modules"}
 BRAIN = os.path.join(HOME, "AIXMOS-Brain")
-# Business material only (playbooks, scorecards, onboarding). The owner's blueprint, device, NAS
-# and local-AI notes stay home; build-operator-kit.ps1 -Business emits exactly this set.
-OPERATOR_KIT = os.path.join(BRAIN, "dist", "operator-kit-business")
 PII_MARKERS = os.path.join(HOME, ".aixmos-pii-markers.txt")
-OPERATOR_CONSOLE = os.path.join(HOME, "CommandCenter", "TeamDashboards", "_onboarding", "Dashboard-New-Operator.html")
 CSC = r"C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
 MAGIC = b"AIXMOS4P"
 SECRET_RX = re.compile(rb"(sb_secret_[A-Za-z0-9_-]{10,}|eyJhbGciOi[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}|(?<![A-Za-z0-9])sk-(?:ant-|proj-)?[A-Za-z0-9_-]{24,}|"
@@ -86,14 +80,6 @@ def make_icon():
     base.save(ico, format="ICO", sizes=[(s, s) for s in (256, 128, 64, 48, 32, 16)])
     return ico
 
-def refresh_operator_kit():
-    """Regenerate the shippable half of the brain through its own allowlist/domain/PII gates."""
-    script = os.path.join(BRAIN, "build-operator-kit.ps1")
-    if os.path.isfile(script):
-        subprocess.run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script, "-Business"], check=True)
-    if not os.path.isdir(OPERATOR_KIT):
-        raise SystemExit("operator kit missing at %s" % OPERATOR_KIT)
-
 def add_app(z, win=True):
     for f in APP_FILES:
         p = os.path.join(ROOT, f)
@@ -101,8 +87,6 @@ def add_app(z, win=True):
             z.write(p, f)
     add_tree(z, os.path.join(ROOT, "aixmos"), "aixmos")
     add_tree(z, os.path.join(ROOT, "memory", "kit"), "memory/kit")
-    add_tree(z, OPERATOR_KIT, "memory/kit/tmmt-operator-kit")
-    # The operator console is NOT shipped: it carries the owner's name, mail and dashboard link.
     # Owner rule 2026-09-21: no personal information to anyone. pii_gate enforces it.
     z.writestr("memory/workspace/README.txt", "Agent workspace. Files the super agent creates land here.\n")
 
@@ -111,7 +95,6 @@ def build_payload():
     if not py_zip:
         raise SystemExit("put python-3.14.x-embed-amd64.zip in installer/cache (https://www.python.org/ftp/python/)")
     ff = find_ffmpeg()
-    refresh_operator_kit()
     ico = make_icon()
     if os.path.exists(PAYLOAD):
         os.remove(PAYLOAD)
@@ -173,7 +156,7 @@ def pii_gate(path):
     with zipfile.ZipFile(path) as z:
         for i in z.infolist():
             if i.filename.startswith("operator/"):
-                bad.append(i.filename + " (operator console carries owner details)")
+                bad.append(i.filename + " (retired console folder: never ships)")
             if i.filename.startswith(third_party) or os.path.splitext(i.filename)[1].lower() not in TEXT_EXT:
                 continue
             low = z.read(i.filename).lower()
@@ -238,7 +221,6 @@ if __name__ == "__main__":
     ap.add_argument("--reuse-payload", action="store_true", help="keep the heavy payload, refresh app + setup files only")
     a = ap.parse_args()
     if a.reuse_payload and os.path.isfile(PAYLOAD):
-        refresh_operator_kit()
         refresh_setup_in_payload()
         ico = make_icon()
     else:

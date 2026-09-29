@@ -1,6 +1,6 @@
 """
 genesis.py -- the first boot. AIXMOS introduces itself, finds out WHO it is working for (student,
-employee, someone joining the TMMT operator pathway, a TMMT operator, or an entrepreneur/builder),
+employee, or a business owner / builder),
 asks the questions that fit that person, shows everything it can do on this machine, and writes a
 first plan they can start on today. The role also sets the guardrails the chat and agent follow.
 
@@ -16,7 +16,7 @@ too, so every skill, the CRM and the agent see them immediately.
   mission_context()       -> short block the chat + agent system prompts carry after intake
 """
 import os, json, time, threading
-from . import settings, skills, knowledge, llm, pathway
+from . import settings, skills, knowledge, llm
 
 FILE = os.path.join(settings.MEMDIR, "genesis.json")
 _LOCK = threading.Lock()
@@ -27,7 +27,7 @@ MISSION = {
     "lines": [
         "I am AIXMOS: a private AI operator that lives on this machine, not in someone else's cloud.",
         "Your conversations, your files and your plans stay here. Nothing leaves unless you connect it.",
-        "First I find out who you are: a student, an employee, someone joining the TMMT operator pathway, or a builder.",
+        "First I find out who you are: a student, an employee, or someone building a business or project.",
         "Then I learn what you are working on, plan it with you, and do the work alongside you.",
         "Project AIXMOS is a movement meant 4THEPEOPLE: serious AI capability on the hardware you already own, with no gatekeeper.",
     ],
@@ -48,42 +48,29 @@ ROLES = [
      "desc": "You work for a company. I help you get the job done faster: email, documents, research, planning and small automations, with your employer's data kept on this machine.",
      "intake_title": "Tell me about your work.",
      "intake_sub": "Your role and the tasks that eat your week. Leave out anything confidential; it stays on this machine either way."},
-    {"id": "tmmt_pathway", "icon": "\U0001F6A6", "title": "Join the TMMT operator pathway",
-     "desc": "You want to become a licensed TMMT operator. I walk you through the 15-module certification, the operator playbooks and your readiness score, one step at a time.",
-     "intake_title": "Tell me why you want to operate.",
-     "intake_sub": "Where you are, what you have done and how ready you are. Honest answers get you a better path."},
-    {"id": "tmmt_operator", "icon": "\U0001F697", "title": "TMMT operator",
-     "desc": "You already run rentals, detailing, dispatch or sales inside the TMMT network. I load the operator playbooks, scorecards and your console.",
-     "intake_title": "Tell me about your operation.",
-     "intake_sub": "Your lot, your customers and what is in the way. It stays on this machine."},
-    {"id": "aixmos_member", "icon": "⚡", "title": "Entrepreneur / builder",
+    {"id": "aixmos_member", "icon": "⚡", "title": "Business owner / builder",
      "desc": "You are building your own business, product or side project. I become your build partner.",
      "intake_title": "Tell me what you are building.",
      "intake_sub": "The more you give me, the sharper the plan. Everything stays on this machine."},
     {"id": "everything", "icon": "\U0001F310", "title": "Everything (full station)",
-     "desc": "Every feature on: your build partner, the TMMT operator playbooks and console, the certification path and, from the installer, the TMMT app developer lane.",
+     "desc": "Every feature on: study partner, work helper and build partner in one station.",
      "intake_title": "Tell me what you run and what you are building.",
      "intake_sub": "Your operation, your projects and what is in the way. Everything stays on this machine."},
 ]
-LEGACY_ROLES = {"both": "TMMT operator + builder"}          # older installs; still honoured, no longer offered
-ROLE_IDS = {r["id"] for r in ROLES} | set(LEGACY_ROLES)
+# Roles from installs before 2.1.1 that are no longer offered: they become aixmos_member.  # tmmt-retired
+RETIRED_ROLES = ("tmmt_pathway", "tmmt_operator", "both")  # tmmt-retired
+ROLE_IDS = {r["id"] for r in ROLES}
 ALIASES = {"builder": "aixmos_member", "entrepreneur": "aixmos_member", "movement": "aixmos_member",
-           "pathway": "tmmt_pathway", "candidate": "tmmt_pathway", "operator": "tmmt_operator",
-           "all": "everything", "full": "everything"}
+           "all": "everything", "full": "everything",
+           **{r: "aixmos_member" for r in RETIRED_ROLES + ("pathway", "candidate", "operator")}}  # tmmt-retired
 
 def normalize_role(role):
     r = str(role or "").strip().lower()
     r = ALIASES.get(r, r)
     return r if r in ROLE_IDS else ""
 
-def is_operator(role):
-    return role in ("tmmt_operator", "both", "everything")
-
-def is_tmmt(role):
-    return role in ("tmmt_operator", "both", "everything", "tmmt_pathway")
-
 def role_title(role):
-    return next((r["title"] for r in ROLES if r["id"] == role), LEGACY_ROLES.get(role, "builder"))
+    return next((r["title"] for r in ROLES if r["id"] == role), "builder")
 
 def _q(qid, label, ph="", profile=None, required=False, choices=None):
     q = {"id": qid, "label": label, "ph": ph, "profile": profile}
@@ -135,21 +122,7 @@ EMPLOYEE = [
     _q("hours", "How many hours a week do you want back?", "e.g. 5"),
     LEVEL, VOICE,
 ]
-PATHWAY = [
-    OWNER,
-    _q("area", "Where are you based?", "City / region", "area"),
-    _q("vertical", "Which side of the business pulls you in?",
-       choices=["Rentals", "Detailing", "Dispatch / fleet", "Sales / leasing", "Not sure yet"]),
-    _q("experience", "What have you done before that counts?", "Cars, rentals, sales, customer service, running anything..."),
-    _q("building", "Why do you want to become a TMMT operator?", "Your real reason", required=True),
-    _q("readiness", "How soon do you want to start?", choices=["Just exploring", "In 30-90 days", "Ready now"]),
-    _q("budget", "How would you describe your startup budget? (stays on this machine)",
-       choices=["Not yet", "Some set aside", "Ready to invest"]),
-    _q("goal", "What does a win look like 90 days from now?", "Certified, first customers, a lot signed..."),
-    BLOCKERS, HOURS, LEVEL, VOICE,
-]
-QUESTIONS_BY_ROLE = {"student": STUDENT, "employee": EMPLOYEE, "tmmt_pathway": PATHWAY,
-                     "tmmt_operator": BUSINESS, "aixmos_member": BUSINESS, "both": BUSINESS, "everything": BUSINESS}
+QUESTIONS_BY_ROLE = {"student": STUDENT, "employee": EMPLOYEE, "aixmos_member": BUSINESS, "everything": BUSINESS}
 QUESTIONS = BUSINESS
 
 def questions_for(role):
@@ -181,17 +154,6 @@ CATALOG = [
     ]},
 ]
 
-PATHWAY_ITEMS = [
-    {"icon": "\U0001F6A6", "name": "Operator certification (15 modules)", "what": "Learn, Earn, Churn: one module at a time with a drill and a pass mark. Your progress stays on this machine.", "needs": None, "try": "/pathway"},
-    {"icon": "\U0001F4CA", "name": "Readiness rubric", "what": "The 100-point score a TMMT lead uses to certify you (70+ certified, 75+ senior, 85+ master).", "needs": None, "try": "/pathway rubric"},
-    {"icon": "\U0001F6A7", "name": "Operator fences", "what": "The rules every operator works inside: no income claims, draft never send, no keys, no credit-repair talk.", "needs": None, "try": "/pathway fences"},
-    {"icon": "\U0001F4D6", "name": "Operator playbooks", "what": "Rentals, detailing, dispatch/fleet and sales-leasing playbooks, read-only in the vault.", "needs": "knowledge", "try": "/vault rentals playbook"},
-]
-TMMT_ITEMS = [
-    {"icon": "\U0001F697", "name": "TMMT operator playbooks", "what": "Rentals, detailing, dispatch/fleet and sales-leasing playbooks, the operator scorecard and onboarding SOPs, all in the vault.", "needs": "knowledge", "try": "/vault operator scorecard"},
-    {"icon": "\U0001F39B", "name": "Operator console", "what": "Your role-locked TMMT console: briefing, dispatch, cases, calendar, assistant. Voice and Ctrl+K.", "needs": None, "try": None},
-    {"icon": "\U0001F6A6", "name": "Certification progress", "what": "The 15-module operator certification and the readiness rubric.", "needs": None, "try": "/pathway"},
-]
 STUDENT_ITEMS = [
     {"icon": "\U0001F9D1‍\U0001F3EB", "name": "Study partner", "what": "Explains any topic step by step, quizzes you and checks your understanding. It teaches; the work you hand in stays yours.", "needs": "ollama", "try": "Explain how compound interest works like I'm new to it, then quiz me with 3 questions"},
     {"icon": "\U0001F5D3", "name": "Assignment & exam planner", "what": "Turns your deadlines into a week-by-week plan saved in your workspace.", "needs": "ollama", "try": "/agent make a study schedule for the next 4 weeks as a markdown file in the workspace"},
@@ -207,10 +169,6 @@ EMPLOYEE_ITEMS = [
 ROLE_GROUPS = {
     "student": ("For your studies", STUDENT_ITEMS),
     "employee": ("For your job", EMPLOYEE_ITEMS),
-    "tmmt_pathway": ("Your operator pathway", PATHWAY_ITEMS),
-    "tmmt_operator": ("TMMT operator", TMMT_ITEMS),
-    "both": ("TMMT operator", TMMT_ITEMS),
-    "everything": ("TMMT operator + everything", TMMT_ITEMS + PATHWAY_ITEMS[1:3]),
 }
 
 def _read():
@@ -233,6 +191,8 @@ def state():
         d = _read()
     d.setdefault("done", False)
     d.setdefault("role", "")
+    if d["role"] in RETIRED_ROLES:          # an install from before 2.1.1 picked a retired role
+        d["role"] = "aixmos_member"
     d.setdefault("answers", {})
     return d
 
@@ -252,11 +212,6 @@ def catalog(caps=None, role=None):
         groups.insert(0, {"group": name, "items": [dict(i, status=_status(i["needs"], caps)) for i in items]})
     return groups
 
-def operator_console():
-    """Path of the TMMT operator console the installer drops next to the app, if present."""
-    p = os.path.join(settings.ROOT, "operator", "TMMT-Operator-Console.html")
-    return p if os.path.isfile(p) else ""
-
 def view(caps=None):
     st = state()
     role = st.get("role")
@@ -264,16 +219,7 @@ def view(caps=None):
             "questions_by_role": QUESTIONS_BY_ROLE,
             "catalog": catalog(caps, role), "profile": skills.profile(),
             "assistant": settings.pref("assistant_name") or "AIXMOS",
-            "console": bool(operator_console()) and is_operator(role),
-            "pathway": pathway.status_text() if is_tmmt(role) else ""}
-
-def _ensure_pathway():
-    """TMMT roles get the pathway in the vault; re-index in the background when it was (re)written."""
-    try:
-        if pathway.ensure_pack():
-            threading.Thread(target=knowledge.ingest, daemon=True).start()
-    except Exception:
-        pass
+            "console": False}
 
 def save_intake(role, answers):
     answers = {k: str(v or "").strip()[:1500] for k, v in (answers or {}).items() if isinstance(k, str)}
@@ -294,8 +240,6 @@ def save_intake(role, answers):
         d.setdefault("answers", {}).update(answers)
         d["intake_ts"] = time.time()
         _write(d)
-    if is_tmmt(role):
-        _ensure_pathway()
     return state()
 
 def _brief(st):
@@ -306,9 +250,6 @@ def _brief(st):
 ROLE_SKILLS = {
     "student": ["prompt-vault", "app-builder", "claude-code-starter-kit", "side-hustle-vault"],
     "employee": ["business-prompt-vault", "local-automation", "dashboard-kit", "prompt-vault"],
-    "tmmt_pathway": ["sales-pack", "lead-gen", "appointment-setter", "receptionist"],
-    "tmmt_operator": ["sales-pack", "appointment-setter", "missed-call", "lead-gen"],
-    "both": ["sales-pack", "appointment-setter", "missed-call", "business-builder"],
     "everything": ["business-builder", "sales-pack", "appointment-setter", "app-builder"],
 }
 
@@ -356,21 +297,6 @@ def _fallback_plan(st, picks):
                  "- Every Friday, ask me to draft your weekly status update from your notes.",
                  "- Automate one more repetitive task a week, then measure the hours you got back.", "",
                  "## Skills to switch on", ""] + skills_md
-    elif role == "tmmt_pathway":
-        mods = pathway.modules()
-        lines = ["# Your TMMT operator pathway", "", "**For:** %s  |  **Why:** %s  |  **90-day win:** %s" % (who, building, goal), "",
-                 "## This week (%s hours)" % hours] + \
-                ["%d. **Module %d: %s.** %s Drill: %s Type `/pathway %d`, then `/pathway done %d` when you pass." %
-                 (i + 1, m["n"], m["title"], m["objective"], m["drill"], m["n"], m["n"]) for i, m in enumerate(mods[:3])] + \
-                ["", "## Next 30 days",
-                 "- Finish modules 4-9 (the Earn track): the floor desk, fleet, follow-up, command center and the $97 seat.",
-                 "- Read the fences today: `/pathway fences`. No income promises, draft never send, no credit-repair talk.",
-                 "- Practice the pitch with `/skill sales-pack`.", "",
-                 "## Milestones to certification",
-                 "- All 15 modules done (`/pathway all` shows progress).",
-                 "- Self-score on the 100-point rubric (`/pathway rubric`); 70+ is the bar.",
-                 "- Ask a TMMT lead to score and certify you. Certification comes from TMMT, not from me.", "",
-                 "## Skills to switch on", ""] + skills_md
     else:
         lines = ["# Your first build plan", "",
                  "**For:** %s  |  **Building:** %s  |  **90-day win:** %s" % (who, building, goal), "",
@@ -388,8 +314,7 @@ def _fallback_plan(st, picks):
     return "\n".join(lines)
 
 COMMANDS = ["/agent <goal>", "/research <question>", "/vault <question>", "/skill <name>", "/lead <details>",
-            "/book <details>", "/carousel <topic>", "/image <prompt>", "/video <prompt>", "/email <request>",
-            "/pathway [module number | done <n> | rubric | fences]"]
+            "/book <details>", "/carousel <topic>", "/image <prompt>", "/video <prompt>", "/email <request>"]
 _VERBS = {c.split()[0][1:] for c in COMMANDS}
 
 def _clean_commands(md):
@@ -411,13 +336,8 @@ ROLE_BRIEFS = {
                "Never offer to write graded work for them; offer to explain, outline, quiz and give feedback.",
     "employee": "The client is an EMPLOYEE. Write a work plan that saves them hours: templates, drafts, small automations. "
                 "Remind them to follow their company's AI policy; their work data stays on this machine.",
-    "tmmt_pathway": "The client is a CANDIDATE on the TMMT operator pathway, not an operator yet. The plan walks them through "
-                    "the 15 certification modules in order (use the module list given), the rubric (70+ to certify, granted by a TMMT lead) "
-                    "and the fences. Never promise income. Operators are licensed partners, not employees.",
-    "tmmt_operator": "The client is a licensed TMMT operator running a lot or desk. Plan around leads, follow-up, fleet and the operator playbooks.",
-    "both": "The client is a TMMT operator who also builds their own projects.",
-    "everything": "The client runs the full station: a TMMT operator who also builds their own business, products and apps. "
-                  "Plan across the operation (leads, follow-up, fleet, playbooks) and one build project.",
+    "everything": "The client runs the full station: study, work and their own business, products and apps. "
+                  "Plan across their work and one build project.",
 }
 
 def plan(timeout=300):
@@ -439,8 +359,6 @@ def plan(timeout=300):
               "(use exactly these: %s), '## What I need from you' (2-3 bullets). Under 380 words."
               % (ROLE_BRIEFS.get(role, "The client is building their own business or project."), ", ".join(picks)))
     user = "Client intake:\n" + brief + (("\n\nRelevant playbook knowledge:\n" + kb) if kb else "")
-    if role == "tmmt_pathway":
-        user += "\n\nCertification modules:\n" + "\n".join("%d. %s: %s" % (m["n"], m["title"], m["objective"]) for m in pathway.modules())
     user += ("\n\nThe ONLY commands that exist: " + ", ".join(COMMANDS) +
              ". A skill is switched on with '/skill <name>'. Never write any other slash command."
              "\nExample action: 1. **Map your offer.** Type `/research how car rental companies in Dallas price weekly rentals` and I will bring back a cited report.")
@@ -480,22 +398,13 @@ def seed(role):
             d["role"] = role
         d.setdefault("installed_ts", time.time())
         _write(d)
-    if is_tmmt(role):
-        _ensure_pathway()
 
 ROLE_RULES = {
     "student": ["Academic integrity: teach, explain, quiz, outline and give feedback. Do not write graded work for them to submit as "
                 "their own; if asked, offer to coach them through it instead. Encourage citing sources."],
     "employee": ["Their employer's information stays on this machine. Do not suggest pasting confidential work into cloud tools.",
                  "Follow their company's AI policy (they said: %s). You draft; they review and send."],
-    "tmmt_pathway": ["They are a CANDIDATE on the TMMT operator pathway, not an operator yet. Teach the 15 modules in order.",
-                     "Certification is 70+ on the 100-point rubric and is granted by a TMMT lead, never by you. Operators are licensed partners, not employees.",
-                     "Never promise or estimate income. Price doors are only: $97/mo operator seat (500 tokens), Ops Kit $997 + $297/mo, "
-                     "Dealer Bundle $3,497 + $697/mo. No credit-repair or score-guarantee language. Draft outreach, never auto-send."],
-    "tmmt_operator": ["Licensed TMMT operator. Fences: no income claims, draft outreach and never auto-send, no customer financials, "
-                      "no credit-repair or score-guarantee language, no keys or .env files."],
 }
-ROLE_RULES["both"] = ROLE_RULES["everything"] = ROLE_RULES["tmmt_operator"]
 
 def mission_context():
     st = state()
@@ -509,8 +418,6 @@ def mission_context():
             bits.append("%s: %s" % (label, a[k][:300]))
     for rule in ROLE_RULES.get(role, []):
         bits.append(rule % (a.get("policy") or "not sure") if "%s" in rule else rule)
-    if is_tmmt(role):
-        bits.append(pathway.status_text() + " The /pathway command shows modules and marks them done.")
     bits.append("Serve the Project AIXMOS mission: local-first AI for the people. Tie suggestions back to their goal and 90-day win; "
                 "suggest the next concrete step and the exact command when useful.")
     return "\n".join(bits)

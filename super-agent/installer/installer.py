@@ -8,21 +8,18 @@ It is stdlib-only, so it runs before the vendored packages are wired. On the tar
 
   2. wires the embeddable Python to the app (._pth) so no system Python is required
   3. installs Ollama if missing (official installer, silent) and pulls the local model
-  4. asks who the machine is for -- student / employee / TMMT pathway / TMMT operator / builder /
-     Everything (full station) -- and provisions it:
+  4. asks who the machine is for -- student / employee / business owner or builder / everything --
+     and provisions it:
        * everyone: the super agent, the playbook vault, first-boot Genesis intro seeded with the role
-       * TMMT roles: operator playbooks in the vault + the operator console on the desktop
-       * --tmmt-dev (or yes at the prompt): Git, Node, GitHub CLI, Claude Code, the canon TMMT repo
-         (AIXMOS537/TMMT -- private; needs an owner-granted GitHub account) with a secrets-free .env
        * Claude Code, when present, gets AIXMOS registered as an MCP server
+       * upgrades from before 2.1.1: files for retired roles that an older installer placed here are removed
   5. writes Start/Stop launchers, a desktop shortcut and a per-user logon autostart
   6. starts the server and opens the first-boot introduction
 
 Re-running upgrades the app and keeps memory/ (conversation, settings, CRM, media, genesis).
-Flags: --role student|employee|tmmt_pathway|tmmt_operator|builder|everything  --tmmt-dev  --no-tmmt-dev
-       --port N  --no-ollama  --no-model  --no-autostart  --no-launch  --quiet
-"everything" = every feature + operator kit + console + certification path, and the TMMT developer lane
-runs without asking (skip it with --no-tmmt-dev).
+Flags: --role student|employee|builder|everything
+       --port N  --no-ollama  --no-model  --no-autostart  --no-launch  --no-shortcuts  --no-mcp  --quiet
+2.1.1 gives no business-network access of any kind: no network roles, playbooks, prices, console or private repository.
 Secrets never ship: no API key, service-role key or .env value is in the payload. Keys are
 entered by the person who owns them, on their own machine, in the Integrations panel.
 """
@@ -33,14 +30,13 @@ PORT = 8770
 MODEL = "qwen2.5:3b"
 OLLAMA_URL = "https://ollama.com/download/OllamaSetup.exe"
 OLLAMA_PUBLISHER = "Ollama"          # must appear in the Authenticode signer subject
-TMMT_REPO = "https://github.com/AIXMOS537/TMMT.git"   # canonical private repo; access granted separately
-ROLES = {"1": "student", "2": "employee", "3": "tmmt_pathway", "4": "tmmt_operator", "5": "aixmos_member", "6": "everything"}
+ROLES = {"1": "student", "2": "employee", "3": "aixmos_member", "4": "everything"}
 ROLE_ALIASES = {"builder": "aixmos_member", "entrepreneur": "aixmos_member", "movement": "aixmos_member",
-                "pathway": "tmmt_pathway", "candidate": "tmmt_pathway", "operator": "tmmt_operator",
                 "all": "everything", "full": "everything"}
-VALID_ROLES = set(ROLES.values()) | {"both"}          # "both" = older installs; still honoured
-OPERATOR_ROLES = ("tmmt_operator", "both", "everything")   # get the role-locked console and the dev lane
-TMMT_ROLES = OPERATOR_ROLES + ("tmmt_pathway",)        # get the operator playbooks + certification path
+VALID_ROLES = set(ROLES.values())
+# What installers before 2.1.1 could leave inside the install folder / on the desktop for the retired roles.
+RETIRED_PATHS = (("memory", "kit", "tmmt-operator-kit"), ("memory", "kit", "tmmt-operator-pathway"),  # tmmt-retired
+                 ("operator", "TMMT-Operator-Console.html"), ("memory", "pathway.json"))  # tmmt-retired
 NOWIN = 0x08000000
 
 class Log:
@@ -208,11 +204,9 @@ def choose_role(a, log):
         print("\n  Who is this machine for?")
         print("    1) Student         school, a program, or teaching yourself")
         print("    2) Employee        get your job done faster; work data stays on this machine")
-        print("    3) TMMT pathway    you want to become a licensed TMMT operator")
-        print("    4) TMMT operator   you already run rentals / detailing / dispatch / sales for TMMT")
-        print("    5) Entrepreneur    build your own business, product or project")
-        print("    6) Everything      full station: all of the above + the TMMT app developer lane")
-        role = ROLES.get(ask("  Choose 1-6 [5]: ", "5", a.quiet), "aixmos_member")
+        print("    3) Business owner  build your own business, product or project")
+        print("    4) Everything      full station: all of the above")
+        role = ROLES.get(ask("  Choose 1-4 [3]: ", "3", a.quiet), "aixmos_member")
     log("    role: %s" % role)
     return role
 
@@ -240,37 +234,28 @@ def shortcut(name, target, workdir, icon, desc, log):
           % (name, target.replace("'", "''"), workdir.replace("'", "''"), icon.replace("'", "''"), desc.replace("'", "''")))
     run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps], log, timeout=60)
 
-def tmmt_dev(log, quiet):
-    """Developer lane for TMMT operators who will work on the app itself. Every step is non-fatal."""
-    log("    TMMT developer tools")
-    if not shutil.which("winget"):
-        log("    winget (App Installer) is missing -- install 'App Installer' from the Microsoft Store, then re-run with --tmmt-dev"); return
-    for pid, label, exe in (("Git.Git", "Git", "git"), ("OpenJS.NodeJS.LTS", "Node.js LTS", "node"), ("GitHub.cli", "GitHub CLI", "gh")):
-        if shutil.which(exe):
-            log("    %s already installed" % label); continue
-        run(["winget", "install", "--id", pid, "-e", "--silent", "--accept-source-agreements", "--accept-package-agreements"], log, timeout=1800)
-    refresh_path()
-    if not shutil.which("claude") and shutil.which("npm"):
-        run(["cmd", "/c", "npm", "install", "-g", "@anthropic-ai/claude-code"], log, timeout=1800)
-        refresh_path()
-    repo = os.path.join(os.path.expanduser("~"), "TMMT-canon")
-    gh = shutil.which("gh"); git = shutil.which("git")
-    if os.path.isdir(os.path.join(repo, ".git")):
-        log("    canon repo already at %s (not touched; pull it yourself with --ff-only)" % repo)
-    elif gh and git:
-        if run([gh, "auth", "status"], log, timeout=30) != 0 and not quiet:
-            log("    sign in to GitHub with the account the owner granted access to AIXMOS537/TMMT")
-            subprocess.call([gh, "auth", "login", "--web", "--git-protocol", "https"])
-        if run([git, "clone", TMMT_REPO, repo], log, timeout=1800) == 0:
-            env, example = os.path.join(repo, ".env"), os.path.join(repo, ".env.example")
-            if not os.path.exists(env) and os.path.exists(example):
-                shutil.copyfile(example, env)
-                log("    .env created from .env.example (no secrets; the owner issues keys separately)")
-            log("    next: cd %s ; npm install ; npm run dev  -> http://localhost:3000" % repo)
-        else:
-            log("    could not clone the canon repo. It is private: ask the owner to add your GitHub account to AIXMOS537/TMMT, then re-run with --tmmt-dev")
-    else:
-        log("    git / gh not on PATH yet -- open a new terminal and re-run with --tmmt-dev")
+def remove_retired(dest, log):
+    """Upgrades only: delete the retired-role material an installer before 2.1.1 placed here (never user files), then drop
+    the derived knowledge index so the vault is rebuilt without it on next start."""
+    removed = 0
+    for parts in RETIRED_PATHS:
+        p = os.path.join(dest, *parts)
+        if os.path.isdir(p):
+            shutil.rmtree(p, ignore_errors=True); removed += 1
+        elif os.path.isfile(p):
+            os.remove(p); removed += 1
+    op = os.path.join(dest, "operator")
+    if os.path.isdir(op) and not os.listdir(op):
+        os.rmdir(op)
+    for desk in (os.path.join(os.path.expanduser("~"), "Desktop"), os.path.join(os.path.expanduser("~"), "OneDrive", "Desktop")):
+        lnk = os.path.join(desk, "TMMT Operator Console.lnk")  # tmmt-retired
+        if os.path.isfile(lnk):
+            os.remove(lnk); removed += 1
+    if removed:
+        idx = os.path.join(dest, "memory", "knowledge", "index.json")
+        if os.path.isfile(idx):
+            os.remove(idx)
+        log("    removed %d retired-role item(s) left by an older installer; the vault index will rebuild" % removed)
 
 def register_mcp(dest, port, log):
     py = os.path.join(dest, "runtime", "python.exe")
@@ -288,24 +273,7 @@ def provision(dest, a, log):
     log("[4/6] Provisioning this machine")
     role = choose_role(a, log)
     seed_genesis(dest, role)
-    ico = os.path.join(dest, "aixmos.ico")
-    if role in TMMT_ROLES:
-        kit = os.path.join(dest, "memory", "kit", "tmmt-operator-kit")
-        log("    TMMT operator playbooks in the vault: %s" % ("yes" if os.path.isdir(kit) else "missing"))
-        if role == "tmmt_pathway":
-            log("    certification path: type /pathway in chat after first boot")
-    if role in OPERATOR_ROLES:
-        console = os.path.join(dest, "operator", "TMMT-Operator-Console.html")
-        if os.path.isfile(console):
-            shortcut("TMMT Operator Console", console, os.path.dirname(console), ico, "TMMT operator console", log)
-        if a.no_tmmt_dev:
-            want_dev = False
-        elif a.tmmt_dev or role == "everything":
-            want_dev = True
-        else:
-            want_dev = ask("  Also set up TMMT developer tools (Git, Node, GitHub CLI, Claude Code, the app repo)? y/N: ", "n", a.quiet).lower().startswith("y")
-        if want_dev:
-            tmmt_dev(log, a.quiet)
+    remove_retired(dest, log)
     if not a.no_mcp:
         register_mcp(dest, a.port, log)
     return role
@@ -361,7 +329,6 @@ def main():
     ap = argparse.ArgumentParser(description="AIXMOS 4THEPEOPLE setup")
     ap.add_argument("--installed-dir", required=True)
     ap.add_argument("--role", default="")
-    ap.add_argument("--tmmt-dev", action="store_true"); ap.add_argument("--no-tmmt-dev", action="store_true")
     ap.add_argument("--port", type=int, default=PORT)
     ap.add_argument("--no-ollama", action="store_true"); ap.add_argument("--no-model", action="store_true")
     ap.add_argument("--no-autostart", action="store_true"); ap.add_argument("--no-launch", action="store_true")

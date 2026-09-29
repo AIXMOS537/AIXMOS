@@ -21,7 +21,7 @@ For a tools-only setup, from a terminal:
 
 The client package contains application code, Python, media dependencies and
 blank client data. It does not contain the owner's memory, keys, contacts,
-business knowledge packs or operator console. Add client-specific knowledge
+business knowledge packs or business console. Add client-specific knowledge
 through the app. The old full-bundle installer remains a separate artifact.
 
 ## Pair a client

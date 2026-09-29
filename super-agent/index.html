@@ -1741,7 +1741,7 @@ function gBoot(){
   $('#gxNext').onclick = ()=>{ try{speechSynthesis.cancel();}catch(e){} G.step=1; gRender(); };
 }
 function gRole(){
-  gShell('First, who are you?', 'Student, employee, or joining the TMMT operator pathway? This decides what I load, how I help and what I will not do for you. Change it any time from the &#128752; button.',
+  gShell('First, who are you?', 'Student, employee, or building something of your own? This decides what I load, how I help and what I will not do for you. Change it any time from the &#128752; button.',
     '<div class="gx-roles">'+G.data.roles.map(r=>'<button class="gx-role'+(G.role===r.id?' sel':'')+'" data-r="'+r.id+'"><div class="ic">'+r.icon+'</div><h3>'+gEsc(r.title)+'</h3><p>'+gEsc(r.desc)+'</p></button>').join('')+'</div>',
     '<button class="gx-btn" id="gxBack">&larr; Back</button><button class="gx-btn go" id="gxNext"'+(G.role?'':' disabled')+'>Continue &rarr;</button>');
   $$('.gx-role').forEach(b=>b.onclick=()=>{ G.role=b.dataset.r; gRender(); });
@@ -1775,7 +1775,6 @@ function gPowers(){
     '<div class="gx-cap"><div class="hd"><span style="font-size:18px">'+c.icon+'</span><b>'+gEsc(c.name)+'</b><span class="gx-st '+c.status+'">'+c.status+'</span></div>'
     + '<p>'+gEsc(c.what)+'</p>'
     + (c.try ? '<button class="gx-try" data-try="'+gEsc(c.try)+'">Try: '+gEsc(c.try.length>46?c.try.slice(0,46)+'…':c.try)+'</button>' : '')
-    + (c.name==='Operator console' && G.data.console ? '<button class="gx-try" data-open="/operator">Open console</button>' : '')
     + '</div>').join('')+'</div>').join('');
   gShell('Here is everything I can do for you.', '<b style="color:#3ddc97">ready</b> works now &middot; <b style="color:var(--warn)">setup</b> needs an account or key under Integrations &middot; press Try to see it live.', body,
     '<button class="gx-btn" id="gxBack">&larr; Back</button><button class="gx-btn go" id="gxNext">Write my first build plan &rarr;</button>');
@@ -1790,11 +1789,10 @@ async function gPlan(){
     gShell('Your first build plan.', 'Saved to our conversation too, so we can pick it straight up in chat.',
       '<div class="gx-plan">'+gMd(p.plan)+'</div>'
       + (sk.length ? '<p class="sub" style="margin-top:14px">Switch on a skill now: '+sk.map(s=>'<button class="gx-pill" data-sk="'+gEsc(s)+'">/skill '+gEsc(s)+'</button>').join(' ')+'</p>' : ''),
-      '<button class="gx-btn" id="gxRedo">Rewrite plan</button>'+(G.data.console?'<button class="gx-btn" id="gxConsole">Open operator console</button>':'')+'<button class="gx-btn go" id="gxDone">Enter the command deck &rarr;</button>');
+      '<button class="gx-btn" id="gxRedo">Rewrite plan</button>'+'<button class="gx-btn go" id="gxDone">Enter the command deck &rarr;</button>');
     let pick = '';
     $$('.gx-pill[data-sk]').forEach(b=>b.onclick=()=>{ pick = pick===b.dataset.sk?'':b.dataset.sk; $$('.gx-pill[data-sk]').forEach(x=>x.classList.toggle('sel', x.dataset.sk===pick)); });
     $('#gxRedo').onclick=()=>{ G.plan=null; gRender(); };
-    if($('#gxConsole')) $('#gxConsole').onclick=()=>window.open('/operator','_blank');
     $('#gxDone').onclick=async()=>{ try{ await apiPost('/api/genesis/complete',{skill:pick}); }catch(e){} gClose(); showView('chat'); loadMemory(); toast(pick?('Skill on: '+pick):'Welcome aboard. Let’s build.'); };
   };
   if(G.plan){ done(G.plan); return; }

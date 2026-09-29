@@ -102,9 +102,6 @@ def run_intent(h, intent, req):
         ap = crm.book(out)
         return "Booked: %s on %s%s (%s). Confirm the time and timezone with them." % (
             ap["name"] or ap["contact"], ap["when"], (" " + ap["tz"]) if ap["tz"] else "", ap["service"] or "appointment")
-    if kind == "pathway":
-        from . import pathway
-        return pathway.command(intent.get("arg") or "")
     return "Unknown command."
 
 # ------------------------------------------------------------------ routes ----
@@ -152,17 +149,6 @@ def route_get(h, p, g):
         h._json({"tools": agent.tool_schemas(g("autonomy") or "full")})
     elif p == "/api/genesis":
         h._json(genesis.view(h.capabilities()))
-    elif p == "/api/pathway":
-        from . import pathway
-        h._json({"modules": pathway.modules(), "progress": pathway.progress(), "status": pathway.status_text(),
-                 "rubric": pathway.RUBRIC, "doors": pathway.DOORS, "fences": pathway.FENCES})
-    elif p == "/operator":
-        path = genesis.operator_console()
-        if not path:
-            h._fail("no operator console on this install", 404)
-        else:
-            with open(path, "rb") as f:
-                h._send(200, "text/html; charset=utf-8", f.read())
     elif p == "/v1/models":
         openai_models(h)
     elif p == "/mcp":
@@ -263,9 +249,6 @@ def route_post(h, p):
         h._json({"state": genesis.complete(h._body().get("skill") or None)})
     elif p == "/api/genesis/reset":
         h._json({"state": genesis.reset()})
-    elif p == "/api/pathway/module":
-        from . import pathway
-        b = h._body(); h._json({"progress": pathway.mark(b.get("n"), b.get("done", True)), "status": pathway.status_text()})
     elif p == "/v1/chat/completions":
         openai_chat(h)
     elif p == "/mcp":
@@ -379,11 +362,6 @@ def mcp(h):
 # -------------------------------------------------------------------- boot ----
 def boot_index():
     try:
-        # The installer records the role before anyone answers the intake: make sure a TMMT role's
-        # certification path is in the vault on first start, so /vault and the agent can find it.
-        if genesis.is_tmmt(genesis.state().get("role")):
-            from . import pathway
-            pathway.ensure_pack()
         st = knowledge.stats()
         root = settings.pref("kit_path") or knowledge.DEFAULT_ROOT
         newest = max((os.path.getmtime(os.path.join(dp, f)) for dp, dn, fn in os.walk(root) for f in fn), default=0) if os.path.isdir(root) else 0
