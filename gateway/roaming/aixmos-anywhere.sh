@@ -6,7 +6,7 @@
 set -u
 TEXT="$*"; [ -n "$TEXT" ] || { echo 'Usage: aixmos-anywhere.sh "your prompt"'; exit 1; }
 GATEWAY="${AIXMOS_GATEWAY:-}"; SECRET="${AIXMOS_SECRET:-}"
-BRAIN="${AIXMOS_BRAIN:-http://100.64.0.1:11434}"
+BRAIN="${AIXMOS_BRAIN:?set AIXMOS_BRAIN to your Ollama host, e.g. http://<brain-pc>:11434}"
 LOCAL="${AIXMOS_LOCAL:-http://localhost:11434}"
 LMODEL="${AIXMOS_LOCALMDL:-llama3.1:8b}"; BMODEL="${AIXMOS_BRAINMDL:-tmmt-brain:latest}"
 

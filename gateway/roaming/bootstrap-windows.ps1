@@ -27,7 +27,7 @@ Write-Host "Put your TMMT_Knowledge_Base (SOPs/playbooks) in $AIX\KnowledgeBase 
 
 # 4) Env config — secret is PROMPTED, never written to disk in plaintext by this script
 [Environment]::SetEnvironmentVariable("AIXMOS_GATEWAY","https://aixmos-gateway.aixmos.workers.dev","User")
-[Environment]::SetEnvironmentVariable("AIXMOS_BRAIN","http://100.64.0.1:11434","User")
+[Environment]::SetEnvironmentVariable("AIXMOS_BRAIN","http://<brain-pc-tailscale-ip>:11434","User")
 [Environment]::SetEnvironmentVariable("AIXMOS_LOCAL","http://localhost:11434","User")
 [Environment]::SetEnvironmentVariable("AIXMOS_LOCALMDL","llama3.2:3b","User")
 $sec = Read-Host "Paste your CARRY gateway secret (from 1Password)"

@@ -7,7 +7,7 @@
     Config (set once via bootstrap, or env vars):
       $env:AIXMOS_GATEWAY  = "https://aixmos-gateway.aixmos.workers.dev"
       $env:AIXMOS_SECRET   = "<your CARRY secret>"
-      $env:AIXMOS_BRAIN    = "http://100.64.0.1:11434"   # brain PC over Tailscale
+      $env:AIXMOS_BRAIN    = "http://<brain-pc-tailscale-ip>:11434"   # brain PC over Tailscale
       $env:AIXMOS_LOCAL    = "http://localhost:11434"         # this device's Ollama
       $env:AIXMOS_LOCALMDL = "llama3.2:3b"                    # small model that fits 8GB
 #>
@@ -18,7 +18,7 @@ if (-not $text) { Write-Host 'Usage: .\aixmos.ps1 "your prompt"'; exit 1 }
 
 $GATEWAY = $env:AIXMOS_GATEWAY
 $SECRET  = $env:AIXMOS_SECRET
-$BRAIN   = if ($env:AIXMOS_BRAIN)    { $env:AIXMOS_BRAIN }    else { "http://100.64.0.1:11434" }
+$BRAIN   = if ($env:AIXMOS_BRAIN)    { $env:AIXMOS_BRAIN }    else { throw "Set AIXMOS_BRAIN to your Ollama host, e.g. http://<brain-pc>:11434" }
 $LOCAL   = if ($env:AIXMOS_LOCAL)    { $env:AIXMOS_LOCAL }    else { "http://localhost:11434" }
 $LMODEL  = if ($env:AIXMOS_LOCALMDL) { $env:AIXMOS_LOCALMDL } else { "llama3.2:3b" }
 $BMODEL  = if ($env:AIXMOS_BRAINMDL) { $env:AIXMOS_BRAINMDL } else { "tmmt-brain:latest" }

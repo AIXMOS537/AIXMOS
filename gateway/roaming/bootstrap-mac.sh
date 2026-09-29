@@ -31,7 +31,7 @@ if ! grep -q "AIXMOS_GATEWAY" "$RC" 2>/dev/null; then
     echo ""; echo "# AIXMOS roaming (added by bootstrap-mac.sh)"
     echo 'export AIXMOS_GATEWAY="https://aixmos-gateway.aixmos.workers.dev"'
     echo "export AIXMOS_SECRET=\"$SEC\""
-    echo 'export AIXMOS_BRAIN="http://100.64.0.1:11434"'
+    echo 'export AIXMOS_BRAIN="http://<brain-pc-tailscale-ip>:11434"'
     echo 'export AIXMOS_LOCAL="http://localhost:11434"'
     echo 'export AIXMOS_LOCALMDL="llama3.1:8b"'
   } >> "$RC"
