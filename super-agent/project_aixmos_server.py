@@ -482,7 +482,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if p == "/api/health":
                 from aixmos.local_cli import identity
-                self._json({"app": "AIXMOS", "version": "2.1.0", "installation": identity(),
+                self._json({"app": "AIXMOS", "version": "2.1.1", "installation": identity(),
                             "pid": os.getpid(), "running": True})
             elif p in ("/", "/index.html"):
                 self._index()

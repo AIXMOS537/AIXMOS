@@ -9,7 +9,7 @@ import sys
 import time
 from . import agent, settings
 
-VERSION = '2.1.0'
+VERSION = '2.1.1'
 PROTOCOLS = ('2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05')
 LOCAL_TOOLS = {'list_dir', 'read_file', 'search_files', 'write_file',
                'knowledge_search', 'recall', 'remember', 'run_command', 'run_python'}

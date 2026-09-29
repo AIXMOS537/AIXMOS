@@ -1,4 +1,7 @@
-# AIXMOS Local Agent 2.1.0
+# AIXMOS Local Agent 2.1.1
+
+2.1.1 removes every business-network feature: no network roles, operator certification, playbooks, prices,
+console or private-repository setup. Installs from 2.1.0 or earlier are cleaned on upgrade.
 
 A per-user local application with tools that Claude Code, Claude Desktop and
 Cursor can launch directly. The stdio tool connection needs neither Ollama nor
@@ -8,7 +11,7 @@ providers: local execution does not mean cloud reasoning is offline.
 
 ## Windows installation
 
-Run `AIXMOS-Local-Agent-2.1.0-Setup.exe`. The installer is unsigned. It installs
+Run `AIXMOS-Local-Agent-2.1.1-Setup.exe`. The installer is unsigned. It installs
 under `%LOCALAPPDATA%\AIXMOS` without requiring a system Python installation.
 Choose Entrepreneur for a general client installation. Start AIXMOS opens the
 local browser interface. Installation can optionally download Ollama and a model.
@@ -16,7 +19,7 @@ local browser interface. Installation can optionally download Ollama and a model
 For a tools-only setup, from a terminal:
 
 ```powershell
-.\AIXMOS-Local-Agent-2.1.0-Setup.exe --role builder --no-ollama --no-model --no-autostart
+.\AIXMOS-Local-Agent-2.1.1-Setup.exe --role builder --no-ollama --no-model --no-autostart
 ```
 
 The client package contains application code, Python, media dependencies and

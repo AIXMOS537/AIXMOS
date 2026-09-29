@@ -61,7 +61,7 @@ def main():
             z.write(root / 'installer/aixmos.ico', 'aixmos.ico')
         build.secret_gate(payload)
         stub = build.build_stub(str(root / 'installer/aixmos.ico'))
-        exe = out / 'AIXMOS-Local-Agent-2.1.0-Setup.exe'
+        exe = out / 'AIXMOS-Local-Agent-2.1.1-Setup.exe'
         with exe.open('wb') as target:
             for source in (Path(stub), payload):
                 with source.open('rb') as f:

@@ -1,4 +1,4 @@
-> Current client release: see [LOCAL-AGENT.md](LOCAL-AGENT.md) for version 2.1.0, direct Claude/Cursor pairing, lifecycle commands and tested limits. The original project documentation below describes the broader legacy application. Shell execution uses normal user permissions, not an OS sandbox. The legacy free public image setting is enabled by default.
+> Current client release: see [LOCAL-AGENT.md](LOCAL-AGENT.md) for version 2.1.1, direct Claude/Cursor pairing, lifecycle commands and tested limits. The original project documentation below describes the broader legacy application. Shell execution uses normal user permissions, not an OS sandbox. The legacy free public image setting is enabled by default.
 
 # Project AIXMOS — JARVIS super agent
 
