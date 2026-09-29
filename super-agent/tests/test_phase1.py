@@ -245,6 +245,13 @@ class RetiredRoles(unittest.TestCase):
         open(lnk, "w").write("x")
         with mock.patch("os.path.expanduser", return_value=home):       # never the real desktop
             inst.remove_retired(dest, lambda *a, **k: None)
+        with open(os.path.join(dest, "memory", "genesis.json"), "w", encoding="utf-8") as f:
+            f.write('{"role": "%s", "answers": {"owner": "Kim"}}' % genesis.RETIRED_ROLES[1])
+        inst.seed_genesis(dest, "aixmos_member")
+        import json as _json
+        saved = _json.load(open(os.path.join(dest, "memory", "genesis.json"), encoding="utf-8"))
+        self.assertEqual(saved["role"], "aixmos_member")            # retired role rewritten on disk
+        self.assertEqual(saved["answers"], {"owner": "Kim"})         # the rest of the record kept
         for parts in inst.RETIRED_PATHS:
             self.assertFalse(os.path.exists(os.path.join(dest, *parts)), parts)
         self.assertFalse(os.path.exists(lnk))

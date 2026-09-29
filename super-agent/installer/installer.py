@@ -217,7 +217,7 @@ def seed_genesis(dest, role):
             d = json.load(f)
     except (OSError, ValueError):
         d = {}
-    if not d.get("role"):
+    if not d.get("role") or d.get("role") not in VALID_ROLES:   # empty, or a role retired in 2.1.1
         d["role"] = role
     d.setdefault("installed_ts", time.time())
     os.makedirs(os.path.dirname(path), exist_ok=True)
