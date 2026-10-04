@@ -19,6 +19,7 @@ Endpoints (all bound to 127.0.0.1 only):
   GET  /api/email/accounts    connected accounts                   POST /api/email/accounts|remove|draft|refine|send
   GET  /api/email/inbox       recent inbox for an account          GET  /api/email/read
   GET  /api/email/oauth/start?provider=google|microsoft, /oauth/google, /oauth/microsoft (callbacks)
+  GET  /api/tags              every usable chat model + the routed default; GET /api/models provider status + policy
   POST /api/chat              streams the reply; recognises image / video / edit / email intents
   POST /api/stt               local whisper.cpp speech-to-text
   POST /api/forget            wipe the saved conversation
@@ -31,9 +32,8 @@ sys.path.insert(0, DIR)
 sys.path.insert(1, os.path.join(DIR, "vendor"))   # pure-python deps (requests) vendored next to the server
 import context_tools  # safe live-context layer: time / location / weather / system stats
 from aixmos import settings, media, jobs, llm, intents, imagegen, videogen, videoedit, email_tools
-from aixmos import knowledge, skills, crm, carousel, agent, surfaces, research
+from aixmos import knowledge, skills, crm, carousel, agent, surfaces, research, providers
 
-OLLAMA   = "http://localhost:11434"
 MEMDIR   = settings.MEMDIR          # honours AIXMOS_MEMDIR, same folder every module uses
 MEMFILE  = os.path.join(MEMDIR, "conversation.json")
 LOCK     = threading.Lock()
@@ -132,7 +132,7 @@ def _clip(text, n=1200):
 def capabilities():
     return {"image": settings.providers_for("image"), "video": settings.providers_for("video") + ["local"],
             "video_edit": media.tools_status()["ffmpeg"], "captions": media.whisper_ok(),
-            "email_accounts": len(email_tools.list_accounts()), "ollama": bool(llm.list_models()),
+            "email_accounts": len(email_tools.list_accounts()), "ollama": bool(llm.list_models()), "model_ready": llm.available(),
             "knowledge": knowledge.stats(), "active_skill": settings.pref("active_skill") or "",
             "agent_model": agent.pick_model(), "port": settings.RUNTIME.get("port", 8770)}
 
@@ -216,7 +216,10 @@ class Handler(BaseHTTPRequestHandler):
     def _index(self):
         try:
             with open(os.path.join(DIR, "index.html"), "rb") as f:
-                self._send(200, "text/html; charset=utf-8", f.read())
+                page = f.read()
+            from aixmos import head          # owner actions need this per-launch token; only the app page carries it
+            page = page.replace(b"</head>", b'<meta name="aixmos-ui" content="%s"></head>' % head.UI_TOKEN.encode(), 1)
+            self._send(200, "text/html; charset=utf-8", page)
         except OSError:
             self._send(500, "text/plain", b"index.html missing")
 
@@ -252,7 +255,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def _proxy_get(self):
         try:
-            resp = urllib.request.urlopen(OLLAMA + self.path, timeout=30)
+            resp = urllib.request.urlopen(llm.ollama_url() + self.path, timeout=30)
             self._send(200, resp.headers.get("Content-Type", "application/json"), resp.read())
         except urllib.error.URLError as e:
             self._send(502, "application/json", _err(e))
@@ -274,37 +277,25 @@ class Handler(BaseHTTPRequestHandler):
         tc = turn_context(content)
         last = {"role": "user", "content": content + (("\n\n[context for this turn]\n" + tc) if tc else "")}
         ctx = [{"role": "system", "content": stable_system()}] + history + [last]
-        payload = json.dumps({"model": model, "messages": ctx, "stream": True, "keep_alive": llm.KEEP_ALIVE,
-                              "options": llm.options(temperature=0.7)}).encode()
-        r = urllib.request.Request(OLLAMA + "/api/chat", data=payload, method="POST")
-        r.add_header("Content-Type", "application/json")
+        gen = providers.stream(ctx, model=model, temperature=0.7, interactive=True)
         try:
-            resp = urllib.request.urlopen(r, timeout=600)
-        except urllib.error.URLError as e:
+            first = next(gen, "")          # provider errors surface here, before any bytes are sent
+        except Exception as e:
             self._send(502, "application/json", _err(e)); return
         self.send_response(200)
         self.send_header("Content-Type", "application/x-ndjson")
         self.send_header("Transfer-Encoding", "chunked")
         self.end_headers()
-        acc, buf = "", b""
-        while True:
-            chunk = resp.read(512)
-            if not chunk:
-                break
-            if not self._chunk(chunk):
-                break
-            buf += chunk
-            while b"\n" in buf:
-                line, buf = buf.split(b"\n", 1)
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    msg = (json.loads(line).get("message") or {})
-                    if msg.get("content"):
-                        acc += msg["content"]
-                except ValueError:
-                    pass
+        acc = first
+        try:
+            if first and self._event({"message": {"role": "assistant", "content": first}, "done": False}):
+                for piece in gen:
+                    acc += piece
+                    if not self._event({"message": {"role": "assistant", "content": piece}, "done": False}):
+                        break
+        except Exception as e:
+            self._event({"message": {"role": "assistant", "content": "\n[model error: %s]" % e}, "done": False})
+        self._event({"done": True})
         self._chunk(b"")
         if acc:
             remember("assistant", acc)
@@ -488,6 +479,11 @@ class Handler(BaseHTTPRequestHandler):
                 self._index()
             elif p.startswith("/media/"):
                 self._media()
+            elif p == "/api/tags":
+                ui = providers.models_for_ui()       # every usable model (Ollama, LM Studio, allowed cloud) + the default
+                self._json(ui) if ui["models"] else self._fail(providers.route("chat")[1], 502)
+            elif p == "/api/models":
+                self._json(providers.status(fresh=g("fresh") == "1"))
             elif p == "/api/memory":
                 self._json({"messages": load_mem()})
             elif p == "/api/telemetry":
@@ -611,11 +607,27 @@ class Handler(BaseHTTPRequestHandler):
                 b = self._body()
                 self._json(email_tools.refine(b.get("subject") or "", b.get("body") or "", b.get("instruction") or "", b.get("account")))
             elif p == "/api/email/send":
+                # Every send is an approvals item. The owner clicking Send in the app IS the approval (recorded as
+                # such); any other caller (scripts, agents, MCP clients) only queues it for the owner.
+                from aixmos import approvals, channels, head
                 b = self._body()
-                res = email_tools.send(b.get("account"), b.get("to"), b.get("subject"), b.get("body"), cc=b.get("cc"), bcc=b.get("bcc"),
-                                       attachments=b.get("attachments"), reply_to=b.get("reply_to"))
-                remember("assistant", "Email sent from %s to %s: \"%s\"" % (res["from"], ", ".join(res["to"]), res["subject"]))
-                self._json(res)
+                owner = head.ui_ok(self)
+                payload = {k: b.get(k) for k in ("to", "subject", "body", "cc", "bcc", "attachments", "reply_to", "account")}
+                payload.update(skill="mail", manual=owner)
+                if not channels.recipients(payload["to"]):
+                    raise ValueError("at least one valid recipient is required")
+                item = approvals.propose("email.send", "Email to %s: %s" % (payload["to"], str(payload["subject"] or "")[:80]),
+                                         payload, skill="mail", summary=str(payload["body"] or "")[:1500], risk="send")
+                if not owner:
+                    self._json({"queued": True, "approval": item["id"],
+                                "note": "Waiting for the owner's approval in the AIXMOS Command Center"}, 202)
+                else:
+                    item = approvals.decide(item["id"], True, by="owner (Mail)")
+                    if item["status"] != "executed":
+                        raise ValueError(item.get("error") or "not sent")
+                    res = item["result"] or {}
+                    remember("assistant", "Email sent from %s to %s: \"%s\"" % (res.get("from"), ", ".join(res.get("to") or []), res.get("subject")))
+                    self._json(dict(res, ok=True))
             elif surfaces.route_post(self, p):
                 pass
             else:

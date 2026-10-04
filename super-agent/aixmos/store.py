@@ -53,6 +53,8 @@ def _open():
     """A short-lived connection per operation: the web server runs each request on its own thread, so
     per-thread connections would pile up. SQLite opens are cheap; WAL lets readers and one writer overlap."""
     os.makedirs(os.path.dirname(DB), exist_ok=True)
+    if not os.path.exists(DB):
+        _ready.discard(DB)               # the file was removed while running (reset, tests): build the schema again
     c = sqlite3.connect(DB, timeout=15, isolation_level=None)
     c.row_factory = sqlite3.Row
     c.execute("PRAGMA busy_timeout=15000")

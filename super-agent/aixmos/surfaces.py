@@ -11,9 +11,9 @@ Everything binds to 127.0.0.1 only; the agent's shell/file tools stay inside the
 """
 import os, json, time, uuid, urllib.request
 from . import settings, media, jobs, llm, intents, imagegen, videogen, videoedit, email_tools
-from . import knowledge, skills, crm, carousel, agent, genesis
+from . import knowledge, skills, crm, carousel, agent, genesis, providers
 
-OLLAMA = "http://localhost:11434"
+
 NUM_CTX = 8192
 
 # ----------------------------------------------------------------- intents ----
@@ -310,21 +310,9 @@ def openai_chat(h):
             else:
                 sysmsg = h.build_system(user) if model != "aixmos-raw" else h.SYSTEM
                 convo = [{"role": m["role"], "content": _text_of(m)} for m in msgs if m.get("role") in ("user", "assistant")][-30:]
-                payload = json.dumps({"model": llm.pick_model(), "messages": [{"role": "system", "content": sysmsg}] + convo, "stream": True,
-                                      "keep_alive": llm.KEEP_ALIVE, "options": llm.options(temperature=float(b.get("temperature") or 0.7))}).encode()
-                r = urllib.request.Request(OLLAMA + "/api/chat", data=payload, headers={"Content-Type": "application/json"}, method="POST")
-                resp = urllib.request.urlopen(r, timeout=600); buf = b""
-                while True:
-                    c = resp.read(512)
-                    if not c:
-                        break
-                    buf += c
-                    while b"\n" in buf:
-                        line, buf = buf.split(b"\n", 1)
-                        try:
-                            emit((json.loads(line).get("message") or {}).get("content") or "")
-                        except ValueError:
-                            pass
+                for piece in providers.stream([{"role": "system", "content": sysmsg}] + convo,
+                                              temperature=float(b.get("temperature") or 0.7), interactive=False):
+                    emit(piece)
     except Exception as e:
         emit("\n[AIXMOS error: %s]" % e)
     full = "".join(parts)

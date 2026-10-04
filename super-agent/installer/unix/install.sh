@@ -7,11 +7,11 @@
 #
 # Installs to ~/AIXMOS, keeps memory/ on re-run (conversation, settings, CRM, media),
 # creates a Python venv with requests + pillow, installs Ollama if missing, pulls
-# qwen2.5:3b, writes start/stop launchers, starts the server and opens the first-boot intro.
+# qwen3:4b-instruct, writes start/stop launchers, starts the server and opens the first-boot intro.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 DEST="$HOME/AIXMOS"; PORT=8770; ROLE=""; OLLAMA=1; MODEL=1; LAUNCH=1
-MODEL_NAME="qwen2.5:3b"
+MODEL_NAME="qwen3:4b-instruct"
 while [ $# -gt 0 ]; do
   case "$1" in
     --dir) DEST="$2"; shift ;;

@@ -53,7 +53,7 @@ Every role gets its own intake questions, capability showcase, first plan and gu
 every chat and agent prompt. Everyone gets the super agent, the vault, the CRM, media, mail and the first-boot **Genesis**.
 
 The Windows installer needs no admin rights (`%LOCALAPPDATA%\AIXMOS`), installs Ollama silently if it
-is missing, pulls `qwen2.5:3b` once (about 2 GB), writes Start/Stop launchers, a desktop shortcut and a
+is missing, pulls `qwen3:4b-instruct` once (about 2.5 GB, Apache-2.0), writes Start/Stop launchers, a desktop shortcut and a
 per-user logon autostart, then opens the UI. Re-running upgrades the app and keeps `memory/`.
 Flags: `--role student|employee|builder|everything --dir PATH --port N --no-ollama --no-model
 --no-autostart --no-launch --no-shortcuts --no-mcp --quiet`. No secrets ship in the payload; a build

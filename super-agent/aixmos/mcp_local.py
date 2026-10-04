@@ -21,6 +21,8 @@ class Session:
         if roots:
             self.ctx['roots'] = list(dict.fromkeys(self.ctx['roots'] + roots))
         self.allow_shell = allow_shell
+        if allow_shell:      # --allow-shell at launch is the owner's once-per-session yes for code execution
+            self.ctx['session_ok'] = {'run_command', 'run_python'}
         self.initialized = False
 
     def tools(self):

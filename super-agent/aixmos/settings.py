@@ -19,8 +19,11 @@ RUNTIME  = {"port": 8770}
 PROVIDERS = {
     "pollinations": {"label": "Pollinations (free, no key)", "fields": [], "caps": ["image"],
                      "defaults": {"image_model": "flux"}, "help": "No account needed. Rate limited, public service."},
-    "openai":     {"label": "OpenAI", "fields": ["api_key"], "caps": ["image", "image_edit", "video"],
-                   "defaults": {"image_model": "gpt-image-1", "video_model": "sora-2"},
+    "anthropic":  {"label": "Claude (Anthropic API)", "fields": ["api_key"], "caps": ["chat"],
+                   "defaults": {"chat_model": "claude-sonnet-5-5"},
+                   "help": "console.anthropic.com -> API keys. Used only when cloud models are allowed in Privacy."},
+    "openai":     {"label": "OpenAI", "fields": ["api_key"], "caps": ["image", "image_edit", "video", "chat"],
+                   "defaults": {"image_model": "gpt-image-1", "video_model": "sora-2", "chat_model": "gpt-4.1-mini"},
                    "help": "platform.openai.com/api-keys"},
     "stability":  {"label": "Stability AI", "fields": ["api_key"], "caps": ["image"],
                    "defaults": {"image_model": "core"}, "help": "platform.stability.ai/account/keys"},
@@ -66,8 +69,15 @@ DEFAULT_PREFS = {
     "agent_model": "", "agent_autonomy": "builder", "agent_roots": "", "agent_max_steps": 24,
     # MCP and /v1 callers cannot answer the agent's questions, so they default to read-only tools.
     "agent_allow_send": False, "mcp_autonomy": "safe",
-    # Pollinations is a free *public* service: prompts leave the machine. Off until chosen.
-    "image_free_public": True,    # Pollinations (free, public) is on by default so images work with no key; opt out in Integrations
+    # Pollinations is a free *public* service: prompts leave the machine. On by default so images work with no key
+    # (owner decision 2026-09-12); switch off in Integrations for private-only.
+    "image_free_public": True,
+    # model layer (providers.py): local first; cloud models only when allowed here AND connected
+    "ollama_url": "http://127.0.0.1:11434", "lmstudio_url": "http://127.0.0.1:1234/v1",
+    "privacy_mode": "LOCAL-PREFERRED",   # PRIVATE-LOCAL | LOCAL-PREFERRED | CLOUD-OK
+    "cloud_allowed": False, "prefer_cloud": False,
+    # registry.py: per-tool approval mode overrides, e.g. {"run_command": "ALWAYS", "web_fetch": "BLOCKED"}
+    "tool_policy": {},
     # performance build (tuned for a 2-core laptop driving a USB display; see README "Performance")
     "llm_threads": 3,          # leave one logical core for the UI / DisplayLink compositor
     "llm_ctx": 4096,           # ONE context size for every call so the model never reloads between features

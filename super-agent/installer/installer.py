@@ -27,7 +27,7 @@ import os, sys, json, time, shutil, socket, argparse, subprocess, urllib.request
 
 APP = "AIXMOS"
 PORT = 8770
-MODEL = "qwen2.5:3b"
+MODEL = "qwen3:4b-instruct"     # Apache-2.0 (commercial use OK); tool calling verified 2026-10-04
 OLLAMA_URL = "https://ollama.com/download/OllamaSetup.exe"
 OLLAMA_PUBLISHER = "Ollama"          # must appear in the Authenticode signer subject
 ROLES = {"1": "student", "2": "employee", "3": "aixmos_member", "4": "everything"}
@@ -189,7 +189,7 @@ def ensure_ollama(log, want_ollama, want_model):
         if any(m.get("name") == MODEL for m in have):
             log("    model %s already present" % MODEL)
         else:
-            log("    pulling %s (about 2 GB, one time)" % MODEL)
+            log("    pulling %s (about 2.5 GB, one time)" % MODEL)
             p = subprocess.Popen([exe, "pull", MODEL], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, creationflags=NOWIN)
             for line in p.stdout:
                 line = line.strip()
