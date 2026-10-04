@@ -24,7 +24,8 @@ ICONS = {"receptionist": "☎", "appointment-setter": "📅", "missed-call": "�
          "storefront-kit": "🛒", "viral-reel": "📱"}
 
 PROFILE_FIELDS = ["name", "type", "services", "customers", "area", "hours", "voice", "booking_link", "phone", "email",
-                  "owner", "qualified", "nurture", "not_fit", "faq", "offer", "audience", "pricing"]
+                  "owner", "qualified", "nurture", "not_fit", "faq", "offer", "audience", "pricing",
+                  "review_link", "website"]
 PLACEHOLDERS = {  # bracket token (lowercased) -> profile field
     "business": "name", "business name": "name", "company": "name", "type": "type", "services": "services",
     "service": "services", "customers": "customers", "audience": "audience", "area": "area", "location": "area",
@@ -85,9 +86,22 @@ def _quotes(text):
             out.append((head, q))
     return out
 
+def _builtin():
+    """Built-in skills (skills/<id>/skill.py): real tools + schedules + approvals, shipped with the product."""
+    try:
+        from . import skillkit
+        return [s for s in skillkit.catalog() if s.get("state") != "error"]
+    except Exception:
+        return []
+
 def list_skills():
-    out = []
+    active = settings.pref("active_skill")
+    out = [{"id": s["id"], "name": s["name"], "summary": s["summary"], "icon": s.get("icon", "◆"), "files": 0, "core": "",
+            "active": active == s["id"], "builtin": True, "state": s["state"]} for s in _builtin()]
+    seen = {s["id"] for s in out}
     for p in knowledge.packs():
+        if p["id"] in seen:
+            continue
         pid = p["id"]
         out.append({"id": pid, "name": p["title"], "summary": p["summary"], "icon": ICONS.get(pid, "◆"),
                     "files": len(p["files"]), "core": CORE_FILES.get(pid, ""), "active": settings.pref("active_skill") == pid})
@@ -96,8 +110,15 @@ def list_skills():
 def get(pid):
     return next((s for s in list_skills() if s["id"] == pid), None)
 
-def persona(pid, max_chars=7000):
-    """Compose the system prompt for a pack: role framing + start-here + core prompt + templates, placeholders filled."""
+def persona(pid, max_chars=7000, query=""):
+    """Compose the system prompt for a skill. Built-in skills get their rules + profile + the most relevant guide
+    sections; kit packs keep the playbook persona (role framing + start-here + core prompt + templates)."""
+    try:
+        from . import skillkit
+        if skillkit.get(pid):
+            return skillkit.persona(pid, query=query, budget=max_chars)
+    except Exception:
+        pass
     pack = next((p for p in knowledge.packs() if p["id"] == pid), None)
     if not pack:
         return ""
@@ -129,9 +150,17 @@ def activate(pid):
     settings.update(prefs={"active_skill": pid or ""})
     return pid or ""
 
-def active_persona():
+def active_persona(query=""):
     pid = settings.pref("active_skill")
-    return persona(pid, max_chars=2600) if pid else ""   # capped: prompt processing is the slow path on this CPU
+    if not pid:
+        return ""
+    try:
+        from . import skillkit
+        if skillkit.get(pid):        # built-in: relevance-ranked guide within the configured budget, rules + profile kept
+            return skillkit.persona(pid, query=query)
+    except Exception:
+        pass
+    return persona(pid, max_chars=2600)   # kit packs: capped, prompt processing is the slow path on small CPUs
 
 _PROMPTS = {"built": 0, "items": []}
 def prompts(q=None, pack=None, limit=80):

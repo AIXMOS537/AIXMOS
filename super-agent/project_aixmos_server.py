@@ -650,6 +650,8 @@ if __name__ == "__main__":
     if os.environ.get("AIXMOS_NO_PREWARM") != "1":
         threading.Thread(target=context_tools.prewarm, daemon=True).start()
     threading.Thread(target=surfaces.boot_index, daemon=True).start()
+    from aixmos import head
+    threading.Thread(target=head.boot, daemon=True).start()     # built-in skills + their timers + the scheduler
     n = len(load_mem())
     print("=" * 56)
     print("  PROJECT AIXMOS  //  JARVIS super agent online")

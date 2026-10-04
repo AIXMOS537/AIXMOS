@@ -257,9 +257,26 @@ TOOLS = [
 ]
 TOOL_MAP = {t[0]: t for t in TOOLS}
 
+def _tools():
+    """Core tools plus every built-in skill's tools (skills/<id>/skill.py). A skill that fails to load is skipped."""
+    try:
+        from . import skillkit
+        return TOOLS + [t for t in skillkit.tools() if t[0] not in TOOL_MAP]
+    except Exception:
+        return TOOLS
+
+def _tool(name):
+    if name in TOOL_MAP:
+        return TOOL_MAP[name]
+    try:
+        from . import skillkit
+        return skillkit.tool(name)
+    except Exception:
+        return None
+
 def tool_schemas(autonomy="builder"):
     out = []
-    for name, desc, params, req, fn, level in TOOLS:
+    for name, desc, params, req, fn, level in _tools():
         if LEVELS.index(level) > LEVELS.index(autonomy):
             continue
         props = {}
@@ -287,12 +304,14 @@ def _approved(name, args, ctx):
     return ans.replace("USER ANSWER:", "").strip().lower().startswith(YES)
 
 def call_tool(name, args, ctx):
-    if name not in TOOL_MAP:
+    t = _tool(name)
+    if not t:
         return "unknown tool: " + name
-    fn, level = TOOL_MAP[name][4], TOOL_MAP[name][5]
+    fn, level = t[4], t[5]
+    gated = name in GATED_AFTER_TAINT or (name not in TOOL_MAP and level != "safe")
     try:
         _needs(level, ctx)
-        if name in GATED_AFTER_TAINT and ctx.get("tainted") and not _approved(name, args or {}, ctx):
+        if gated and ctx.get("tainted") and not _approved(name, args or {}, ctx):
             raise PermissionError("not approved: %s after reading web content needs your yes" % name)
         out = _cap(fn(args or {}, ctx))
         if name in TAINTING:

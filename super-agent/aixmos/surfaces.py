@@ -113,6 +113,9 @@ def settings_view(h):
 
 def route_get(h, p, g):
     """Handle a GET path; returns True when handled."""
+    if p.startswith("/api/head"):
+        from . import head
+        return head.route_get(h, p, g)
     if p == "/api/knowledge/packs":
         h._json({"packs": knowledge.packs(), "stats": knowledge.stats()})
     elif p == "/api/knowledge/search":
@@ -159,6 +162,9 @@ def route_get(h, p, g):
 
 def route_post(h, p):
     """Handle a POST path; returns True when handled."""
+    if p.startswith("/api/head"):
+        from . import head
+        return head.route_post(h, p)
     if p == "/api/knowledge/ingest":
         b = h._body()
         if b.get("path"):

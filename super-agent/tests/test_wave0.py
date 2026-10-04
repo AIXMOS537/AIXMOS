@@ -11,9 +11,10 @@ os.environ["AIXMOS_MEMDIR"] = os.path.join(TMP, "memory")
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path[:0] = [ROOT, os.path.join(ROOT, "vendor")]
 
-from aixmos import settings, store, guard, approvals, scheduler  # noqa: E402
+from aixmos import settings, store, guard, approvals, scheduler, skillkit, agent, crm, email_tools  # noqa: E402
 
-assert settings.MEMDIR.startswith(TMP), "tests must never touch the real memory folder"
+# In a full-suite run another test module may have set the scratch folder first; either way never the real one.
+assert os.path.abspath(settings.MEMDIR).startswith(os.path.abspath(tempfile.gettempdir())), "tests must never touch the real memory folder"
 
 
 def tearDownModule():
@@ -214,6 +215,203 @@ class Scheduler(unittest.TestCase):
         j = scheduler.schedule("t.ok", {"n": 6}, due=at(10))
         self.assertEqual(scheduler.cancel(j["id"]), 1)
         self.assertEqual(scheduler.run_due(now=at(11)), [])
+
+
+DEMO_SKILL = '''
+from aixmos import scheduler
+CALLS = []
+def t_hello(a, ctx): return "hello " + (a.get("who") or "world")
+def tick(payload, job): CALLS.append(1); return {"ticked": True}
+def run_it(payload): return {"ran": payload}
+SKILL = {"id": "demo", "name": "Demo", "summary": "A demo skill for tests.", "needs": [],
+         "tools": [("demo_hello", "Say hello.", {"who": "string"}, [], t_hello, "safe")],
+         "actions": {"tick": tick}, "executors": {"demo.run": run_it},
+         "triggers": [{"action": "tick", "every_minutes": 30}],
+         "rules": ["Never shout."]}
+'''
+BAD_SKILL = '''
+SKILL = {"id": "broken", "name": "Broken", "summary": "Tool name breaks the prefix rule.", "needs": [],
+         "tools": [("hello", "x", {}, [], lambda a, c: "x", "safe")]}
+'''
+GUIDE = "\n".join(["# Demo", "", "## Rules", "Keep it calm.", "", "## Pricing questions", "Quote ranges only.", "",
+                   "## Weather small talk", "Sunny. " * 400])
+
+
+class SkillRuntime(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.dir = os.path.join(TMP, "skills-fixture")
+        for sid, src in (("demo", DEMO_SKILL), ("broken", BAD_SKILL)):
+            os.makedirs(os.path.join(cls.dir, sid), exist_ok=True)
+            with open(os.path.join(cls.dir, sid, "skill.py"), "w", encoding="utf-8") as f:
+                f.write(src)
+        with open(os.path.join(cls.dir, "demo", "guide.md"), "w", encoding="utf-8") as f:
+            f.write(GUIDE)
+        cls.real = skillkit.SKILLS_DIR
+        skillkit.SKILLS_DIR = cls.dir
+        skillkit.load(force=True)
+
+    @classmethod
+    def tearDownClass(cls):
+        skillkit.SKILLS_DIR = cls.real
+        skillkit.load(force=True)
+
+    def test_catalog_reports_good_and_broken_skills(self):
+        cat = {s["id"]: s for s in skillkit.catalog()}
+        self.assertEqual(cat["demo"]["state"], "ready")
+        self.assertEqual(cat["broken"]["state"], "error")
+        self.assertIn("must start with broken_", cat["broken"]["error"])
+
+    def test_agent_sees_and_runs_skill_tools(self):
+        names = [t["function"]["name"] for t in agent.tool_schemas("safe")]
+        self.assertIn("demo_hello", names)
+        self.assertIn("read_file", names)
+        self.assertEqual(agent.call_tool("demo_hello", {"who": "Jo"}, {"autonomy": "safe"}), "hello Jo")
+
+    def test_executor_and_action_registered(self):
+        self.assertIn("demo.run", approvals.EXECUTORS)
+        self.assertIn("demo.tick", scheduler.HANDLERS)
+
+    def test_trigger_reschedules_itself(self):
+        wipe("jobs")
+        skillkit.ensure_triggers(datetime(2026, 10, 5, 9, 0))
+        j = scheduler.jobs("pending")
+        self.assertEqual([x["action"] for x in j], ["demo.tick"])
+        self.assertEqual(scheduler.run_due(now=j[0]["due"]), [(j[0]["id"], "done")])
+        nxt = scheduler.jobs("pending")
+        self.assertEqual([x["action"] for x in nxt], ["demo.tick"])      # the timer keeps ticking
+        self.assertNotEqual(nxt[0]["id"], j[0]["id"])
+
+    def test_persona_keeps_rules_and_profile_and_picks_relevant_sections(self):
+        from aixmos import skills
+        skills.save_profile({"name": "Brightside Plumbing"})
+        p = skillkit.persona("demo", query="what are your pricing questions answer", budget=1200)
+        self.assertIn("Never shout.", p)
+        self.assertIn("Brightside Plumbing", p)
+        self.assertIn("Quote ranges only.", p)
+        self.assertIn("Keep it calm.", p)              # a Rules section is always kept
+        self.assertNotIn("Sunny. Sunny.", p)          # the irrelevant, oversized section is left out
+        self.assertLessEqual(len(p), 1400)
+
+
+class FollowupSkill(unittest.TestCase):
+    """The real skills/followup skill, with the mailbox and the model replaced by fakes."""
+    @classmethod
+    def setUpClass(cls):
+        skillkit.load(force=True)
+        cls.sk = skillkit.get("followup")
+        assert cls.sk, skillkit.catalog()
+
+    def setUp(self):
+        wipe("jobs", "approvals", "sends", "contact_policy")
+        with crm._LOCK:
+            d = crm._load(); d["sequences"] = []; d["leads"] = []; crm._save(d)
+        self.sent, self.inbox, self.body = [], [], "Hi Jo, sorry we missed your call earlier. What can we help with? Just reply here."
+        self._orig = (email_tools.list_accounts, email_tools.draft, email_tools.send, email_tools.inbox)
+        email_tools.list_accounts = lambda: [{"id": "acc1", "type": "smtp", "email": "me@shop.co", "imap": True}]
+        email_tools.draft = lambda intent, to=None, tone=None, **k: {"subject": "Sorry we missed you", "body": self.body}
+        email_tools.send = lambda aid, to, subject, body, **k: self.sent.append((aid, to, subject))
+        email_tools.inbox = lambda aid, n=12: self.inbox
+        settings.update(prefs={"autopilot": {}})
+
+    def tearDown(self):
+        email_tools.list_accounts, email_tools.draft, email_tools.send, email_tools.inbox = self._orig
+
+    def act(self, name, payload=None):
+        return self.sk["actions"][name](payload or {}, None)
+
+    def start(self, kind="missed_call", contact="jo@b.co"):
+        return crm.start_sequence(kind, contact=contact, name="Jo")
+
+    def test_due_step_goes_to_inbox_then_sends_once_after_approval(self):
+        seq = self.start()
+        self.assertEqual(self.act("sweep")["queued"], 1)
+        scheduler.run_due()
+        items = approvals.pending()
+        self.assertEqual(len(items), 1)
+        self.assertEqual(self.sent, [])
+        step1 = crm.all_data()["sequences"][0]["steps"][0]
+        self.assertEqual(step1["status"], "awaiting_approval")
+        self.assertEqual(self.act("sweep")["queued"], 0)          # step 2 waits for step 1
+        done = approvals.decide(items[0]["id"], True)
+        self.assertEqual(done["status"], "executed", done.get("error"))
+        self.assertEqual(self.sent, [("acc1", "jo@b.co", "Sorry we missed you")])
+        self.assertEqual(crm.all_data()["sequences"][0]["steps"][0]["status"], "sent")
+        self.assertEqual(guard.check_send("email", "jo@b.co").ok, True)
+        approvals.decide(items[0]["id"], True)
+        self.assertEqual(len(self.sent), 1)
+
+    def test_opt_out_stops_the_sequence(self):
+        self.start(contact="al@b.co")
+        guard.opt_out("al@b.co", reason="unsubscribed")
+        self.act("sweep"); scheduler.run_due()
+        self.assertEqual(approvals.pending(), [])
+        self.assertEqual(crm.all_data()["sequences"][0]["status"], "stopped")
+
+    def test_opt_out_after_approval_still_wins(self):
+        self.start(contact="bo@b.co")
+        self.act("sweep"); scheduler.run_due()
+        it = approvals.pending()[0]
+        guard.opt_out("bo@b.co", reason="replied STOP")
+        res = approvals.decide(it["id"], True)
+        self.assertEqual(res["status"], "failed")
+        self.assertIn("opted out", res["error"])
+        self.assertEqual(self.sent, [])
+
+    def test_reply_stops_before_drafting_and_before_sending(self):
+        seq = self.start(contact="cy@b.co")
+        self.act("sweep"); scheduler.run_due()
+        it = approvals.pending()[0]
+        later = datetime.fromtimestamp(seq["created"] + 120).strftime("%Y-%m-%d %H:%M")
+        self.inbox = [{"from": "Cy <CY@b.co>", "date": later, "subject": "re: call"}]
+        res = approvals.decide(it["id"], True)
+        self.assertEqual(res["status"], "failed")
+        self.assertIn("replied", res["error"])
+        self.assertEqual(crm.all_data()["sequences"][0]["status"], "stopped")
+        self.assertEqual(self.sent, [])
+
+    def test_unwritten_or_off_brand_link_drafts_are_never_proposed(self):
+        self.start(contact="di@b.co")
+        self.body = "Hi Di, book here: https://bookme.example.evil.io/x to grab a slot."
+        self.act("sweep")
+        self.assertEqual([s for _, s in scheduler.run_due()], ["retry"])
+        self.assertEqual(approvals.pending(), [])
+        with store.tx() as c:
+            c.execute("UPDATE jobs SET due=0")
+        self.body = "opener"                                       # model failed: fallback echo of the instruction
+        self.assertEqual([s for _, s in scheduler.run_due()], ["retry"])
+        self.assertEqual(approvals.pending(), [])
+
+    def test_review_request_needs_the_owners_review_link(self):
+        from aixmos import skills
+        skills.save_profile({"review_link": ""})
+        self.start(kind="review_request", contact="ed@b.co")
+        self.act("sweep"); scheduler.run_due()
+        self.assertEqual(approvals.pending(), [])
+        self.assertEqual(crm.all_data()["sequences"][0]["steps"][0]["status"], "skipped")
+        skills.save_profile({"review_link": "https://g.page/r/brightside/review"})
+        self.body = "Thanks Ed! If you have a minute: https://g.page/r/brightside/review means a lot to us."
+        self.start(kind="review_request", contact="fa@b.co")
+        self.act("sweep"); scheduler.run_due()
+        self.assertEqual(len(approvals.pending()), 1)
+
+    def test_rejected_step_is_skipped_and_autopilot_sends_directly(self):
+        self.start(contact="gi@b.co")
+        self.act("sweep"); scheduler.run_due()
+        approvals.decide(approvals.pending()[0]["id"], False)
+        self.act("sweep")
+        self.assertEqual(crm.all_data()["sequences"][0]["steps"][0]["status"], "skipped")
+        settings.update(prefs={"autopilot": {"followup": ["followup.email"]}})
+        self.start(contact="ha@b.co")
+        self.act("sweep"); scheduler.run_due()
+        self.assertEqual([to for _, to, _ in self.sent], ["ha@b.co"])
+
+    def test_manual_email_send_respects_opt_out_too(self):
+        email_tools.send = self._orig[2]
+        guard.opt_out("iv@b.co", reason="asked by phone")
+        with self.assertRaises(ValueError) as e:
+            email_tools.send("acc1", "iv@b.co", "hi", "hello there")
+        self.assertIn("opted out", str(e.exception))
 
 
 if __name__ == "__main__":

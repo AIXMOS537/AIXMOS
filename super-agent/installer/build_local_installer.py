@@ -39,6 +39,7 @@ def main():
             z.write(root / name, name)
         z.write(root / 'LOCAL-AGENT.md', 'README.md')
         build.add_tree(z, str(root / 'aixmos'), 'aixmos')
+        build.add_tree(z, str(root / 'skills'), 'skills')      # built-in skills ship in the product, never empty
         z.writestr('memory/workspace/README.txt', 'Your local AIXMOS workspace.\n')
 
     with tempfile.TemporaryDirectory(prefix='aixmos-build-') as tmp:

@@ -443,12 +443,17 @@ def _addr_list(v):
     return [x.strip() for x in (v or []) if x and re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", x.strip())]
 
 def send(account_id, to, subject, body, cc=None, bcc=None, attachments=None, reply_to=None):
-    a = _get(account_id)
-    if not a:
-        raise ValueError("choose a connected account")
     to, cc, bcc = _addr_list(to), _addr_list(cc), _addr_list(bcc)
     if not to:
         raise ValueError("at least one valid recipient is required")
+    from . import guard                  # opt-outs and do-not-contact hold for every send, manual or automatic
+    for r in to + cc + bcc:
+        why = guard.blocked(r)
+        if why:
+            raise ValueError("not sent: %s is %s" % (r, why))
+    a = _get(account_id)
+    if not a:
+        raise ValueError("choose a connected account")
     subject = (subject or "").strip() or "(no subject)"
     body = (body or "").strip()
     if not body:
