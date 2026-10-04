@@ -2,7 +2,7 @@
 head.py -- HTTP surface + boot for the head agent (skills, approvals inbox, scheduler, guard).
 
 GET  /api/head                     overview: skills catalog, connectors, inbox + job counts, guard status
-GET  /api/head/approvals?status=   inbox items (default: pending)
+GET  /api/head/approvals?status=   inbox items (default: pending; status=all for every item)
 GET  /api/head/jobs?status=        scheduled work
 GET  /api/head/events?kind=        audit trail
 GET  /api/head/contacts            opt-outs / do-not-contact
@@ -27,7 +27,8 @@ def route_get(h, p, g):
     if p == "/api/head":
         h._json(overview())
     elif p == "/api/head/approvals":
-        h._json({"items": approvals.items(g("status", "pending") or None, int(g("limit", 100)), g("skill") or None),
+        st = g("status", "pending")
+        h._json({"items": approvals.items(None if st in ("all", "") else st, int(g("limit", 100)), g("skill") or None),
                  "counts": approvals.counts()})
     elif p == "/api/head/jobs":
         h._json({"items": scheduler.jobs(g("status") or None, int(g("limit", 100))), "counts": scheduler.counts()})

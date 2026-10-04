@@ -217,6 +217,52 @@ class Scheduler(unittest.TestCase):
         self.assertEqual(scheduler.run_due(now=at(11)), [])
 
 
+class HeadApi(unittest.TestCase):
+    """The Command Center's HTTP surface, driven with a fake request handler."""
+    class H:
+        def __init__(self, body=None, query=None):
+            self.out, self.body, self.query = None, body or {}, query or {}
+        def _json(self, d): self.out = d
+        def _fail(self, e, code=400): self.out = {"error": str(e), "code": code}
+        def _body(self): return self.body
+        def g(self, k, default=None):
+            v = self.query.get(k)
+            return default if v in (None, "") else v       # like the server: empty means "use the default"
+
+    def get(self, path, **q):
+        from aixmos import head
+        h = self.H(query=q)
+        self.assertTrue(head.route_get(h, path, h.g))
+        return h.out
+
+    def post(self, path, **body):
+        from aixmos import head
+        h = self.H(body=body)
+        self.assertTrue(head.route_post(h, path))
+        return h.out
+
+    def setUp(self):
+        wipe("approvals")
+        approvals.register("test.api", lambda p: {"ok": True})
+
+    def test_inbox_decide_and_history(self):
+        it = approvals.propose("test.api", "Ping Jo", {"to": "jo@b.co"})
+        self.assertEqual([x["id"] for x in self.get("/api/head/approvals")["items"]], [it["id"]])
+        self.assertEqual(self.post("/api/head/approvals/decide", id=it["id"], approve=False)["status"], "rejected")
+        self.assertEqual(self.get("/api/head/approvals")["items"], [])
+        hist = self.get("/api/head/approvals", status="all")["items"]
+        self.assertEqual([(x["id"], x["status"]) for x in hist], [(it["id"], "rejected")])
+
+    def test_overview_and_autopilot_switch(self):
+        ov = self.get("/api/head")
+        self.assertIn("followup", [s["id"] for s in ov["skills"]])
+        self.assertIn("budget", ov["guard"])
+        self.assertEqual(self.post("/api/head/autopilot", skill="followup", kinds=True)["autopilot"]["followup"], True)
+        self.assertNotIn("followup", self.post("/api/head/autopilot", skill="followup", kinds=False)["autopilot"])
+        with self.assertRaises(ValueError):
+            self.post("/api/head/autopilot", skill="nope", kinds=True)
+
+
 class Secrets(unittest.TestCase):
     """Provider keys live in the OS keystore (DPAPI / Keychain), never in settings.json; old plain-text keys move."""
     FAKE = "rk-wave0-test-value-" + "Q7x9" * 6

@@ -62,6 +62,12 @@
   .nav:hover .tip{display:block}
   .nav .badge{position:absolute;top:4px;right:4px;width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);display:none}
   .nav.busy .badge{display:block;animation:blink 1s steps(2) infinite}
+  .nav.attn .badge{display:block;background:var(--warn);box-shadow:0 0 8px var(--warn)}
+  .hc-chip{display:inline-block;font-family:var(--mono);font-size:10px;letter-spacing:1px;text-transform:uppercase;border:1px solid var(--line);border-radius:6px;padding:2px 7px;color:var(--muted)}
+  .hc-chip.ok{color:var(--ok);border-color:var(--ok)} .hc-chip.warn{color:var(--warn);border-color:var(--warn)} .hc-chip.bad{color:var(--bad);border-color:var(--bad)}
+  .hc-item{border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--panel2)}
+  .hc-item pre{white-space:pre-wrap;font-family:inherit;font-size:13px;margin:8px 0;max-height:220px;overflow:auto;background:rgba(0,0,0,.25);border-radius:8px;padding:8px}
+  .hc-num{font-family:var(--mono);font-size:22px;color:var(--accent)}
   .rail .spacer{flex:1}
 
   /* ---------- reactor logo ---------- */
@@ -317,6 +323,7 @@
     <button class="nav" data-view="agent">&#129302;<span class="badge"></span><span class="tip">Super Agent</span></button>
     <button class="nav" data-view="vault">&#128218;<span class="badge"></span><span class="tip">Vault &amp; Skills</span></button>
     <button class="nav" data-view="ops">&#128200;<span class="badge"></span><span class="tip">Ops &amp; CRM</span></button>
+    <button class="nav" data-view="head" id="navHead">&#9989;<span class="badge"></span><span class="tip">Command Center</span></button>
     <div class="spacer"></div>
     <button class="nav" data-view="integrations">&#128268;<span class="badge"></span><span class="tip">Integrations</span></button>
   </aside>
@@ -789,6 +796,31 @@
       </div>
     </section>
 
+    <!-- ================= COMMAND CENTER (head agent) ================= -->
+    <section class="view" id="view-head">
+      <div class="scroll">
+        <div class="gallery" id="hcKpis" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin-bottom:14px"></div>
+        <div class="grid2" style="grid-template-columns:3fr 2fr">
+          <div class="panel"><h2>Needs your OK <span class="sub">nothing below is sent until you approve</span></h2>
+            <div class="list" id="hcInbox"></div>
+          </div>
+          <div class="panel"><h2>Safety rails</h2>
+            <div id="hcRails" class="note"></div>
+            <label class="f">Do not contact</label>
+            <div class="row"><input class="f" id="hcOptContact" placeholder="phone or email" style="flex:1"><input class="f" id="hcOptReason" placeholder="reason (optional)" style="flex:1"><button class="btn sm" id="hcOptGo">Block</button></div>
+            <div class="note" id="hcOptMsg" style="margin-top:6px"></div>
+          </div>
+        </div>
+        <div class="panel" style="margin-top:14px"><h2>Skills <span class="sub">real tools that run on their own schedule</span></h2>
+          <div class="gallery" id="hcSkills" style="grid-template-columns:repeat(auto-fill,minmax(280px,1fr))"></div>
+        </div>
+        <div class="grid2" style="margin-top:14px;grid-template-columns:1fr 1fr">
+          <div class="panel"><h2>Coming up</h2><div class="list" id="hcJobs"></div></div>
+          <div class="panel"><h2>Recent decisions <span class="sub">sent, rejected, failed</span></h2><div class="list" id="hcDone"></div></div>
+        </div>
+      </div>
+    </section>
+
     <!-- ================= INTEGRATIONS ================= -->
     <section class="view" id="view-integrations">
       <div class="scroll">
@@ -880,6 +912,7 @@ function showView(name){
   if(name==='agent') loadAgent();
   if(name==='vault') loadVault();
   if(name==='ops') loadOps();
+  if(name==='head') loadHead();
 }
 $$('.nav').forEach(n=>n.addEventListener('click', ()=>showView(n.dataset.view)));
 $('#logo').addEventListener('click', ()=>showView('chat'));
@@ -1811,6 +1844,95 @@ async function gPlan(){
   let dismissed=false; try{ dismissed = sessionStorage.getItem('aixmos-genesis-later')==='1'; }catch(e){}
   apiGet('/api/genesis').then(d=>{ const st=d.state||{}; if(location.hash==='#genesis' || (!st.done && !st.intake_ts && !dismissed)) gOpen(st.intake_ts && !st.plan ? 4 : 0); }).catch(()=>{});
 })();
+
+// ============================================================ COMMAND CENTER ====
+// Everything shown here comes from customers and skills: always escape before it touches innerHTML.
+function hesc(v){ return String(v==null?'':v).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function hcWhen(ts){ if(!ts) return ''; const d=new Date(ts*1000); return d.toLocaleString([], {weekday:'short', hour:'2-digit', minute:'2-digit', month:'short', day:'numeric'}); }
+const HC_STATE = {ready:['ok','ready'], needs_setup:['warn','needs setup'], locked:['warn','locked'], error:['bad','error']};
+function hcPayload(p){
+  if(!p || typeof p!=='object') return '';
+  if(p.to && (p.subject || p.body)) return '<div class="note">To <b>'+hesc(p.to)+'</b>'+(p.subject?' &middot; '+hesc(p.subject):'')+'</div><pre>'+hesc(p.body||'')+'</pre>';
+  return '<pre>'+hesc(JSON.stringify(p, null, 1))+'</pre>';
+}
+async function hcDecide(id, approve){
+  const el=document.getElementById('hci-'+id); if(el) el.style.opacity=.5;
+  try{ const r=await apiPost('/api/head/approvals/decide', {id, approve});
+    if(r.status==='failed') alert('Not sent: '+(r.error||'failed'));
+  }catch(e){ alert(e.message); }
+  loadHead();
+}
+async function hcAutopilot(sid, on){
+  try{ await apiPost('/api/head/autopilot', {skill:sid, kinds: on ? true : false}); }catch(e){ alert(e.message); }
+  loadHead();
+}
+async function loadHead(){
+  let d; try{ d = await apiGet('/api/head'); }catch(e){ document.getElementById('hcInbox').innerHTML='<div class="note">'+hesc(e.message)+'</div>'; return; }
+  hcBadge(d);
+  const g=d.guard||{}, pend=(d.approvals.counts||{}).pending||0;
+  const ready=(d.skills||[]).filter(s=>s.state==='ready').length;
+  document.getElementById('hcKpis').innerHTML = [
+    ['Waiting for you', pend], ['Skills ready', ready+' / '+(d.skills||[]).length],
+    ['Scheduled', (d.jobs.counts||{}).pending||0], ['Spent today (auto)', '$'+Number(g.spent_today_automatic||0).toFixed(2)+' / $'+Number(g.budget||0).toFixed(2)]
+  ].map(([k,v])=>'<div class="panel"><div class="note">'+hesc(k)+'</div><div class="hc-num">'+hesc(v)+'</div></div>').join('');
+  const inbox = d.approvals.pending||[];
+  document.getElementById('hcInbox').innerHTML = inbox.length ? inbox.map(it=>
+    '<div class="hc-item" id="hci-'+hesc(it.id)+'"><div class="row"><b>'+hesc(it.title)+'</b><span class="hc-chip">'+hesc(it.skill||it.kind)+'</span>'+
+    '<span class="hc-chip '+(it.risk==='spend'?'bad':'warn')+'">'+hesc(it.risk)+'</span><span class="note" style="margin-left:auto">'+hesc(hcWhen(it.created))+'</span></div>'+
+    (it.summary?'<div class="note">'+hesc(it.summary)+'</div>':'')+hcPayload(it.payload)+
+    '<div class="row"><button class="btn primary sm" data-hc-ok="'+hesc(it.id)+'">Approve &amp; send</button><button class="btn sm" data-hc-no="'+hesc(it.id)+'">Reject</button></div></div>'
+  ).join('') : '<div class="note">Nothing waiting. When a skill wants to message a customer, it shows up here first.</div>';
+  document.getElementById('hcRails').innerHTML =
+    'Quiet hours for texts: <b>'+hesc((g.quiet_hours||[]).map(h=>String(h).padStart(2,'0')+':00').join(' to '))+'</b>'+(g.quiet_now?' <span class="hc-chip warn">quiet now</span>':'')+'<br>'+
+    'Daily caps: email '+hesc((g.caps||{}).send_cap_email)+', texts '+hesc((g.caps||{}).send_cap_sms)+', per person '+hesc((g.caps||{}).send_cap_per_contact)+'<br>'+
+    'Automatic paid AI calls stop at <b>$'+Number(g.budget||0).toFixed(2)+'</b> a day (you clicking is never blocked).<br>'+
+    'People who opted out: <b>'+hesc(g.opted_out||0)+'</b>';
+  document.getElementById('hcSkills').innerHTML = (d.skills||[]).map(s=>{
+    const st=HC_STATE[s.state]||['','?'];
+    const live=Object.entries(s.live||{}).filter(([k])=>k!=='error').map(([k,v])=>'<span class="hc-chip">'+hesc(k.replace(/_/g,' '))+': '+hesc(v)+'</span>').join(' ');
+    const miss=(s.missing||[]).map(m=>'<div class="note">&#9888; '+hesc(m.label)+': '+hesc(m.hint)+'</div>').join('');
+    return '<div class="hc-item"><div class="row"><span style="font-size:20px">'+hesc(s.icon||'')+'</span><b>'+hesc(s.name)+'</b><span class="hc-chip '+st[0]+'" style="margin-left:auto">'+hesc(st[1])+'</span></div>'+
+      '<div class="note" style="margin:6px 0">'+hesc(s.summary)+'</div>'+miss+(s.locked?'<div class="note">&#128274; '+hesc(s.locked)+'</div>':'')+(s.error?'<div class="note" style="color:var(--bad)">'+hesc(s.error)+'</div>':'')+
+      (live?'<div class="row" style="margin-top:6px">'+live+'</div>':'')+
+      (s.state!=='error'&&s.state!=='locked'?'<label class="row note" style="margin-top:8px;cursor:pointer"><input type="checkbox" data-hc-ap="'+hesc(s.id)+'"'+(s.autopilot?' checked':'')+'> Autopilot: send without asking me (rails still apply)</label>':'')+
+      '</div>';
+  }).join('') || '<div class="note">No built-in skills found.</div>';
+  const jobs=d.jobs.next||[];
+  document.getElementById('hcJobs').innerHTML = jobs.length ? jobs.map(j=>'<div class="row"><span class="hc-chip">'+hesc(j.action)+'</span><span class="note">'+hesc(hcWhen(j.due))+'</span>'+(j.last_error?'<span class="note" style="color:var(--warn)">'+hesc(j.last_error)+'</span>':'')+'</div>').join('') : '<div class="note">Nothing scheduled.</div>';
+  try{
+    const r=await apiGet('/api/head/approvals?status=all&limit=40');
+    const done=(r.items||[]).filter(x=>x.status!=='pending').slice(0,12);
+    document.getElementById('hcDone').innerHTML = done.length ? done.map(x=>{
+      const cls={executed:'ok',rejected:'',failed:'bad'}[x.status]||'warn';
+      return '<div class="row"><span class="hc-chip '+cls+'">'+hesc(x.status==='executed'?'sent':x.status)+'</span><span>'+hesc(x.title)+'</span>'+(x.error?'<span class="note" style="color:var(--bad)">'+hesc(x.error)+'</span>':'')+'<span class="note" style="margin-left:auto">'+hesc(hcWhen(x.decided||x.created))+'</span></div>';
+    }).join('') : '<div class="note">No decisions yet.</div>';
+  }catch(e){}
+}
+function hcBadge(d){
+  const n=((d||{}).approvals||{}).counts ? (d.approvals.counts.pending||0) : 0;
+  const nav=document.getElementById('navHead'); if(!nav) return;
+  nav.classList.toggle('attn', n>0);
+  const tip=nav.querySelector('.tip'); if(tip) tip.textContent = n>0 ? 'Command Center ('+n+' waiting)' : 'Command Center';
+}
+document.addEventListener('click', e=>{
+  const t=e.target.closest('[data-hc-ok],[data-hc-no]'); if(!t) return;
+  hcDecide(t.dataset.hcOk||t.dataset.hcNo, !!t.dataset.hcOk);
+});
+document.addEventListener('change', e=>{
+  const t=e.target.closest('[data-hc-ap]'); if(!t) return;
+  if(t.checked && !confirm('Autopilot sends this skill\'s messages without asking you first. Opt-outs, quiet hours and daily caps still apply. Turn it on?')){ t.checked=false; return; }
+  hcAutopilot(t.dataset.hcAp, t.checked);
+});
+document.getElementById('hcOptGo').addEventListener('click', async ()=>{
+  const c=document.getElementById('hcOptContact').value.trim(); if(!c) return;
+  const msg=document.getElementById('hcOptMsg');
+  try{ const r=await apiPost('/api/head/optout', {contact:c, reason:document.getElementById('hcOptReason').value.trim()});
+    msg.textContent='Blocked: '+r.contact+'. No skill will message them again.'; document.getElementById('hcOptContact').value='';
+  }catch(e){ msg.textContent=e.message; }
+  loadHead();
+});
+setInterval(()=>{ apiGet('/api/head').then(hcBadge).catch(()=>{}); }, 30000);
+apiGet('/api/head').then(hcBadge).catch(()=>{});
 </script>
 </body>
 </html>
