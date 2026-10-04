@@ -13,9 +13,20 @@ POST /api/head/optout              {contact, reason}       POST /api/head/optin 
 POST /api/head/autopilot           {skill, kinds: [..] | true | false}
 POST /api/head/skills/reload
 
+Right hand (authority, attention, briefings):
+GET  /api/head/mandates            every mandate + the active one + lock state
+GET  /api/head/attention?status=   attention items (default open) + digest of the last 24 h
+GET  /api/head/brief?kind=         morning (default) or evening, built from evidence only
+POST /api/head/mandates/draft      {title, until, will: [kinds], ask, alert, note}   -> draft + plan (grants nothing)
+POST /api/head/mandates/activate   {id}       POST /api/head/mandates/revoke {id, why}
+POST /api/head/lock                {why}      POST /api/head/unlock  (this computer only)
+POST /api/head/attention/ack       {id}
+POST /api/head/judge               {action}   dry-run of the pre-action check, nothing runs
+
 Everything here is local (the server binds 127.0.0.1 and _guard refuses cross-site requests).
 """
-from . import settings, store, guard, approvals, scheduler, skillkit
+import time
+from . import settings, store, guard, approvals, scheduler, skillkit, mandate, attention, briefing, judgment
 
 def overview():
     return {"skills": skillkit.catalog(), "connectors": skillkit.connectors(),
@@ -43,6 +54,15 @@ def route_get(h, p, g):
             h._fail("no such skill", 404)
         else:
             h._json({**sk, "guide": skillkit.guide(sid)})
+    elif p == "/api/head/mandates":
+        h._json({"items": [{**m, "plan": mandate.plan(m)} for m in mandate.items()],
+                 "active": [m["id"] for m in mandate.active()], "lock": mandate.lock_state()})
+    elif p == "/api/head/attention":
+        st = g("status", "open")
+        h._json({"items": attention.items(None if st in ("all", "") else st, int(g("limit", 100))),
+                 "digest": attention.digest(time.time() - 86400), "outbox": attention.outbox()})
+    elif p == "/api/head/brief":
+        h._json(briefing.end_of_day() if g("kind", "morning") == "evening" else briefing.morning())
     else:
         return False
     return True
@@ -74,6 +94,26 @@ def route_post(h, p):
         h._json({"autopilot": ap})
     elif p == "/api/head/skills/reload":
         h._json({"skills": skillkit.load(force=True)})
+    elif p == "/api/head/mandates/draft":
+        b = h._body()
+        m = mandate.draft(b.get("title"), b.get("until"), will=b.get("will") or [], ask=b.get("ask"),
+                          alert=b.get("alert"), note=b.get("note") or "", by="owner")
+        h._json({**m, "plan": mandate.plan(m)})
+    elif p == "/api/head/mandates/activate":
+        h._json(mandate.activate(str(h._body().get("id") or ""), by="owner"))
+    elif p == "/api/head/mandates/revoke":
+        b = h._body()
+        h._json(mandate.revoke(str(b.get("id") or ""), by="owner", why=b.get("why") or "revoked by the owner"))
+    elif p == "/api/head/lock":
+        h._json(mandate.lock(by="owner", why=h._body().get("why") or ""))
+    elif p == "/api/head/unlock":
+        h._json(mandate.unlock(by="owner"))
+    elif p == "/api/head/attention/ack":
+        h._json({"acked": attention.ack(str(h._body().get("id") or ""))})
+    elif p == "/api/head/judge":
+        act = dict(h._body().get("action") or {})
+        act.setdefault("requested_by", "owner")      # the local, guarded desktop is the owner's own channel
+        h._json(judgment.evaluate(act))
     else:
         return False
     return True

@@ -4,7 +4,8 @@ proposed here first and only runs after an explicit approve (or a per-skill auto
 
   register(kind, fn)               an executor: fn(payload) -> result (dict or str); raises on failure
   propose(kind, title, payload, skill=, summary=, risk=, dedupe=, auto=False)
-                                   -> item. auto=True executes at once ONLY if the skill's autopilot is on.
+                                   -> item. auto=True executes at once ONLY if the skill's autopilot is on or an
+                                   active owner mandate lists this kind (mandate.py), and AIXMOS is not locked.
   decide(id, approve, by=, note=)  approve -> runs the executor once; reject -> never runs
   pending() / items(status) / get(id)
 
@@ -76,12 +77,22 @@ def propose(kind, title, payload, skill="", summary="", risk="send", dedupe=None
                   "VALUES (?,?,?,?,?,?,?,?, 'pending', ?)",
                   (aid, time.time(), kind, skill, str(title)[:200], str(summary or "")[:2000],
                    json.dumps(payload, ensure_ascii=False, default=str), risk, dedupe))
-    store.audit("approval.proposed", aid, {"kind": kind, "skill": skill, "title": title})
-    if auto and autopilot(skill, kind):
-        return decide(aid, True, by="autopilot:" + (skill or kind))
+    store.audit("approval.proposed", aid, {"kind": kind, "skill": skill, "title": title, "risk": risk})
+    if auto:
+        from . import mandate        # an active owner mandate counts as approval; LOCK stops both
+        by = "autopilot:" + (skill or kind) if autopilot(skill, kind) else None
+        mid = None if by else mandate.covers(kind, risk)
+        if mid:
+            by = "mandate:" + mid
+        if by and not mandate.locked():
+            return decide(aid, True, by=by)
     return get(aid)
 
 def decide(aid, approve, by="owner", note=""):
+    if approve:
+        from . import mandate
+        if mandate.locked() and by not in mandate.LOCAL_OWNER:
+            raise PermissionError("AIXMOS is locked: only the owner on this computer can approve actions")
     with store.tx() as c:
         n = c.execute("UPDATE approvals SET status=?, decided=?, decided_by=?, note=? WHERE id=? AND status='pending'",
                       ("approved" if approve else "rejected", time.time(), by, str(note or "")[:500], aid)).rowcount
