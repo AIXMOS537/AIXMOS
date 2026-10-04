@@ -67,6 +67,11 @@ DEFAULT_PREFS = {
     "llm_ctx": 4096,           # ONE context size for every call so the model never reloads between features
     "chat_history": 12,        # messages replayed per turn (each capped); prompt processing is ~20 tok/s here
     "ui_performance": "auto",  # auto | on | off: drop blur, scanlines and idle animations on weak/USB displays
+    # head-agent rails (guard.py): texts never go out in quiet hours; daily caps; automatic paid calls stop at the budget
+    "quiet_start": 21, "quiet_end": 8, "send_cap_email": 200, "send_cap_sms": 100, "send_cap_per_contact": 3,
+    "spend_daily_usd": 2.0,
+    # approvals.py: per-skill autopilot, e.g. {"followup": ["email.send"]}. Empty = every send waits for the owner.
+    "autopilot": {},
 }
 
 def _read():
