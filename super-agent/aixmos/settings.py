@@ -1,9 +1,10 @@
 """
 settings.py -- local settings store (memory/settings.json).
 
-Holds provider API keys, model choices and preferences. Keys are only ever
-written here (a gitignored folder on this machine) and are never echoed back
-to the browser except as a masked "....last4" indicator.
+Holds model choices, preferences and non-secret provider fields. Secret values (API keys, OAuth client
+secrets) are NOT kept here: settings.json stores the marker "__secret__" and the value lives in secret_store
+(DPAPI on Windows, Keychain on macOS). Keys an older version wrote in plain text are moved on first load.
+The browser only ever sees a masked "....last4" indicator.
 """
 import os, json, threading
 
@@ -49,6 +50,11 @@ PROVIDERS = {
                         "help": "portal.azure.com -> App registration (public client, PKCE) with redirect http://localhost:8770/oauth/microsoft"},
 }
 SECRET_FIELDS = {"api_key", "client_secret"}
+SECRET_MARK = "__secret__"
+_migrated = False
+
+def _secret_name(provider, field):
+    return "provider.%s.%s" % (provider, field)
 
 DEFAULT_PREFS = {
     "image_provider": "auto", "video_provider": "auto", "chat_model": "",
@@ -95,13 +101,38 @@ def _write(d):
         json.dump(d, f, indent=1)
     os.replace(tmp, FILE)
 
+def _migrate_plaintext(d):
+    """Move secret values an older version wrote into settings.json into the secret store."""
+    from . import secret_store
+    moved = False
+    for p, fields in d["providers"].items():
+        for f in list(fields or {}):
+            v = fields[f]
+            if f in SECRET_FIELDS and v not in (None, "", SECRET_MARK):
+                secret_store.put(_secret_name(p, f), v)
+                fields[f] = SECRET_MARK
+                moved = True
+    return moved
+
 def load():
+    global _migrated
     with _LOCK:
-        return _read()
+        d = _read()
+        if not _migrated:
+            _migrated = True
+            try:
+                if _migrate_plaintext(d):
+                    _write(d)
+            except Exception as e:
+                print("  Secrets ->  migration skipped (%s)" % type(e).__name__)
+        return d
 
 def get(provider, field, default=None):
     d = load()
     v = (d["providers"].get(provider) or {}).get(field)
+    if v == SECRET_MARK:
+        from . import secret_store
+        v = secret_store.get(_secret_name(provider, field))
     if v in (None, ""):
         v = (PROVIDERS.get(provider, {}).get("defaults") or {}).get(field, default)
     return v
@@ -142,8 +173,15 @@ def update(providers=None, prefs=None):
                     continue
                 if v == "__clear__":
                     cur.pop(k, None)
+                    if k in SECRET_FIELDS:
+                        from . import secret_store
+                        secret_store.delete(_secret_name(p, k))
                 elif isinstance(v, str) and v.strip() == "":
                     continue
+                elif k in SECRET_FIELDS:
+                    from . import secret_store
+                    secret_store.put(_secret_name(p, k), v.strip() if isinstance(v, str) else v)
+                    cur[k] = SECRET_MARK
                 else:
                     cur[k] = v.strip() if isinstance(v, str) else v
         for k, v in (prefs or {}).items():
@@ -165,7 +203,7 @@ def public_view():
         cur = d["providers"].get(p) or {}
         fields = {}
         for f in meta["fields"]:
-            fields[f] = _mask(cur.get(f)) if f in SECRET_FIELDS else (cur.get(f) or "")
+            fields[f] = _mask(get(p, f)) if f in SECRET_FIELDS and cur.get(f) else ("" if f in SECRET_FIELDS else (cur.get(f) or ""))
         models = {k: (cur.get(k) or v) for k, v in meta["defaults"].items()}
         out["providers"][p] = {"label": meta["label"], "caps": meta["caps"], "help": meta["help"],
                                "fields": fields, "models": models, "configured": configured(p)}

@@ -125,6 +125,13 @@ def load(force=False):
                     sk = dict(getattr(mod, "SKILL"))
                     _validate(sk, folder)
                     sk["_dir"] = folder
+                    need = sk.get("requires_feature")
+                    if need:
+                        from . import licence
+                        if not licence.has_feature(need):
+                            sk["_locked"] = "needs a licence with the '%s' feature" % need
+                            skills[sid] = sk           # listed as locked; none of its tools, timers or executors run
+                            continue
                     trig_actions = {t["action"]: t for t in sk.get("triggers", [])}
                     for name, fn in (sk.get("actions") or {}).items():
                         t = trig_actions.get(name)
@@ -159,6 +166,8 @@ def ensure_triggers(now=None):
     _ensure()
     now = now or datetime.now()
     for sid, sk in _REG["skills"].items():
+        if sk.get("_locked"):
+            continue
         for t in sk.get("triggers", []):
             _schedule_trigger(sid, t, now)
 
@@ -173,13 +182,14 @@ def catalog():
     for sid, sk in _REG["skills"].items():
         missing = [n for n in sk.get("needs", []) if not conn.get(n, {}).get("ok")]
         live = {}
-        if callable(sk.get("status")):
+        if callable(sk.get("status")) and not sk.get("_locked"):
             try:
                 live = sk["status"]() or {}
             except Exception as e:
                 live = {"error": str(e)[:200]}
+        state = "locked" if sk.get("_locked") else "ready" if not missing else "needs_setup"
         out.append({"id": sid, "name": sk["name"], "summary": sk["summary"], "category": sk.get("category", "general"),
-                    "icon": sk.get("icon", "◆"), "state": "ready" if not missing else "needs_setup",
+                    "icon": sk.get("icon", "◆"), "state": state, "locked": sk.get("_locked", ""),
                     "missing": [{"id": m, **conn[m]} for m in missing], "needs": sk.get("needs", []),
                     "tools": [t[0] for t in sk.get("tools", [])], "autopilot": _autopilot_on(sid),
                     "live": live, "builtin": True})

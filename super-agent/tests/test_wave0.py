@@ -217,6 +217,152 @@ class Scheduler(unittest.TestCase):
         self.assertEqual(scheduler.run_due(now=at(11)), [])
 
 
+class Secrets(unittest.TestCase):
+    """Provider keys live in the OS keystore (DPAPI / Keychain), never in settings.json; old plain-text keys move."""
+    FAKE = "rk-wave0-test-value-" + "Q7x9" * 6
+
+    def _disk(self):
+        out = ""
+        for name in os.listdir(settings.MEMDIR):
+            if name.endswith(".json"):
+                with open(os.path.join(settings.MEMDIR, name), "r", encoding="utf-8", errors="replace") as f:
+                    out += f.read()
+        return out
+
+    def test_key_saved_through_settings_is_never_plain_text_on_disk(self):
+        from aixmos import secret_store
+        settings.update(providers={"replicate": {"api_key": self.FAKE}})
+        self.assertEqual(settings.get("replicate", "api_key"), self.FAKE)
+        self.assertTrue(settings.configured("replicate"))
+        self.assertNotIn(self.FAKE, self._disk())
+        self.assertEqual(settings.public_view()["providers"]["replicate"]["fields"]["api_key"][-4:], self.FAKE[-4:])
+        settings.update(providers={"replicate": {"api_key": "__clear__"}})
+        self.assertFalse(settings.configured("replicate"))
+        self.assertIsNone(secret_store.get(settings._secret_name("replicate", "api_key")))
+
+    def test_old_plain_text_key_is_migrated_on_load(self):
+        import json as _json
+        with settings._LOCK:
+            d = settings._read()
+            d["providers"]["luma"] = {"api_key": self.FAKE}
+            settings._write(d)
+        self.assertIn(self.FAKE, self._disk())                      # what an older version left behind
+        settings._migrated = False
+        self.assertEqual(settings.get("luma", "api_key"), self.FAKE)
+        self.assertNotIn(self.FAKE, self._disk())
+        with open(settings.FILE, "r", encoding="utf-8") as f:
+            self.assertEqual(_json.load(f)["providers"]["luma"]["api_key"], settings.SECRET_MARK)
+        settings.update(providers={"luma": {"api_key": "__clear__"}})
+
+
+class Licence(unittest.TestCase):
+    """Verify-only licences: works with or without the 'cryptography' package; every failure is closed."""
+    RFC_PK = bytes.fromhex("d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a")
+    RFC_SIG = bytes.fromhex("e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e065224901555fb8821590a33bacc61e39701cf9b46bd25bf5f0595bbe24655141438e7a100b")
+
+    def test_pure_python_verifier_matches_rfc8032_vector(self):
+        from aixmos import ed25519_verify as ev
+        self.assertTrue(ev.verify(self.RFC_PK, b"", self.RFC_SIG))
+        self.assertFalse(ev.verify(self.RFC_PK, b"x", self.RFC_SIG))
+        bad = bytearray(self.RFC_SIG); bad[5] ^= 1
+        self.assertFalse(ev.verify(self.RFC_PK, b"", bytes(bad)))
+
+    def test_pure_python_verifier_agrees_with_cryptography(self):
+        try:
+            from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+            from cryptography.hazmat.primitives import serialization
+        except ImportError:
+            self.skipTest("cryptography not installed")
+        from aixmos import ed25519_verify as ev
+        for i in range(20):
+            k = Ed25519PrivateKey.generate()
+            pk = k.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
+            msg = os.urandom(i * 7)
+            sig = k.sign(msg)
+            self.assertTrue(ev.verify(pk, msg, sig))
+            self.assertFalse(ev.verify(pk, msg + b"!", sig))
+
+    def _issue(self, node, expires, features=("followup_pro",)):
+        try:
+            from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+            from cryptography.hazmat.primitives import serialization
+        except ImportError:
+            self.skipTest("cryptography not installed (needed only to MINT test licences)")
+        import base64, json as _json
+        k = Ed25519PrivateKey.generate()
+        pk = k.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
+        d = os.path.join(TMP, "lic-" + os.urandom(3).hex())
+        os.makedirs(d)
+        pub = os.path.join(d, "AIX-ISSUER-ED25519.pub")
+        with open(pub, "w") as f:
+            _json.dump({"alg": "ed25519", "pub": base64.b64encode(pk).decode()}, f)
+        body = _json.dumps({"node": node, "expires": expires, "tier": "client", "features": list(features), "to": "Test Co"}).encode()
+        lic = os.path.join(d, "test.aixlic")
+        with open(lic, "w") as f:
+            _json.dump({"payload": base64.b64encode(body).decode(), "sig": base64.b64encode(k.sign(body)).decode()}, f)
+        return lic, pub
+
+    def test_states(self):
+        from aixmos import licence
+        me = licence.fingerprint()
+        lic, pub = self._issue(me, int(time.time()) + 86400 * 30)
+        st = licence.verify(lic, pub)
+        self.assertEqual((st["state"], st["tier"]), ("LICENSED", "aixmos"))
+        self.assertEqual(licence.verify(*self._issue("AIX-OTHERMACHINE00000000", int(time.time()) + 86400))["state"], "WRONG_MACHINE")
+        self.assertEqual(licence.verify(*self._issue(me, int(time.time()) - 10))["state"], "EXPIRED")
+        self.assertEqual(licence.verify("", pub)["state"], "UNLICENSED")
+        import json as _json
+        with open(lic) as f:
+            j = _json.load(f)
+        j["payload"] = j["payload"][:-4] + ("AAAA" if not j["payload"].endswith("AAAA") else "BBBB")
+        with open(lic, "w") as f:
+            _json.dump(j, f)
+        self.assertEqual(licence.verify(lic, pub)["state"], "INVALID")
+        lic2, pub2 = self._issue(me, int(time.time()) + 86400)
+        with open(os.path.join(os.path.dirname(pub2), "AIX-REVOKED.json"), "w") as f:
+            _json.dump({"revoked": [me]}, f)
+        self.assertEqual(licence.verify(lic2, pub2)["state"], "REVOKED")
+
+    def test_works_without_cryptography_package(self):
+        from aixmos import licence
+        lic, pub = self._issue(licence.fingerprint(), int(time.time()) + 86400)
+        saved = {k: v for k, v in sys.modules.items() if k == "cryptography" or k.startswith("cryptography.")}
+        try:
+            for k in list(saved):
+                sys.modules.pop(k)
+            sys.modules["cryptography"] = None                      # import now fails, as in the bundled runtime
+            self.assertEqual(licence.verify(lic, pub)["state"], "LICENSED")
+        finally:
+            sys.modules.pop("cryptography", None)
+            sys.modules.update(saved)
+
+    def test_shipped_licence_folder_holds_only_the_public_key(self):
+        d = os.path.join(ROOT, "licence")
+        names = os.listdir(d)
+        self.assertEqual(names, ["AIX-ISSUER-ED25519.pub"])
+        with open(os.path.join(d, names[0])) as f:
+            self.assertNotIn("PRIVATE", f.read().upper())
+
+    def test_paid_skill_is_locked_without_a_licence(self):
+        from aixmos import licence
+        d = os.path.join(TMP, "skills-paid")
+        os.makedirs(os.path.join(d, "pro"), exist_ok=True)
+        with open(os.path.join(d, "pro", "skill.py"), "w") as f:
+            f.write('SKILL = {"id": "pro", "name": "Pro", "summary": "Paid.", "needs": [], "requires_feature": "pro_pack",'
+                    ' "tools": [("pro_go", "x", {}, [], lambda a, c: "ran", "safe")]}\n')
+        real = skillkit.SKILLS_DIR
+        try:
+            skillkit.SKILLS_DIR = d
+            licence.reset_cache()
+            cat = {s["id"]: s for s in skillkit.load(force=True)}
+            self.assertEqual(cat["pro"]["state"], "locked")
+            self.assertIsNone(skillkit.tool("pro_go"))
+            self.assertTrue(agent.call_tool("pro_go", {}, {"autonomy": "safe"}).startswith("unknown tool"))
+        finally:
+            skillkit.SKILLS_DIR = real
+            skillkit.load(force=True)
+
+
 class AgentSpendGuard(unittest.TestCase):
     """Automatic paid calls (agent, MCP, /v1) stop at the daily budget; free engines never do."""
     def setUp(self):
