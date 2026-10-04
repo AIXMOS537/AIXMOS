@@ -27,7 +27,6 @@ const flag = n => process.argv.includes(`--${n}`);
 
 function firstName(f) { return String(f || '').trim().split(/\s+/)[0] || 'there'; }
 function renderAmount(amt, name) {
-  if (/^[customer]/i.test(name || '')) return '[amount redacted]';
   const s = String(amt == null ? '' : amt).trim();
   if (!s) return null;
   const n = parseFloat(s.replace(/[^0-9.]/g, ''));

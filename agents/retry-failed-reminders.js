@@ -10,18 +10,19 @@ const { fetchOverdueAlerts } = require('./lib/supabase-ops');
 const { sendMessage, toE164 } = require('./lib/sender');
 const state = require('./state');
 
-const FAILED_PHONES = [
-  '+10000000000', // [customer]
-  '+10000000000', // [customer]
-  '+10000000000', // [customer]
-  '+10000000000', // [customer]
-  '+10000000000', // [customer]
-  '+10000000000', // [customer]
-];
+// Customer phone numbers never live in the repo. Pass --phones +1555...,+1555... or list them one per line
+// in agents/.failed-phones.txt (gitignored, stays on the machine that runs this).
+const FAILED_PHONES = (() => {
+  const i = process.argv.indexOf('--phones');
+  if (i >= 0 && process.argv[i + 1]) return process.argv[i + 1].split(',').map(s => s.trim()).filter(Boolean);
+  const f = require('path').join(__dirname, '.failed-phones.txt');
+  try {
+    return require('fs').readFileSync(f, 'utf8').split(/\r?\n/).map(s => s.trim()).filter(s => s && !s.startsWith('#'));
+  } catch { return []; }
+})();
 
 function firstName(f) { return String(f || '').trim().split(/\s+/)[0] || 'there'; }
 function renderAmount(amt, name) {
-  if (/^[customer]/i.test(name || '')) return '[amount redacted]';
   const s = String(amt == null ? '' : amt).trim();
   if (!s) return null;
   const n = parseFloat(s.replace(/[^0-9.]/g, ''));

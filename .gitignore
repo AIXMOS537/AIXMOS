@@ -22,3 +22,5 @@ build/
 *.wav
 *.log
 .DS_Store
+# customer data never goes in git
+agents/.failed-phones.txt
