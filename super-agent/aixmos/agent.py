@@ -303,6 +303,23 @@ def _approved(name, args, ctx):
         return False
     return ans.replace("USER ANSWER:", "").strip().lower().startswith(YES)
 
+PAID_TOOLS = {"generate_image", "generate_video", "edit_video", "web_search", "research"}
+
+def _charge(name, args):
+    """Agent, MCP and /v1 calls are automatic: a paid provider is charged against the owner's daily budget BEFORE the
+    call and refused past it (guard.SpendBlocked). Free engines cost 0. A person clicking in the app is not limited."""
+    from . import guard
+    if name == "generate_image":
+        guard.charge(imagegen.choose_provider(), "image", ref="agent")
+    elif name == "generate_video":
+        guard.charge(videogen.choose_provider(args.get("provider")), "video", ref="agent")
+    elif name == "edit_video" and settings.configured("runway"):
+        guard.charge("runway", "video_edit", ref="agent")      # conservative: a Runway edit may be chosen
+    elif name in ("web_search", "research"):
+        prov = "google_search" if settings.configured("google_search") else "serpapi" if settings.configured("serpapi") else None
+        if prov:
+            guard.charge(prov, "search", units=1 if name == "web_search" else 3, ref="agent")
+
 def call_tool(name, args, ctx):
     t = _tool(name)
     if not t:
@@ -313,6 +330,8 @@ def call_tool(name, args, ctx):
         _needs(level, ctx)
         if gated and ctx.get("tainted") and not _approved(name, args or {}, ctx):
             raise PermissionError("not approved: %s after reading web content needs your yes" % name)
+        if name in PAID_TOOLS:
+            _charge(name, args or {})
         out = _cap(fn(args or {}, ctx))
         if name in TAINTING:
             ctx["tainted"] = True

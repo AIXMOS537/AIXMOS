@@ -217,6 +217,41 @@ class Scheduler(unittest.TestCase):
         self.assertEqual(scheduler.run_due(now=at(11)), [])
 
 
+class AgentSpendGuard(unittest.TestCase):
+    """Automatic paid calls (agent, MCP, /v1) stop at the daily budget; free engines never do."""
+    def setUp(self):
+        wipe("spend")
+        from aixmos import imagegen
+        self.imagegen, self.calls = imagegen, []
+        self._orig = imagegen.generate
+        imagegen.generate = lambda prompt, **k: self.calls.append(prompt) or {"url": "/media/x.png", "final_prompt": prompt}
+        settings.update(providers={"openai": {"api_key": "sk-test-not-real-0000000000000000000000"}},
+                        prefs={"image_provider": "openai", "spend_daily_usd": 0.10})
+
+    def tearDown(self):
+        self.imagegen.generate = self._orig
+        settings.update(providers={"openai": {"api_key": "__clear__"}}, prefs={"image_provider": "auto", "spend_daily_usd": 2.0})
+
+    def ctx(self):
+        return {"autonomy": "builder", "artifacts": []}
+
+    def test_paid_image_is_charged_then_blocked_at_budget(self):
+        out = agent.call_tool("generate_image", {"prompt": "a red van"}, self.ctx())
+        self.assertIn("image saved", out)
+        self.assertAlmostEqual(guard.spent_today(), 0.08)
+        out = agent.call_tool("generate_image", {"prompt": "a blue van"}, self.ctx())
+        self.assertTrue(out.startswith("ERROR"), out)
+        self.assertIn("budget", out)
+        self.assertEqual(self.calls, ["a red van"])                  # the second paid call never happened
+
+    def test_free_provider_is_never_blocked(self):
+        settings.update(prefs={"image_provider": "pollinations", "spend_daily_usd": 0.0, "image_free_public": True})
+        settings.update(providers={"openai": {"api_key": "__clear__"}})
+        for i in range(3):
+            self.assertIn("image saved", agent.call_tool("generate_image", {"prompt": "p%d" % i}, self.ctx()))
+        self.assertEqual(guard.spent_today(), 0.0)
+
+
 DEMO_SKILL = '''
 from aixmos import scheduler
 CALLS = []
