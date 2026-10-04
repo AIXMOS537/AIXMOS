@@ -107,7 +107,7 @@ Then: GHL read connector (official API v2 only, mock + recorded fixtures until a
 ## 7. Decisions that belong to the owner
 
 1. **One builder.** `wave0/head-agent-core` is being written by another session. Either this master spec is handed to that session, or work is split by module. Two writers in one worktree is not safe.
-2. **Private line merge:** may `engines.py`, `secret_store.py`, `memory_store.py`, `licence.py` move from the private `aixmos-client` into this **public** repo?
-3. **Repo visibility:** this repo is public. Client-facing product code with licensing logic may belong in a private repo.
+2. **Private line merge:** DECIDED 2026-10-04, yes. The core modules (`engines.py`, `secret_store.py`, `memory_store.py`, `licence.py`, authority model, `resources.py`) move in after the leak gate. Workforce pack, pathway, roles and prices stay out, and the signing key never enters the repo.
+3. **Repo visibility:** DECIDED 2026-10-04, the repo stays public.
 4. **GHL access:** a sandbox / test sub-account and a Private Integration Token (or Marketplace app) for connector development.
 5. **History rewrite** to remove the earlier customer data from public history.
