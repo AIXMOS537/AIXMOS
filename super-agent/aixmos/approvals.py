@@ -110,12 +110,20 @@ def execute(aid):
     item = get(aid)
     if not n:
         return item
+    from . import outcomes               # requested -> authorized -> verified -> executed -> successful
     try:
+        outcomes.before(item)
         res = EXECUTORS[item["kind"]](item["payload"])
         with store.tx() as c:
             c.execute("UPDATE approvals SET status='executed', result=? WHERE id=?",
                       (json.dumps(res, ensure_ascii=False, default=str)[:4000], aid))
         store.audit("approval.executed", aid, {"kind": item["kind"]})
+        outcomes.after(item, res)
+    except outcomes.Blocked as e:        # an automatic approval that fails a check goes back to the owner, not to failed
+        with store.tx() as c:
+            c.execute("UPDATE approvals SET status='pending', decided=NULL, decided_by=NULL, note=? WHERE id=?",
+                      (str(e)[:500], aid))
+        store.audit("approval.held", aid, {"kind": item["kind"], "title": item.get("title"), "why": str(e)[:300]})
     except Exception as e:
         with store.tx() as c:
             c.execute("UPDATE approvals SET status='failed', error=? WHERE id=?", ((str(e) or type(e).__name__)[:1000], aid))

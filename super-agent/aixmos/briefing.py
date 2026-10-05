@@ -11,7 +11,7 @@ says so; it never estimates, rounds up or fills a gap with a guess.
 """
 import time
 from datetime import datetime
-from . import store, approvals, scheduler, crm, attention, mandate
+from . import store, approvals, scheduler, crm, attention, mandate, outcomes
 
 def _events(kinds, since, now):
     marks = ",".join("?" * len(kinds))
@@ -38,11 +38,14 @@ def build(kind, since, now, health=True):
     sent = _events(["send.email"], since, now)
     failed = _events(["approval.failed", "job.failed", "send.blocked", "guard.spend_blocked"], since, now)
     handled, by_owner = _handled(since, now)
+    held = _events(["approval.held"], since, now)
     s["happened"] = {"new_leads": len(new_leads), "replies": len(replies), "messages_sent": len(sent),
-                     "handled_by_aixmos": len(handled), "approved_by_you": len(by_owner), "problems": len(failed)}
+                     "handled_by_aixmos": len(handled), "approved_by_you": len(by_owner), "problems": len(failed),
+                     "held_for_rules": len(held), "results": outcomes.summary(since, now)}
     ev["happened"] = {"new_leads": [l["id"] for l in new_leads], "replies": [e["id"] for e in replies],
                       "messages_sent": [e["id"] for e in sent], "handled_by_aixmos": [r["id"] for r in handled],
-                      "approved_by_you": [r["id"] for r in by_owner], "problems": [e["id"] for e in failed]}
+                      "approved_by_you": [r["id"] for r in by_owner], "problems": [e["id"] for e in failed],
+                      "held_for_rules": [e["ref"] for e in held]}
     # TODAY / NEXT: what is scheduled
     day = _today_iso(now if kind == "morning" else now + 86400)
     appts = [a for a in d["appointments"] if a.get("status") == "booked" and str(a.get("when", "")).startswith(day)]
@@ -100,11 +103,17 @@ def render(kind, s, now):
         L += ["AIXMOS IS LOCKED: nothing runs on its own until you unlock it on your computer.", ""]
     L.append("SINCE YESTERDAY:" if kind == "morning" else "TODAY:")
     lines = [(h["new_leads"], "new lead", "new leads"), (h["replies"], "reply", "replies"),
-             (h["messages_sent"], "message sent", "messages sent"), (h["approved_by_you"], "action you approved", "actions you approved")]
+             (h["messages_sent"], "message accepted by your mail provider", "messages accepted by your mail provider"), (h["approved_by_you"], "action you approved", "actions you approved")]
     got = ["  %s" % _n(v, a, b) for v, a, b in lines if v]
     L += got or ["  Nothing new recorded."]
     if h["problems"]:
         L.append("  %s (see Activity)" % _n(h["problems"], "problem", "problems"))
+    if h["results"]["successful"]:
+        L.append("  %s confirmed done" % _n(h["results"]["successful"], "action", "actions"))
+    if h["held_for_rules"]:
+        L.append("  I held %s back for you: %s your business rules." % (
+            _n(h["held_for_rules"], "automatic message", "automatic messages"),
+            "it broke" if h["held_for_rules"] == 1 else "they broke"))
     if h["handled_by_aixmos"]:
         L.append("  I handled %s under your standing permissions." % _n(h["handled_by_aixmos"], "routine action", "routine actions"))
     L += ["", ("TODAY (%s):" if kind == "morning" else "TOMORROW (%s):") % sc["day"]]

@@ -37,7 +37,7 @@ flowchart TD
 | Loop | Path through the code | Status |
 |---|---|---|
 | 1 Conversation | chat → `intents.detect` / `agent.py` tool loop | EXISTS (dispatch duplicated; BUILDER consolidating) |
-| 2 Execution | request → `judgment.evaluate` → `approvals.propose` (owner tap / autopilot / **mandate**) → executor → `channels` re-check → audit | EXISTS + THIS BRANCH. VERIFY / SUCCESSFUL states are NEXT (§6) |
+| 2 Execution | request → `judgment.evaluate` → `approvals.propose` (owner tap / autopilot / **mandate**) → `outcomes.before` (business rules again) → executor → `channels` re-check → `outcomes.after` (postcondition) → audit | EXISTS + THIS BRANCH (R1 + R2) |
 | 3 Observation | audit events → `attention.sweep` → level → interrupt or digest | THIS BRANCH (internal events). External events (GHL webhooks, inbox) NEXT |
 | 4 Memory | `memory_store.py` port (source, scope, confidence, timestamp, owner, editable) | BUILDER (owner approved the port 10-04) |
 | 5 Improvement | outcome → evaluation → *proposed* workflow change as a draft | NEXT. Can never touch policy: `judgment.SELF_AUTHORITY` + `mandate.NEVER_SEGMENTS` |
@@ -68,7 +68,8 @@ New files only, plus two small hooks, so it never collides with the builder's un
 | `super-agent/skills/chief_of_staff/` | Built-in skill. A 5-minute sweep and a 07:30 briefing (via the existing scheduler), plus agent tools: brief, attention, check, draft-mandate. |
 | `super-agent/aixmos/approvals.py` (hook) | `propose(auto=True)` also runs under an active mandate (`decided_by="mandate:<id>"`). LOCK stops autopilot, mandates and remote approvals. |
 | `super-agent/aixmos/head.py` (routes) | `GET /api/head/mandates·attention·brief`, `POST /api/head/mandates/draft·activate·revoke`, `/lock`, `/unlock`, `/attention/ack`, `/judge` |
-| `super-agent/tests/test_right_hand.py` | 22 tests. The full suite is 108 tests, 0 failures (3 licence tests skip because `cryptography` isn't installed, as before). |
+| `super-agent/aixmos/outcomes.py` (R2) | The five states, kept apart: REQUESTED → AUTHORIZED → VERIFIED → EXECUTED → SUCCESSFUL, plus BLOCKED / FAILED / NOT CONFIRMED. Prechecks run just before execution. If an automatic approval (autopilot or mandate) breaks the business rules, the item goes back to the owner's inbox instead of sending or failing. Postcondition verifiers decide SUCCESSFUL. Email is only ever "accepted by your mail provider": delivery and bounces aren't visible. `GET /api/head/outcome?id=`. |
+| `super-agent/tests/test_right_hand.py` | 28 tests. Merged with the builder's wave1 (`e260907`), the full suite is 146 tests, 0 failures (3 licence tests skip because `cryptography` isn't installed). |
 
 New tables (created by each module on first use; fold into `store.SCHEMA` on merge): `mandates`, `attention`. New
 prefs (registered at import; fold into `settings.DEFAULT_PREFS` on merge): `business_rules`, `attention_rules`,
@@ -98,9 +99,8 @@ Lanes keep ONE writer per file. B = builder session (`wave0/head-agent-core`); R
 - B: provider abstraction (`providers.py`, Ollama + LM Studio + Anthropic, health, privacy routing); typed tool
   registry with risk / approval / timeout / retry; close current-state §5 items 1–3; port `memory_store.py`.
 - R1 (done here): mandates + LOCK, attention, judgment, briefings, chief_of_staff skill.
-- R2: **execution states**. REQUESTED → AUTHORIZED → VERIFIED → EXECUTED → SUCCESSFUL. Each executor declares a
-  postcondition check (`verify(payload, result)`); the briefing counts only SUCCESSFUL. Needs the builder's tool
-  registry first, so the verify hook lives on the registry record.
+- R2 (done here): **execution states** in `outcomes.py`. Each kind can register a precheck and a postcondition
+  verifier. Next: real verifiers for each connector as it lands (e.g. GHL: re-read the contact or note after writing).
 - GHL read connector: official API v2, Private Integration Token, mock + recorded fixtures until the sandbox
   sub-account exists (owner decision). Lead/conversation content enters as `external:ghl`.
 
@@ -120,10 +120,13 @@ Lanes keep ONE writer per file. B = builder session (`wave0/head-agent-core`); R
 
 ## 7. Owner decisions that block or shape the next steps
 
-1. **Merge path:** this branch should merge into `wave0/head-agent-core` after the builder's current batch lands
-   (two hooks: `approvals.py` and `head.py`, neither in the builder's uncommitted set today). The builder or the owner
-   picks the time.
-2. **Default business rules:** max discount %, forbidden claims, and how many people count as "bulk" (25 by default).
+1. **Merge path:** `origin/core/right-hand-os` already contains the builder's `e260907`. The builder was asked
+   (10-05) to merge it into `wave0/head-agent-core` after its current batch (GHL). The new owner routes are in
+   `OWNER_ONLY` (app token required).
+2. **Default business rules (set 10-05, change any time in prefs `business_rules`):** any price or discount needs the
+   owner; "guaranteed results", "risk-free", "no risk", "100% guaranteed", "act now or lose" and "limited time only"
+   never go out without the owner's OK; more than 25 people counts as bulk. No max-discount number is set: every
+   discount already needs the owner.
 3. **Briefing time and channel:** 07:30 local by default; Telegram needs its own bot (owner creates it in BotFather).
 4. **GHL sandbox sub-account + token:** still the blocker for the connector (current-state §7.4).
 5. **Can publishing ever be delegated?** Today `post` is never delegable. Loosening that is an owner call.

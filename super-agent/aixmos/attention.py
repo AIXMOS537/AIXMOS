@@ -180,7 +180,13 @@ def _on_event(ev):
         observe("approval.pending", "Waiting for your OK: %s" % (d.get("title") or d.get("kind") or "an action"),
                 ref=ref, dedupe="approval:%s" % ref, category="approval")
     elif k in ("approval.approved", "approval.rejected", "approval.executed"):
+        if k != "approval.approved" or not str(d.get("by") or "").startswith(("autopilot:", "mandate:")):
+            resolve(dedupe="held:%s" % ref, why=k.split(".")[1])   # an automatic approve may still be held
         resolve(dedupe="approval:%s" % ref, why=k.split(".")[1])
+    elif k == "approval.held":
+        observe("approval.pending", "Held for you: %s (%s)" % (d.get("title") or d.get("kind") or "an action",
+                                                               (d.get("why") or "")[:140]),
+                ref=ref, dedupe="held:%s" % ref, category="approval")
     elif k == "approval.failed":
         observe("action.failed", "An approved %s failed: %s" % (d.get("kind") or "action", (d.get("error") or "")[:120]),
                 ref=ref, dedupe="failed:%s" % ref)

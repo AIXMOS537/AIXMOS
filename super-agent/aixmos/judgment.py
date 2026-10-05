@@ -31,7 +31,10 @@ SELF_AUTHORITY = re.compile(r"^(permission|permissions|security|policy|mandate|a
 HIGH = re.compile(r"\.(send|reply|post|publish|sign|pay|refund|delete|purge|bulk)$|"
                   r"^(message|payment|contract|price|pricing|refund|invoice|discount)\.")
 MEDIUM = re.compile(r"\.(update|create|schedule|book|move|cancel|tag|note|assign)$")
-DEFAULT_RULES = {"bulk_confirm_over": 25, "price_needs_approval": True}
+# Out of the box: any price or discount needs the owner, and the classic false claims never go out.
+DEFAULT_RULES = {"bulk_confirm_over": 25, "price_needs_approval": True,
+                 "forbidden_phrases": ["guaranteed results", "risk-free", "risk free", "100% guaranteed",
+                                       "no risk", "act now or lose", "limited time only"]}
 settings.DEFAULT_PREFS.setdefault("business_rules", {})    # owner-editable (fold into settings.DEFAULT_PREFS on merge)
 DISCOUNT = re.compile(r"(?i)(\d{1,3})\s*%\s*(?:off|discount)|(?:discount|off)\s*(?:of\s*)?(\d{1,3})\s*%")
 PRICE = re.compile(r"(?i)(?:[$£€]\s?\d[\d,]*(?:\.\d\d)?|\b\d[\d,]*(?:\.\d\d)?\s?(?:usd|dollars)\b)")
@@ -40,6 +43,22 @@ def _rules():
     r = dict(DEFAULT_RULES)
     r.update(settings.pref("business_rules") or {})
     return r
+
+def rule_conflicts(text, rules=None):
+    """The owner's business rules applied to text that would go out. Returns a list of plain-English conflicts."""
+    rules, text, out = rules or _rules(), str(text or ""), []
+    mx = rules.get("max_discount_pct")
+    pcts = [int(x or y) for x, y in DISCOUNT.findall(text)]
+    if mx is not None and pcts and max(pcts) > float(mx):
+        out.append("a %d%% discount is above your limit of %s%%" % (max(pcts), mx))
+    elif pcts and rules.get("price_needs_approval"):
+        out.append("it offers a discount, and pricing changes need your approval")
+    if PRICE.search(text) and rules.get("price_needs_approval") and not pcts:
+        out.append("it quotes a price, and prices need your approval")
+    for ph in rules.get("forbidden_phrases") or []:
+        if ph and str(ph).lower() in text.lower():
+            out.append("it says \"%s\", a claim that needs your OK" % ph)
+    return out
 
 def _check(checks, name, ok, why=""):
     checks.append({"check": name, "ok": bool(ok), "why": why})
@@ -96,18 +115,8 @@ def evaluate(action, now=None):
     if conf is not None and not _check(checks, "confidence", float(conf) >= 0.6, "confidence %.2f" % float(conf)):
         return out("ask", "I'm not sure I understood. Can you say what you want done, and for whom?")
     # 4. is it safe? business rules + blast radius
-    rules, conflicts, text = _rules(), [], str(a.get("text") or "")
-    mx = rules.get("max_discount_pct")
-    pcts = [int(x or y) for x, y in DISCOUNT.findall(text)]
-    if mx is not None and pcts and max(pcts) > float(mx):
-        conflicts.append("a %d%% discount is above your limit of %s%%" % (max(pcts), mx))
-    elif pcts and rules.get("price_needs_approval"):
-        conflicts.append("it offers a discount, and pricing changes need your approval")
-    if PRICE.search(text) and rules.get("price_needs_approval") and not pcts:
-        conflicts.append("it quotes a price, and prices need your approval")
-    for ph in rules.get("forbidden_phrases") or []:
-        if ph and str(ph).lower() in text.lower():
-            conflicts.append("it says \"%s\", which you told me never to claim" % ph)
+    rules, text = _rules(), str(a.get("text") or "")
+    conflicts = rule_conflicts(text, rules)
     if targets:
         contacts = [t for t in targets if guard.normalize(t)] if risk == "high" and len(targets) <= 5000 else []
         blocked = sum(1 for t in contacts if guard.blocked(t))

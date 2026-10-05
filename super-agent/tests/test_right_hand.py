@@ -287,6 +287,84 @@ class Briefing(unittest.TestCase):
             mandate.unlock(by="owner")
 
 
+
+approvals.register("rh.confirmed", lambda p: {"id": "x1"})
+approvals.register("rh.mail", lambda p: {"sent_to": p.get("to")})
+approvals.register("rh.badcheck", lambda p: {"ok": True})
+
+
+class Outcomes(unittest.TestCase):
+    def setUp(self):
+        wipe()
+        from aixmos import outcomes
+        self.o = outcomes
+        outcomes._ensure()
+        with store.tx() as c:
+            c.execute("DELETE FROM outcomes")
+
+    def test_default_rules_block_classic_false_claims(self):
+        self.assertTrue(judgment.rule_conflicts("A risk-free trial with guaranteed results"))
+        self.assertTrue(judgment.rule_conflicts("Only $49 this week"))
+        self.assertEqual(judgment.rule_conflicts("Thanks for stopping by, see you soon."), [])
+
+    def test_states_are_kept_apart(self):
+        self.o.verifier("rh.confirmed")(lambda item, res: ("confirmed", "found it") if res.get("id") else ("mismatch", ""))
+        it = approvals.decide(approvals.propose("rh.confirmed", "Make the thing", {"body": "hello"})["id"], True, by="owner")
+        st = self.o.state(it["id"])
+        self.assertEqual(st["state"], "successful")
+        self.assertEqual(st["ladder"], {"requested": True, "authorized": True, "verified": True, "executed": True,
+                                        "successful": True})
+        plain = approvals.decide(approvals.propose("rh.send", "No check exists", {})["id"], True, by="owner")
+        st = self.o.state(plain["id"])
+        self.assertEqual((st["state"], st["ladder"]["executed"], st["ladder"]["successful"]), ("not confirmed", True, False))
+        waiting = approvals.propose("rh.send", "Still waiting", {})
+        self.assertEqual(self.o.state(waiting["id"])["state"], "requested")
+
+    def test_email_is_accepted_never_successful(self):
+        self.o.verifier("rh.mail")(self.o._email_accepted)
+        it = approvals.decide(approvals.propose("rh.mail", "Mail Jo", {"to": "jo@example.com", "body": "Hi Jo"})["id"],
+                              True, by="owner")
+        st = self.o.state(it["id"])
+        self.assertEqual((st["state"], st["post"]), ("executed", "accepted"))
+        self.assertIn("bounces are not visible", st["detail"])
+
+    def test_broken_check_never_fails_a_done_action(self):
+        def boom(item, res):
+            raise RuntimeError("checker crashed")
+        self.o.verifier("rh.badcheck")(boom)
+        it = approvals.decide(approvals.propose("rh.badcheck", "x", {})["id"], True, by="owner")
+        self.assertEqual(it["status"], "executed")
+        self.assertEqual(self.o.state(it["id"])["post"], "unconfirmed")
+
+    def test_automatic_message_breaking_rules_goes_back_to_owner(self):
+        settings.update(prefs={"autopilot": {"t": ["rh.send"]}})
+        it = approvals.propose("rh.send", "Promo to Sam", {"to": "sam@example.com", "body": "Get 50% off today!"},
+                               skill="t", auto=True)
+        self.assertEqual((it["status"], it["decided_by"]), ("pending", None))  # held, not sent, not failed
+        self.assertIn("not verified", it["note"])
+        self.assertEqual(RAN, [])
+        self.assertEqual(self.o.state(it["id"])["pre"], "blocked")
+        attention.sweep()
+        self.assertTrue(any(r["title"].startswith("Held for you") for r in attention.items("open")))
+        b = briefing.morning(health=False)
+        self.assertEqual(b["sections"]["happened"]["held_for_rules"], 1)
+        self.assertIn("held 1 automatic message back", b["text"])
+        done = approvals.decide(it["id"], True, by="owner")                    # the owner saw it and said yes
+        self.assertEqual(done["status"], "executed")
+        self.assertIn("owner approved despite", self.o.state(it["id"])["detail"] + store.one(
+            "SELECT pre_detail FROM outcomes WHERE aid=?", (it["id"],))["pre_detail"])
+        attention.sweep()
+        self.assertFalse(any(r["title"].startswith("Held for you") for r in attention.items("open")))
+
+    def test_mandate_cannot_carry_a_forbidden_claim(self):
+        m = mandate.draft("Away", time.time() + 86400, will=["rh.send"])
+        mandate.activate(m["id"], by="owner")
+        it = approvals.propose("rh.send", "Follow-up", {"to": "a@example.com", "body": "Guaranteed results, no risk!"},
+                               skill="t", auto=True)
+        self.assertEqual(it["status"], "pending")
+        self.assertEqual(RAN, [])
+
+
 class Skill(unittest.TestCase):
     def test_chief_of_staff_loads_with_tools_and_timers(self):
         cat = {s["id"]: s for s in skillkit.load(force=True)}
