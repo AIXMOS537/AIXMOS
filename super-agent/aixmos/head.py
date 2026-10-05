@@ -22,6 +22,7 @@ Right hand (authority, attention, briefings):
 GET  /api/head/mandates            every mandate + the active one + lock state
 GET  /api/head/attention?status=   attention items (default open) + digest of the last 24 h
 GET  /api/head/brief?kind=         morning (default) or evening, built from evidence only
+GET  /api/head/outcome?id=         one action's execution state: requested/authorized/verified/executed/successful
 POST /api/head/mandates/draft      {title, until, will: [kinds], ask, alert, note}   -> draft + plan (grants nothing)
 POST /api/head/mandates/activate   {id}       POST /api/head/mandates/revoke {id, why}
 POST /api/head/lock                {why}      POST /api/head/unlock  (this computer only)
@@ -95,6 +96,13 @@ def route_get(h, p, g):
         st = g("status", "open")
         h._json({"items": attention.items(None if st in ("all", "") else st, int(g("limit", 100))),
                  "digest": attention.digest(time.time() - 86400), "outbox": attention.outbox()})
+    elif p == "/api/head/outcome":
+        from . import outcomes
+        st = outcomes.state(g("id", ""))
+        if not st:
+            h._fail("no such action", 404)
+        else:
+            h._json(st)
     elif p == "/api/head/brief":
         h._json(briefing.end_of_day() if g("kind", "morning") == "evening" else briefing.morning())
     else:
