@@ -129,10 +129,34 @@ CORE = {
 
 _CACHE = {}
 
-def spec(t, source="core"):
+# What a skill may declare about its own tools (SKILL["tool_meta"]). Only in the safe direction: a skill can mark
+# its output untrusted, name its connector, set limits or route writes through an inbox kind, and it can RAISE its
+# risk, never lower it below what its autonomy level implies.
+SKILL_META = ("tainting", "connector", "timeout", "retries", "paid", "inbox", "risk")
+
+def _skill_meta(meta, extra):
+    for k, v in (extra or {}).items():
+        if k not in SKILL_META:
+            continue
+        if k == "risk":
+            if v in RISKS and RISKS.index(v) > RISKS.index(meta["risk"]):
+                meta["risk"] = v
+                if v == "HIGH" and meta["access"] == "write":
+                    meta["action"] = "activate_automation"     # a HIGH write needs a yes every time
+        elif k == "tainting":
+            meta["tainting"] = meta.get("tainting", False) or bool(v)   # can switch it on, never off
+        elif k == "retries":
+            meta[k] = max(0, min(int(v), 3)) if meta["access"] == "read" else 0
+        elif k == "timeout":
+            meta[k] = max(0.0, float(v))
+        else:
+            meta[k] = v if k != "paid" else bool(v)
+    return meta
+
+def spec(t, source="core", extra=None):
     """ToolSpec for a tool tuple (name, description, params, required, fn, level). Cached per tuple identity, so a
-    replaced tuple (tests, skill reload) gets a fresh spec."""
-    key = (id(t), t[0])
+    replaced tuple (tests, skill reload) gets a fresh spec. extra = the skill's tool_meta for this tool."""
+    key = (id(t), t[0], repr(sorted((extra or {}).items())))
     s = _CACHE.get(key)
     if s is not None and s.fn is t[4]:
         return s
@@ -142,6 +166,7 @@ def spec(t, source="core"):
         risk = LEVEL_RISK.get(level, "HIGH")
         meta = dict(risk=risk, access="read" if level == "safe" else "write",
                     action={"LOW": "read_business_data", "MEDIUM": "write_local_business_data"}.get(risk, "activate_automation"))
+        meta = _skill_meta(meta, extra)
     s = ToolSpec(name=name, description=desc, params=params, required=list(req), fn=fn, level=level, source=source, **meta)
     if len(_CACHE) > 500:
         _CACHE.clear()

@@ -388,7 +388,14 @@ def _tool(name):
 
 def _spec(t):
     from . import registry
-    return registry.spec(t, "core" if TOOL_MAP.get(t[0]) is t else "skill")
+    if TOOL_MAP.get(t[0]) is t:
+        return registry.spec(t, "core")
+    try:
+        from . import skillkit
+        extra = skillkit.tool_meta(t[0])
+    except Exception:
+        extra = None
+    return registry.spec(t, "skill", extra)
 
 def tool_schemas(autonomy="builder"):
     """Tools the model may call at this autonomy level; tools the owner BLOCKED are never offered."""

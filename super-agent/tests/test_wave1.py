@@ -203,6 +203,19 @@ class Registry(unittest.TestCase):
         self.assertTrue(table["crm_list_leads"]["untrusted_output"])
         self.assertTrue(table["generate_image"]["paid"])
 
+    def test_skill_tool_meta_only_tightens(self):
+        fn = lambda a, c: "ok"
+        t = ("demo_read", "d", {}, [], fn, "builder")
+        s = registry.spec(t, "skill", {"tainting": True, "connector": "ghl", "risk": "LOW", "retries": 9, "action": "read_web"})
+        self.assertTrue(s.tainting); self.assertEqual(s.connector, "ghl")
+        self.assertEqual((s.risk, s.action), ("MEDIUM", "write_local_business_data"))   # no lowering, no unknown keys
+        self.assertEqual(s.retries, 0)                                                  # writes never retried
+        hi = registry.spec(("demo_go", "d", {}, [], fn, "builder"), "skill", {"risk": "HIGH"})
+        self.assertEqual((hi.risk, hi.mode()), ("HIGH", "ALWAYS"))
+        self.assertFalse(registry.spec(t, "skill", {"tainting": False}).tainting)
+        from aixmos import skillkit
+        self.assertTrue(agent._spec(skillkit.tool("leads_handle")).tainting)
+
     def test_blocked_tool_is_not_offered_and_refused(self):
         settings.update(prefs={"tool_policy": {"write_file": "BLOCKED"}})
         self.assertNotIn("write_file", [t["function"]["name"] for t in agent.tool_schemas("builder")])

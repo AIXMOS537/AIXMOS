@@ -8,6 +8,7 @@ copy and paste. Each skill.py defines
     "id": "followup", "name": "Follow-ups that run", "summary": "...", "category": "customers",
     "needs":     ["email"],                                   # connector ids (CONNECTORS below)
     "tools":     [(name, description, params, required, fn(args, ctx), level), ...],  # agent/MCP tools
+    "tool_meta": {"<id>_read": {"tainting": True, "connector": "ghl"}},  # optional; registry.SKILL_META keys only
     "actions":   {"step": fn(payload, job)},                  # scheduler handlers -> "followup.step"
     "executors": {"followup.email": fn(payload)},             # approval executors (run only after approve)
     "triggers":  [{"action": "sweep", "every_minutes": 15}, {"action": "brief", "daily": "07:00"}],
@@ -117,7 +118,7 @@ def load(force=False):
     with _LOCK:
         if _REG["loaded"] and not force:
             return catalog()
-        skills, errors, tools = {}, {}, {}
+        skills, errors, tools, metas = {}, {}, {}, {}
         if os.path.isdir(SKILLS_DIR):
             for sid in sorted(os.listdir(SKILLS_DIR)):
                 folder = os.path.join(SKILLS_DIR, sid)
@@ -146,10 +147,13 @@ def load(force=False):
                         approvals.register(kind, fn)
                     for t in sk.get("tools", []):
                         tools[t[0]] = t
+                    for tname, m in (sk.get("tool_meta") or {}).items():
+                        if tname.startswith(sid + "_") and tname in tools and isinstance(m, dict):   # own tools only
+                            metas[tname] = dict(m)
                     skills[sid] = sk
                 except Exception as e:
                     errors[sid] = "%s: %s" % (type(e).__name__, str(e)[:300])
-        _REG.update(loaded=True, skills=skills, errors=errors, tools=tools)
+        _REG.update(loaded=True, skills=skills, errors=errors, tools=tools, tool_meta=metas)
     return catalog()
 
 def _ensure():
@@ -167,6 +171,11 @@ def tools():
 def tool(name):
     _ensure()
     return _REG["tools"].get(name)
+
+def tool_meta(name):
+    """A skill's declared metadata for one of its tools (SKILL["tool_meta"]); registry.spec only applies safe keys."""
+    _ensure()
+    return (_REG.get("tool_meta") or {}).get(name)
 
 def ensure_triggers(now=None):
     _ensure()

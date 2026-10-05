@@ -290,6 +290,8 @@ SKILL = {
          {"lookback_days": "integer", "limit": "integer"}, [], t_handle, "builder"),
         ("leads_status", "How many lead replies are waiting for the owner and how many went out this week.", {}, [], t_status, "safe"),
     ],
+    # the report quotes lead names and reasons: customer-supplied text, so a run that reads it is tainted
+    "tool_meta": {"leads_handle": {"tainting": True, "connector": "ghl", "timeout": 900}},
     "actions": {"sweep": sweep},
     "executors": {KIND: send},
     "triggers": [{"action": "sweep", "every_minutes": 30}],
