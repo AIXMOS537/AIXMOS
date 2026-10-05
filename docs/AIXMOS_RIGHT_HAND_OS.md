@@ -111,7 +111,8 @@ Lanes keep ONE writer per file. B = builder session (`wave0/head-agent-core`); R
 - DONE (R3, `dossier.py`): "What's happening with Johnson?" → one answer across local CRM, GoHighLevel, appointments,
   follow-ups, the approvals inbox, sends, opt-outs and attention. It's a resolver over sources, not a second
   database. Several matches → *ask* with options, then `pick`. GHL down → it answers from local records and says so.
-  The agent tool leaves out customer-written text (skill tools can't yet be marked untrusted in the registry).
+  The agent tool is declared tainting (`SKILL["tool_meta"]`, registry 317299b). Customer-written text reaches the
+  model wrapped as UNTRUSTED CRM CONTENT, and any risky tool after it needs a person's yes. Brief and attention too.
   Calendar and documents get added when those connectors exist.
 - Lead-response drafting with Brand Profile + `judgment` before every send; GHL writes behind the inbox.
 - Conversational references ("those three") as structured task context, not raw chat history.

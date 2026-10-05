@@ -57,7 +57,7 @@ def t_delegate(a, ctx):
             % u["mandate"]["id"])
 
 def t_dossier(a, ctx):
-    d = dossier.build(a.get("who") or "", pick=a.get("pick") or None, quote=False)   # no customer words to the model
+    d = dossier.build(a.get("who") or "", pick=a.get("pick") or None)   # tainting tool: customer words arrive as data
     return d["text"]
 
 def status():
@@ -93,6 +93,11 @@ SKILL = {
          "people match it lists them: ask the owner which, then call again with pick = that option's key.",
          {"who": "string", "pick": "string"}, ["who"], t_dossier, "safe"),
     ],
+    # Outputs that carry words other people wrote (lead names, GHL messages, appointment names, approval titles) taint
+    # the run: the model gets them wrapped as untrusted CRM content and any risky tool after them needs a person's yes.
+    "tool_meta": {"chief_of_staff_dossier": {"tainting": True, "connector": "ghl"},
+                  "chief_of_staff_brief": {"tainting": True, "connector": "crm"},
+                  "chief_of_staff_attention": {"tainting": True, "connector": "crm"}},
     "actions": {"sweep": sweep, "morning": morning},
     "triggers": [{"action": "sweep", "every_minutes": 5}, {"action": "morning", "daily": "07:30"}],
     "status": status,

@@ -166,8 +166,8 @@ def build(query, pick=None, now=None, quote=True):
             "sections": S, "notes": notes, "text": render(p, S, notes, quote), "quoted": quote}
 
 def render(p, S, notes, quote=True):
-    """quote=False leaves out free text other people wrote (GHL messages, task titles). The agent tool uses it: skill
-    tools can't yet mark their output untrusted in the registry, so customer words never reach the model this way."""
+    """quote=False leaves out free text other people wrote (GHL messages, task titles), for any surface that can't
+    mark its output untrusted. The agent tool quotes: it is declared tainting (chief_of_staff tool_meta)."""
     L = [(p["name"] or (p["contacts"] or ["?"])[0]).upper() + ((" - " + p["company"]) if p["company"] else "")]
     if S.get("opted_out"):
         L.append("DO NOT CONTACT: %s." % S["opted_out"])
