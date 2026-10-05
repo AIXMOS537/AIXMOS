@@ -92,6 +92,8 @@ DEFAULT_PREFS = {
     "spend_daily_usd": 2.0,
     # approvals.py: per-skill autopilot, e.g. {"followup": ["email.send"]}. Empty = every send waits for the owner.
     "autopilot": {},
+    # skills/leads: watch for leads waiting for a reply every 30 min (drafts only; nothing sends without approval)
+    "leads_watch": True, "leads_lookback_days": 3, "leads_followup_days": 2, "leads_max_per_run": 10,
     # skillkit.persona(): characters of a built-in skill's guide given to the model (most relevant sections first)
     "skill_prompt_chars": 4000,
 }

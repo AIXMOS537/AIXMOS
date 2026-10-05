@@ -28,12 +28,25 @@ Spec: `MASTER-PROMPT-AGENT-RUNTIME-2026-10-04` (owner, kept outside this public 
 - Writes (notes, tasks, tags) only through the approvals inbox. No send capability exists.
 - Verified live on a test sub-account 2026-10-05.
 
+**Wave 2b + 3: Brand Profile and "Handle my new leads"**
+- Brand Profile (`brand.py`): the only facts a reply may state, the owner's voice and examples, never-say lines,
+  and a reply check (invented prices / guarantees / policies / foreign links = rewrite once, then the owner).
+- Lead handler skill (`skills/leads`, spec §27), tool `leads_handle`, watching every 30 minutes:
+  - finds who needs a reply (GoHighLevel inbound conversations + new contacts, or the local CRM);
+  - reads their history as untrusted data, and works out the intent;
+  - escalates complaints, refunds, legal threats and custom pricing to the owner;
+  - drafts from the Brand Profile and checks the draft;
+  - queues one inbox item per lead. On approval it emails the lead, logs a GHL note and sets a follow-up task.
+    Phone-only leads get a text-back task carrying the draft;
+  - never handles the same message twice, and reports what it did.
+- Verified live 2026-10-05 on the test sub-account with `qwen3:4b-instruct` (about 15 s per lead); nothing sent.
+- GHL writes are confirmed by reading them back (execution state SUCCESSFUL).
+
 ## Next
 
 | Wave | Work | Needs from the owner |
 |---|---|---|
-| 2 | Brand Profile (structured: voice, services, prices, policies, prohibited claims) feeding the Verifier. | |
-| 3 | Lead-response skill: "Handle my new leads" end to end (find, read history, draft in brand voice, verify claims, one approval, send, update CRM, schedule follow-up, report). Replies go out by email through the inbox; GHL texting waits for A2P/10DLC and an owner decision. | |
+| 3 | "Approve all" for a batch of lead replies in the Command Center; per-lead edit before approve. | |
 | 3 | More GHL writes through the inbox (pipeline stage moves, appointments). GHL message sending only after A2P/10DLC and an owner decision. | Owner decision on texting |
 | 4 | Telegram owner command center: own bot per install, owner pairing, approvals with buttons bound to an action hash, LOCK AIXMOS. Same orchestrator, not a separate bot. | Owner creates the bot |
 | 4 | Calendar (Google / Cal.com), SMS + missed-call text-back. | Accounts, Twilio + 10DLC |
