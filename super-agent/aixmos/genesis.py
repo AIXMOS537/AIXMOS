@@ -362,7 +362,7 @@ def plan(timeout=300):
     user += ("\n\nThe ONLY commands that exist: " + ", ".join(COMMANDS) +
              ". A skill is switched on with '/skill <name>'. Never write any other slash command."
              "\nExample action: 1. **Map your offer.** Type `/research how car rental companies in Dallas price weekly rentals` and I will bring back a cited report.")
-    md = llm.text(system, user, temperature=0.3, num_ctx=4096, timeout=timeout) if llm.list_models() else ""
+    md = llm.text(system, user, temperature=0.3, num_ctx=4096, timeout=timeout) if llm.available() else ""
     source = "model"
     if len(md) < 200:
         md, source = _fallback_plan(st, picks), "template"

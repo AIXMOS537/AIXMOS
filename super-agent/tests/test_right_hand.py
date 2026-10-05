@@ -25,7 +25,7 @@ def tearDownModule():
 
 
 def at(h, m=0, day=5):
-    return datetime(2026, 10, day, h, m).timestamp()
+    return datetime(2030, 10, day, h, m).timestamp()     # always in the future
 
 
 def wipe():
@@ -149,8 +149,8 @@ class Attention(unittest.TestCase):
     def test_mandate_alert_categories_interrupt(self):
         r1 = attention.observe("lead.reply", "Big client replied", now=at(11))
         self.assertEqual(r1["interrupt"], "none")                               # important: waits for the brief
-        m = mandate.draft("Away", time.time() + 86400, will=["rh.send"])
-        mandate.activate(m["id"], by="owner")
+        m = mandate.draft("Away", at(12) + 86400, will=["rh.send"], now=at(12))     # fixed clock, not today's
+        mandate.activate(m["id"], by="owner", now=at(12))
         r2 = attention.observe("lead.reply", "Another big client replied", now=at(12, 30))
         self.assertEqual(r2["interrupt"], "queued")                             # owner asked to be told at once
 

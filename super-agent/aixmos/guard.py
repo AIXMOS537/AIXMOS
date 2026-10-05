@@ -31,7 +31,7 @@ PRICES = {("openai", "image"): 0.08, ("openai", "video"): 1.50, ("stability", "i
           ("replicate", "image"): 0.01, ("replicate", "video"): 0.60, ("fal", "image"): 0.01, ("fal", "video"): 0.60,
           ("gemini", "image"): 0.04, ("gemini", "video"): 2.00, ("runway", "video"): 1.25, ("runway", "video_edit"): 1.25,
           ("luma", "video"): 1.00, ("google_search", "search"): 0.005, ("serpapi", "search"): 0.015,
-          ("anthropic", "chat"): 0.02}
+          ("anthropic", "chat"): 0.02, ("openai", "chat"): 0.01}
 FREE = {"pollinations", "duckduckgo", "ollama", "lmstudio", "local", "storyboard"}
 FALLBACK = 0.25
 

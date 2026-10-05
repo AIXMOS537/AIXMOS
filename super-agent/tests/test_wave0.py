@@ -220,8 +220,10 @@ class Scheduler(unittest.TestCase):
 class HeadApi(unittest.TestCase):
     """The Command Center's HTTP surface, driven with a fake request handler."""
     class H:
-        def __init__(self, body=None, query=None):
+        def __init__(self, body=None, query=None, owner=True):
+            from aixmos import head
             self.out, self.body, self.query = None, body or {}, query or {}
+            self.headers = {"X-AIXMOS-UI": head.UI_TOKEN} if owner else {}      # the app page sends the launch token
         def _json(self, d): self.out = d
         def _fail(self, e, code=400): self.out = {"error": str(e), "code": code}
         def _body(self): return self.body
@@ -252,6 +254,18 @@ class HeadApi(unittest.TestCase):
         self.assertEqual(self.get("/api/head/approvals")["items"], [])
         hist = self.get("/api/head/approvals", status="all")["items"]
         self.assertEqual([(x["id"], x["status"]) for x in hist], [(it["id"], "rejected")])
+
+    def test_owner_actions_need_the_app_token(self):
+        from aixmos import head
+        it = approvals.propose("test.api", "Ping Jo", {"to": "jo@b.co"})
+        for path, body in (("/api/head/approvals/decide", {"id": it["id"], "approve": True}),
+                           ("/api/head/autopilot", {"skill": "followup", "kinds": True}),
+                           ("/api/head/tools/policy", {"tool": "send_email", "mode": "AUTO"})):
+            h = self.H(body=body, owner=False)
+            self.assertTrue(head.route_post(h, path))
+            self.assertEqual(h.out.get("code"), 403, path)
+        self.assertEqual(approvals.get(it["id"])["status"], "pending")        # a script cannot approve its own work
+        self.assertNotIn("followup", settings.pref("autopilot") or {})
 
     def test_overview_and_autopilot_switch(self):
         ov = self.get("/api/head")

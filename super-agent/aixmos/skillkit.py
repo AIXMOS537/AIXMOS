@@ -37,7 +37,7 @@ def _email_ok():
 
 def _model_ok():
     from . import llm
-    return bool(llm.list_models())
+    return llm.available()
 
 def _profile(field):
     from . import skills

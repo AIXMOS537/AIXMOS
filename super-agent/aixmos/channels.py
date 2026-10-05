@@ -7,6 +7,7 @@ wins), goes out through the owner's own connected account, and is recorded in th
   send_email(payload)   payload: {to, subject, body, account?, skill?, ref?}  -> {"sent_to", "subject", "account"}
                         registered as the approval executor "email.send"
 """
+import re
 from . import guard, approvals, store
 
 def _account(aid=None):
@@ -20,18 +21,41 @@ def _account(aid=None):
         return aid
     return accs[0]["id"]
 
+def recipients(*fields):
+    """'a@x.com, b@y.com; c@z.com' (and lists) -> ['a@x.com', 'b@y.com', 'c@z.com']"""
+    out = []
+    for f in fields:
+        for part in (f if isinstance(f, (list, tuple)) else re.split(r"[,;\n]+", str(f or ""))):
+            part = str(part).strip()
+            if part:
+                out.append(part)
+    return out
+
 def send_email(payload):
+    """payload: {to, subject, body, account?, cc?, bcc?, attachments?, reply_to?, skill?, ref?}. Every recipient
+    (to, cc and bcc) is checked; one blocked recipient stops the whole message."""
     from . import email_tools
-    to = str(payload.get("to") or "").strip()
-    d = guard.check_send("email", to)
-    if not d:
-        store.audit("send.blocked", guard.normalize(to), {"channel": "email", "reason": d.reason, "ref": payload.get("ref")})
-        raise PermissionError("not sent: %s" % d.reason)
+    to = payload.get("to") or ""
+    every = recipients(to, payload.get("cc"), payload.get("bcc"))
+    if not every:
+        raise ValueError("no recipient")
+    for rcpt in every:
+        # The owner writing an email by hand is not held to the automation caps; opt-outs still hold for everyone.
+        d = guard.Decision(not guard.blocked(rcpt), guard.blocked(rcpt) or "ok") if payload.get("manual") \
+            else guard.check_send("email", rcpt)
+        if not d:
+            store.audit("send.blocked", guard.normalize(rcpt), {"channel": "email", "reason": d.reason, "ref": payload.get("ref")})
+            raise PermissionError("not sent: %s (%s)" % (d.reason, rcpt))
     aid = _account(payload.get("account"))
-    email_tools.send(aid, to, payload.get("subject") or "", payload.get("body") or "")
-    guard.record_send("email", to, payload.get("skill") or "", payload.get("ref"))
-    store.audit("send.email", guard.normalize(to), {"skill": payload.get("skill"), "ref": payload.get("ref"),
-                                                    "subject": (payload.get("subject") or "")[:120]})
-    return {"sent_to": to, "subject": payload.get("subject"), "account": aid}
+    extra = {k: payload[k] for k in ("cc", "bcc", "attachments", "reply_to") if payload.get(k)}
+    res = email_tools.send(aid, to, payload.get("subject") or "", payload.get("body") or "", **extra)
+    for rcpt in every:
+        guard.record_send("email", rcpt, payload.get("skill") or "", payload.get("ref"))
+    store.audit("send.email", guard.normalize(every[0]), {"skill": payload.get("skill"), "ref": payload.get("ref"),
+                                                          "recipients": len(every), "subject": (payload.get("subject") or "")[:120]})
+    out = {"sent_to": to, "subject": payload.get("subject"), "account": aid}
+    if isinstance(res, dict):
+        out.update({k: res[k] for k in ("to", "from") if k in res})
+    return out
 
 approvals.register("email.send", send_email)

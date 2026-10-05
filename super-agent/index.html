@@ -818,6 +818,31 @@
           <div class="panel"><h2>Coming up</h2><div class="list" id="hcJobs"></div></div>
           <div class="panel"><h2>Recent decisions <span class="sub">sent, rejected, failed</span></h2><div class="list" id="hcDone"></div></div>
         </div>
+        <div class="grid2" style="margin-top:14px;grid-template-columns:1fr 1fr">
+          <div class="panel" id="hcModelsPanel"><h2>Models &amp; privacy <span class="sub">what AIXMOS thinks with</span></h2>
+            <div class="list" id="hcModels"></div>
+            <label class="f">Privacy</label>
+            <select class="f" id="hcPrivacy">
+              <option value="PRIVATE-LOCAL">Private: nothing leaves this computer</option>
+              <option value="LOCAL-PREFERRED">Local first: cloud only when allowed below</option>
+              <option value="CLOUD-OK">Cloud is fine for this business</option>
+            </select>
+            <label class="toggle"><input type="checkbox" id="hcCloud"> Allow connected cloud models (Claude, OpenAI). Automatic use counts toward the daily budget.</label>
+            <div class="note" id="hcModelMsg"></div>
+          </div>
+          <div class="panel" id="hcMemPanel"><h2>Memory <span class="sub">what AIXMOS knows about your business</span></h2>
+            <div class="row"><input class="f" id="hcMemText" placeholder="Teach it something, e.g. We close at 6pm on Saturdays" style="flex:1">
+              <select class="f" id="hcMemKind" style="width:auto"><option value="USER_STATEMENT">fact</option><option value="PREFERENCE">preference</option><option value="PROCEDURE">how we do it</option></select>
+              <button class="btn sm" id="hcMemAdd">Save</button></div>
+            <label class="toggle"><input type="checkbox" id="hcMemCloud"> May be shared with cloud models</label>
+            <div class="note">Notes the agent wrote stay notes until you confirm them.</div>
+            <div class="list" id="hcMem" style="max-height:320px;overflow:auto"></div>
+          </div>
+        </div>
+        <div class="panel" id="hcToolsPanel" style="margin-top:14px"><h2>Permissions <span class="sub">what each tool may do without asking</span></h2>
+          <div class="note">Auto runs it. Ask once asks the first time in each run. Always ask asks every time (emails wait in the inbox above). Blocked never runs.</div>
+          <div class="list" id="hcTools"></div>
+        </div>
       </div>
     </section>
 
@@ -882,7 +907,8 @@ function el(tag, attrs={}, ...kids){
   return e;
 }
 async function apiGet(p){ const r = await fetch(p); const j = await r.json(); if(!r.ok) throw new Error(j.error||r.statusText); return j; }
-async function apiPost(p, body){ const r = await fetch(p,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})}); const j = await r.json(); if(!r.ok) throw new Error(j.error||r.statusText); return j; }
+const UI_TOKEN = (document.querySelector('meta[name="aixmos-ui"]')||{}).content||'';   // owner actions: approve, permissions, privacy
+async function apiPost(p, body){ const r = await fetch(p,{method:'POST',headers:{'Content-Type':'application/json','X-AIXMOS-UI':UI_TOKEN},body:JSON.stringify(body||{})}); const j = await r.json(); if(!r.ok) throw new Error(j.error||r.statusText); return j; }
 let toastT=null;
 function toast(msg, err){ const t=$('#toast'); t.textContent=msg; t.className='toast show'+(err?' err':''); clearTimeout(toastT); toastT=setTimeout(()=>t.className='toast', err?6000:3500); }
 const fmtT = ts => new Date(ts*1000).toLocaleString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
@@ -964,10 +990,10 @@ async function loadModels(){
     const j = await apiGet('/api/tags');
     const models = (j.models||[]).map(m=>m.name);
     modelSel.innerHTML=''; models.forEach(n=>modelSel.appendChild(el('option',{value:n},n)));
-    const pref = models.find(n=>n.startsWith('qwen2.5:3b')) || models[0];
+    const pref = j.default || models[0];
     if(pref) modelSel.value = pref;
     dot.className='dot on'; statusEl.textContent='online';
-  }catch(e){ dot.className='dot off'; statusEl.textContent='Ollama offline'; }
+  }catch(e){ dot.className='dot off'; statusEl.textContent='no model running (start Ollama or LM Studio)'; }
 }
 async function loadMemory(){
   try{
@@ -1464,7 +1490,7 @@ async function loadSettings(){
   try{
     const s=await apiGet('/api/settings'); state.settings=s;
     const cs=$('#coreStatus'); cs.innerHTML='';
-    [['Ollama', s.caps.ollama?'online':'offline'],['ffmpeg', s.tools.ffmpeg?'ready':'missing'],['whisper.cpp', s.caps.captions?'ready':'missing'],['image providers', s.caps.image.join(', ')],['video providers', s.caps.video.join(', ')],['email accounts', String(s.caps.email_accounts)]].forEach(([k,v])=>{ cs.appendChild(el('span',{},k)); cs.appendChild(el('b',{},v)); });
+    [['Local model', s.caps.model_ready?'ready':(s.caps.ollama?'Ollama online':'none running')],['ffmpeg', s.tools.ffmpeg?'ready':'missing'],['whisper.cpp', s.caps.captions?'ready':'missing'],['image providers', s.caps.image.join(', ')],['video providers', s.caps.video.join(', ')],['email accounts', String(s.caps.email_accounts)]].forEach(([k,v])=>{ cs.appendChild(el('span',{},k)); cs.appendChild(el('b',{},v)); });
     const P=$('#providers'); P.innerHTML='';
     Object.entries(s.providers).forEach(([id,p])=>{
       const box=el('div',{class:'prov','data-id':id});
@@ -1476,7 +1502,7 @@ async function loadSettings(){
     });
     const pi=$('#prefImage'); pi.innerHTML=''; ['auto',...s.caps.image].forEach(x=>pi.appendChild(el('option',{value:x},x))); pi.value=s.prefs.image_provider||'auto';
     const pv=$('#prefVideo'); pv.innerHTML=''; ['auto',...s.caps.video].forEach(x=>pv.appendChild(el('option',{value:x},x))); pv.value=s.prefs.video_provider||'auto';
-    const pm=$('#prefModel'); pm.innerHTML=''; pm.appendChild(el('option',{value:''},'auto (qwen2.5:3b)')); [...modelSel.options].forEach(o=>pm.appendChild(el('option',{value:o.value},o.value))); pm.value=s.prefs.chat_model||'';
+    const pm=$('#prefModel'); pm.innerHTML=''; pm.appendChild(el('option',{value:''},'auto (best installed)')); [...modelSel.options].forEach(o=>pm.appendChild(el('option',{value:o.value},o.value))); pm.value=s.prefs.chat_model||'';
     $('#prefName').value=s.prefs.assistant_name||'AIXMOS'; $('#prefEnhance').checked=!!s.prefs.enhance_prompts; $('#prefFreePublic').checked=(s.prefs.image_free_public!==false);
     $('#prefPerf').value=s.prefs.ui_performance||'auto'; applyPerf(s.prefs.ui_performance||'auto'); $('#prefThreads').value=s.prefs.llm_threads||3; $('#prefCtx').value=String(s.prefs.llm_ctx||4096); $('#prefHistory').value=s.prefs.chat_history||12;
     $('#prefKnowledge').checked=s.prefs.use_knowledge!==false;
@@ -1907,7 +1933,69 @@ async function loadHead(){
       return '<div class="row"><span class="hc-chip '+cls+'">'+hesc(x.status==='executed'?'sent':x.status)+'</span><span>'+hesc(x.title)+'</span>'+(x.error?'<span class="note" style="color:var(--bad)">'+hesc(x.error)+'</span>':'')+'<span class="note" style="margin-left:auto">'+hesc(hcWhen(x.decided||x.created))+'</span></div>';
     }).join('') : '<div class="note">No decisions yet.</div>';
   }catch(e){}
+  loadHeadSetup();
 }
+const HC_MODE = {AUTO:'auto', SESSION:'ask once', ALWAYS:'always ask', BLOCKED:'blocked'};
+const HC_KIND = {USER_STATEMENT:'you said', VERIFIED_FACT:'confirmed', PREFERENCE:'preference', PROCEDURE:'how we do it',
+                 DECISION:'decision', MODEL_SUMMARY:'agent note', INFERENCE:'agent guess', SOURCE_DATA:'imported', EXTRACTED_FACT:'extracted'};
+function hcBusy(id){ const p=document.getElementById(id); return p && p.contains(document.activeElement) && document.activeElement.tagName!=='BUTTON'; }
+async function loadHeadSetup(){
+  if(!hcBusy('hcModelsPanel')) try{
+    const m=await apiGet('/api/head/models'), pol=m.policy||{};
+    document.getElementById('hcModels').innerHTML=(m.providers||[]).map(p=>{
+      const st=p.usable?['ok','ready']:p.available?['warn','off by privacy']:['bad','not connected'];
+      return '<div class="row"><b>'+hesc(p.id)+'</b><span class="hc-chip">'+hesc(p.kind.replace('_',' '))+'</span><span class="hc-chip '+st[0]+'">'+st[1]+'</span>'+
+        '<span class="note" style="margin-left:auto">'+hesc((p.models||[]).slice(0,3).join(', ')||p.reason||'')+'</span></div>';
+    }).join('');
+    document.getElementById('hcPrivacy').value=pol.privacy_mode||'LOCAL-PREFERRED';
+    document.getElementById('hcCloud').checked=!!pol.cloud_allowed;
+  }catch(e){ document.getElementById('hcModels').innerHTML='<div class="note">'+hesc(e.message)+'</div>'; }
+  if(!hcBusy('hcMemPanel')) try{
+    const r=await apiGet('/api/head/memory');
+    document.getElementById('hcMem').innerHTML=(r.items||[]).map(it=>
+      '<div class="row"><span class="hc-chip '+(it.klass==='VERIFIED_FACT'?'ok':it.origin==='model'?'warn':'')+'">'+hesc(HC_KIND[it.klass]||it.klass)+'</span>'+
+      '<span style="flex:1">'+hesc(it.text)+'</span>'+(it.scope==='CLOUD_OK'?'<span class="hc-chip">shareable</span>':'')+
+      (it.klass!=='VERIFIED_FACT'?'<button class="btn sm" data-hc-mem-ok="'+it.id+'">Confirm</button>':'')+
+      '<button class="btn sm" data-hc-mem-del="'+it.id+'">Forget</button></div>').join('') || '<div class="note">Nothing yet. Teach it your hours, prices, policies and how you like things done.</div>';
+  }catch(e){}
+  if(!hcBusy('hcToolsPanel')) try{
+    const r=await apiGet('/api/head/tools');
+    document.getElementById('hcTools').innerHTML=(r.tools||[]).map(t=>{
+      const risk={LOW:'',MEDIUM:'warn',HIGH:'bad'}[t.risk]||'';
+      return '<div class="row"><b style="min-width:170px">'+hesc(t.name.replace(/_/g,' '))+'</b><span class="hc-chip '+risk+'">'+hesc(t.risk.toLowerCase())+' risk</span>'+
+        (t.untrusted_output?'<span class="hc-chip">reads outside content</span>':'')+(t.paid?'<span class="hc-chip">may cost</span>':'')+(t.inbox?'<span class="hc-chip">via inbox</span>':'')+
+        '<select class="f" style="width:auto;margin-left:auto" data-hc-tool="'+hesc(t.name)+'" data-hc-default="'+hesc(t.default_mode)+'">'+
+        (r.modes||[]).map(m=>'<option value="'+m+'"'+(m===t.mode?' selected':'')+'>'+HC_MODE[m]+(m===t.default_mode?' (default)':'')+'</option>').join('')+'</select></div>';
+    }).join('');
+  }catch(e){}
+}
+async function hcSetModels(){
+  const msg=document.getElementById('hcModelMsg');
+  try{ const r=await apiPost('/api/head/models/policy',{privacy_mode:document.getElementById('hcPrivacy').value, cloud_allowed:document.getElementById('hcCloud').checked});
+    msg.textContent=r.cloud_allowed?'Cloud models may be used when connected.':'Only models on this computer are used.'; }catch(e){ msg.textContent=e.message; }
+  document.activeElement.blur(); loadHeadSetup();
+}
+document.getElementById('hcPrivacy').addEventListener('change', hcSetModels);
+document.getElementById('hcCloud').addEventListener('change', e=>{
+  if(e.target.checked && !confirm('Cloud models get the conversation text they work on. Private notes you did not mark shareable stay on this computer. Allow?')){ e.target.checked=false; return; }
+  hcSetModels();
+});
+document.getElementById('hcMemAdd').addEventListener('click', async ()=>{
+  const t=document.getElementById('hcMemText'); if(!t.value.trim()) return;
+  try{ await apiPost('/api/head/memory/add',{text:t.value.trim(), klass:document.getElementById('hcMemKind').value, scope:document.getElementById('hcMemCloud').checked?'CLOUD_OK':'LOCAL_ONLY'}); t.value=''; }catch(e){ alert(e.message); }
+  document.activeElement.blur(); loadHeadSetup();
+});
+document.addEventListener('click', async e=>{
+  const ok=e.target.closest('[data-hc-mem-ok]'), del=e.target.closest('[data-hc-mem-del]'); if(!ok && !del) return;
+  try{ if(ok) await apiPost('/api/head/memory/promote',{id:+ok.dataset.hcMemOk}); else await apiPost('/api/head/memory/forget',{id:+del.dataset.hcMemDel}); }catch(err){ alert(err.message); }
+  loadHeadSetup();
+});
+document.addEventListener('change', async e=>{
+  const t=e.target.closest('[data-hc-tool]'); if(!t) return;
+  if(t.value==='AUTO' && t.dataset.hcDefault!=='AUTO' && !confirm('Let the agent use "'+t.dataset.hcTool.replace(/_/g,' ')+'" without asking you?')){ loadHeadSetup(); return; }
+  try{ await apiPost('/api/head/tools/policy',{tool:t.dataset.hcTool, mode: t.value===t.dataset.hcDefault ? '' : t.value}); }catch(err){ alert(err.message); }
+  t.blur(); loadHeadSetup();
+});
 function hcBadge(d){
   const n=((d||{}).approvals||{}).counts ? (d.approvals.counts.pending||0) : 0;
   const nav=document.getElementById('navHead'); if(!nav) return;
