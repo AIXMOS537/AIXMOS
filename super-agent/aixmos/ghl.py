@@ -187,8 +187,29 @@ def execute_write(payload):
         return c.add_tags(cid, payload.get("tags") or [])
     raise GHLError("unknown CRM change %r" % op, "bad_request")
 
+def verify_write(item, result):
+    """Postcondition for outcomes.py: re-read GoHighLevel and confirm the change is really there."""
+    p, r = item.get("payload") or {}, result if isinstance(result, dict) else {}
+    c, cid, op = Client(), p.get("contact_id"), p.get("op")
+    if op == "note":
+        ok = bool(r.get("note_id")) and any(n["id"] == r["note_id"] for n in c.notes(cid))
+        return ("confirmed", "note is on the contact") if ok else ("mismatch", "the note was not found on the contact")
+    if op == "task":
+        ok = bool(r.get("task_id")) and any(t["id"] == r["task_id"] for t in c.tasks(cid))
+        return ("confirmed", "task is on the contact") if ok else ("mismatch", "the task was not found on the contact")
+    if op == "tags":
+        have = {t.lower() for t in c.contact(cid).get("tags") or []}
+        missing = [t for t in p.get("tags") or [] if str(t).strip().lower() not in have]
+        return ("confirmed", "tags are on the contact") if not missing else ("mismatch", "missing tags: " + ", ".join(missing))
+    return "unconfirmed", "unknown change"
+
 def _register():
     from . import approvals
     approvals.register("ghl.write", execute_write)
+    try:
+        from . import outcomes
+        outcomes.verifier("ghl.write")(verify_write)
+    except ImportError:          # builds without the execution-state layer
+        pass
 
 _register()
