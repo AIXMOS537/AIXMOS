@@ -25,7 +25,9 @@ ICONS = {"receptionist": "☎", "appointment-setter": "📅", "missed-call": "�
 
 PROFILE_FIELDS = ["name", "type", "services", "customers", "area", "hours", "voice", "booking_link", "phone", "email",
                   "owner", "qualified", "nurture", "not_fit", "faq", "offer", "audience", "pricing",
-                  "review_link", "website"]
+                  "review_link", "website",
+                  # brand profile (brand.py): what replies may promise, and how they should sound
+                  "policies", "differentiators", "preferred_phrases", "prohibited_claims", "examples"]
 PLACEHOLDERS = {  # bracket token (lowercased) -> profile field
     "business": "name", "business name": "name", "company": "name", "type": "type", "services": "services",
     "service": "services", "customers": "customers", "audience": "audience", "area": "area", "location": "area",
