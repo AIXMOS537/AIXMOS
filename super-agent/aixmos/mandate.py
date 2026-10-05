@@ -40,7 +40,8 @@ DEFAULT_ALERT = ["customer_issue", "security", "outage", "opportunity"]
 ALERT_LABELS = {"customer_issue": "a critical customer issue", "security": "a security problem",
                 "outage": "a system outage", "opportunity": "a high-value opportunity that needs your decision"}
 KIND_LABELS = {"followup.email": "send the due steps of follow-up sequences you already started",
-               "email.send": "send emails AIXMOS drafted for you"}
+               "email.send": "send emails AIXMOS drafted for you",
+               "ghl.write": "add notes, tasks and tags in your CRM (GoHighLevel)"}
 
 _DDL = """
 CREATE TABLE IF NOT EXISTS mandates (

@@ -69,7 +69,8 @@ New files only, plus two small hooks, so it never collides with the builder's un
 | `super-agent/aixmos/approvals.py` (hook) | `propose(auto=True)` also runs under an active mandate (`decided_by="mandate:<id>"`). LOCK stops autopilot, mandates and remote approvals. |
 | `super-agent/aixmos/head.py` (routes) | `GET /api/head/mandates·attention·brief`, `POST /api/head/mandates/draft·activate·revoke`, `/lock`, `/unlock`, `/attention/ack`, `/judge` |
 | `super-agent/aixmos/outcomes.py` (R2) | The five states, kept apart: REQUESTED → AUTHORIZED → VERIFIED → EXECUTED → SUCCESSFUL, plus BLOCKED / FAILED / NOT CONFIRMED. Prechecks run just before execution. If an automatic approval (autopilot or mandate) breaks the business rules, the item goes back to the owner's inbox instead of sending or failing. Postcondition verifiers decide SUCCESSFUL. Email is only ever "accepted by your mail provider": delivery and bounces aren't visible. `GET /api/head/outcome?id=`. |
-| `super-agent/tests/test_right_hand.py` | 28 tests. Merged with the builder's wave1 (`e260907`), the full suite is 146 tests, 0 failures (3 licence tests skip because `cryptography` isn't installed). |
+| `super-agent/aixmos/dossier.py` (R3), `delegate.py` (R4) | See §6: "What's happening with X?" and plain words → draft away-mandate. |
+| `super-agent/tests/test_right_hand.py` | 41 tests. On top of the builder's GHL + brand work (`a4641cd`), the full suite is 172 tests, 0 failures (3 licence tests skip because `cryptography` isn't installed). |
 
 New tables (created by each module on first use; fold into `store.SCHEMA` on merge): `mandates`, `attention`. New
 prefs (registered at import; fold into `settings.DEFAULT_PREFS` on merge): `business_rules`, `attention_rules`,
@@ -107,14 +108,20 @@ Lanes keep ONE writer per file. B = builder session (`wave0/head-agent-core`); R
 **Days 31–60: the right hand becomes reachable**
 - Telegram gateway (§31): own bot per install, pairing challenge, `owner:telegram` identity, drains
   `attention.outbox()`, inline buttons carry approval ids bound to an action hash + expiry, `/lock` from the phone.
-- Entity resolver: "What's happening with Johnson?" → one answer across CRM + calendar + documents + audit. It's a
-  resolver over connectors, not a second database; ambiguous names go through `judgment` *ask*.
+- DONE (R3, `dossier.py`): "What's happening with Johnson?" → one answer across local CRM, GoHighLevel, appointments,
+  follow-ups, the approvals inbox, sends, opt-outs and attention. It's a resolver over sources, not a second
+  database. Several matches → *ask* with options, then `pick`. GHL down → it answers from local records and says so.
+  The agent tool leaves out customer-written text (skill tools can't yet be marked untrusted in the registry).
+  Calendar and documents get added when those connectors exist.
 - Lead-response drafting with Brand Profile + `judgment` before every send; GHL writes behind the inbox.
 - Conversational references ("those three") as structured task context, not raw chat history.
 
 **Days 61–90: delegation of outcomes**
 - "Handle my new leads" end to end (the master spec's §27 acceptance test), then the §22 eval suite as CI.
-- Mandate drafting from natural language ("I'm away until Monday") → plan → owner taps activate (mechanism done in R1).
+- DONE (R4, `delegate.py`): "I'm away until Monday, keep things moving" → a DRAFT mandate and its plan.
+  Deterministic: the end time must be stated; only real, delegable actions are listed; money, pricing, contracts and
+  publishing come back as "still yours"; anything unclear becomes a question and nothing is saved. The owner still
+  taps activate. `POST /api/head/mandates/understand`, agent tool `chief_of_staff_delegate`.
 - Calendar + Gmail connectors; contract generation from owner-approved templates only (never delegable).
 - Improvement loop: weekly "what failed and what I'd change", proposed as drafts and never self-applied.
 

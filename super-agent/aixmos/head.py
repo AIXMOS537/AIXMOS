@@ -23,6 +23,8 @@ GET  /api/head/mandates            every mandate + the active one + lock state
 GET  /api/head/attention?status=   attention items (default open) + digest of the last 24 h
 GET  /api/head/brief?kind=         morning (default) or evening, built from evidence only
 GET  /api/head/outcome?id=         one action's execution state: requested/authorized/verified/executed/successful
+GET  /api/head/dossier?q=&pick=    "what's happening with X": one person across CRM, GHL, inbox and audit
+POST /api/head/mandates/understand {text}   plain words -> proposed plan + questions (saves nothing)
 POST /api/head/mandates/draft      {title, until, will: [kinds], ask, alert, note}   -> draft + plan (grants nothing)
 POST /api/head/mandates/activate   {id}       POST /api/head/mandates/revoke {id, why}
 POST /api/head/lock                {why}      POST /api/head/unlock  (this computer only)
@@ -96,6 +98,9 @@ def route_get(h, p, g):
         st = g("status", "open")
         h._json({"items": attention.items(None if st in ("all", "") else st, int(g("limit", 100))),
                  "digest": attention.digest(time.time() - 86400), "outbox": attention.outbox()})
+    elif p == "/api/head/dossier":
+        from . import dossier
+        h._json(dossier.build(g("q", ""), pick=g("pick") or None))
     elif p == "/api/head/outcome":
         from . import outcomes
         st = outcomes.state(g("id", ""))
@@ -193,6 +198,9 @@ def route_post(h, p):
         h._json({"confirmed": rid})
     elif p == "/api/head/skills/reload":
         h._json({"skills": skillkit.load(force=True)})
+    elif p == "/api/head/mandates/understand":
+        from . import delegate
+        h._json(delegate.understand(str(h._body().get("text") or "")))
     elif p == "/api/head/mandates/draft":
         b = h._body()
         m = mandate.draft(b.get("title"), b.get("until"), will=b.get("will") or [], ask=b.get("ask"),
