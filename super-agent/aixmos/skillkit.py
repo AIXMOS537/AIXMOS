@@ -39,6 +39,10 @@ def _model_ok():
     from . import llm
     return llm.available()
 
+def _ghl_ok():
+    from . import ghl
+    return ghl.connected()
+
 def _profile(field):
     from . import skills
     return bool((skills.profile() or {}).get(field))
@@ -50,6 +54,8 @@ CONNECTORS = {
     "calendar":    ("Calendar sync (Google / Cal.com)", lambda: False, "Coming in Wave 1."),
     "sms":         ("Business texting number", lambda: False, "Coming in Wave 1 (Twilio, with US 10DLC registration)."),
     "payments":    ("Stripe account", lambda: False, "Coming in Wave 2."),
+    "crm_ghl":     ("GoHighLevel sub-account", _ghl_ok,
+                    "Integrations -> GoHighLevel: Private Integration Token + Location ID."),
 }
 
 def connectors():

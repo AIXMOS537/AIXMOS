@@ -45,6 +45,10 @@ PROVIDERS = {
                       "defaults": {}, "help": "console.cloud.google.com -> enable Custom Search API -> key; programmablesearchengine.google.com -> engine that searches the entire web -> cx (Search engine ID). Without it, research falls back to DuckDuckGo."},
     "serpapi":       {"label": "SerpAPI (Google results)", "fields": ["api_key"], "caps": ["search"],
                       "defaults": {}, "help": "serpapi.com/manage-api-key"},
+    "ghl":        {"label": "GoHighLevel (CRM)", "fields": ["api_key", "location_id"], "caps": ["crm"], "defaults": {},
+                   "help": "In your sub-account: Settings -> Private Integrations -> create one with read on contacts, "
+                           "conversations, opportunities, calendars; write on contacts (notes, tasks, tags). Paste the token "
+                           "here and the Location ID (Settings -> Business Profile). AIXMOS never sends messages through it."},
     "google_oauth":    {"label": "Google account sign-in (Gmail)", "fields": ["client_id", "client_secret"],
                         "caps": ["email"], "defaults": {},
                         "help": "console.cloud.google.com -> OAuth client (Web) with redirect http://localhost:8770/oauth/google"},

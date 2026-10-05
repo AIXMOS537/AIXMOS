@@ -33,6 +33,7 @@ sys.path.insert(1, os.path.join(DIR, "vendor"))   # pure-python deps (requests) 
 import context_tools  # safe live-context layer: time / location / weather / system stats
 from aixmos import settings, media, jobs, llm, intents, imagegen, videogen, videoedit, email_tools
 from aixmos import knowledge, skills, crm, carousel, agent, surfaces, research, providers
+from aixmos import channels, ghl  # noqa: F401  (register the inbox executors email.send / ghl.write at start)
 
 MEMDIR   = settings.MEMDIR          # honours AIXMOS_MEMDIR, same folder every module uses
 MEMFILE  = os.path.join(MEMDIR, "conversation.json")

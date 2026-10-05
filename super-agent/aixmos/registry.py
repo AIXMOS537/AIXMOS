@@ -114,6 +114,15 @@ CORE = {
     "draft_email":          dict(risk="MEDIUM", access="write", action="write_local_business_data", connector="email", timeout=300),
     "send_email":           dict(risk="HIGH", access="write", action="send_customer_communication", connector="email",
                                  inbox="email.send"),
+    # GoHighLevel: reads are untrusted (lead text is data); writes go through the inbox; no message sending exists
+    "ghl_find_contacts":    dict(risk="LOW", access="read", action="use_customer_connector_read", connector="ghl", tainting=True, timeout=60),
+    "ghl_contact":          dict(risk="LOW", access="read", action="use_customer_connector_read", connector="ghl", tainting=True, timeout=120),
+    "ghl_conversations":    dict(risk="LOW", access="read", action="use_customer_connector_read", connector="ghl", tainting=True, timeout=60),
+    "ghl_pipelines":        dict(risk="LOW", access="read", action="use_customer_connector_read", connector="ghl", timeout=60),
+    "ghl_calendars":        dict(risk="LOW", access="read", action="use_customer_connector_read", connector="ghl", timeout=60),
+    "ghl_add_note":         dict(risk="MEDIUM", access="write", action="use_customer_connector_write", connector="ghl", inbox="ghl.write"),
+    "ghl_add_task":         dict(risk="MEDIUM", access="write", action="use_customer_connector_write", connector="ghl", inbox="ghl.write"),
+    "ghl_add_tags":         dict(risk="MEDIUM", access="write", action="use_customer_connector_write", connector="ghl", inbox="ghl.write"),
     "ask_user":             dict(risk="LOW", access="read", action="control"),
     "finish":               dict(risk="LOW", access="read", action="control"),
 }
