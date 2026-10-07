@@ -134,8 +134,11 @@ def bad_links(text):
         return any(n == a or n.startswith(a + "/") or n.startswith(a + "?") for a in allowed)
     return [u for u in found if not ok(u)]
 
-def _problems(reply):
+def _problems(reply, lead_name=""):
     ok, probs, notes = brand.check_reply(reply)
+    first = (lead_name or "").split(" ")[0]
+    if first and len(first) > 1 and re.search(r"(?i)\b(i'?m|i am|this is|my name is)\s+%s\b" % re.escape(first), reply or ""):
+        probs.append("it speaks as the customer (%s) instead of as the business" % first)
     probs += ["a link that is not yours: %s" % u for u in bad_links(reply)]
     if len(reply) < 30:
         probs.append("the reply is too short to send")
@@ -156,12 +159,12 @@ def handle_one(cand):
         return {"result": "skipped", "why": "looks like spam"}
     probs, notes = ([], [])
     if not (d.get("needs_owner") or d["intent"] in ESCALATE):
-        probs, notes = _problems(d["reply"])
+        probs, notes = _problems(d["reply"], ctx["name"])
         if probs:
             d2 = decide(cand, ctx, feedback="; ".join(probs))
             if d2 and d2["reply"]:
                 d = d2
-                probs, notes = _problems(d["reply"])
+                probs, notes = _problems(d["reply"], ctx["name"])
     if d.get("needs_owner") or d["intent"] in ESCALATE or probs:
         why = d.get("owner_reason") or ("I could not write a safe reply: " + "; ".join(probs) if probs else d["intent"])
         attention.observe("lead.reply", "%s needs you: %s" % (who, str(d.get("summary") or "")[:120]),
@@ -169,11 +172,13 @@ def handle_one(cand):
                           ref=cand["contact_id"], dedupe="leads:" + cand["key"])
         return {"result": "owner", "why": why}
     days = int(_pref("leads_followup_days", 2))
-    card = ("%s. %s\n\nIf you approve: AIXMOS emails this from your account%s.\n%s%s"
-            % (str(d.get("summary") or "").strip(), cand["why"],
-               (", adds a note on the GoHighLevel contact and a follow-up task in %d days" % days) if cand["source"] == "ghl" else "",
-               ("Still open (the team must confirm): " + "; ".join(d.get("unanswered") or []) + "\n") if d.get("unanswered") else "",
-               ("Check: " + "; ".join(notes)) if notes else ""))
+    def card(effect):
+        return ("%s (%s)\n\nIf you approve: %s.\n%s%s"
+                % (str(d.get("summary") or "").strip().rstrip("."), cand["why"], effect,
+                   ("Still open (the team must confirm): " + "; ".join(d.get("unanswered") or []) + "\n") if d.get("unanswered") else "",
+                   ("Check: " + "; ".join(notes)) if notes else ""))
+    email_effect = "AIXMOS emails this from your account" + (
+        ", adds a note on the GoHighLevel contact and a follow-up task in %d days" % days if cand["source"] == "ghl" else "")
     from aixmos import email_tools
     if ctx["email"] and email_tools.list_accounts():
         dch = guard.check_send("email", ctx["email"])
@@ -183,7 +188,7 @@ def handle_one(cand):
                                  {"to": ctx["email"], "subject": d.get("subject") or "Thanks for reaching out",
                                   "body": d["reply"], "source": cand["source"], "contact_id": cand["contact_id"],
                                   "name": who, "followup_days": days, "skill": SID, "ref": "leads:" + cand["key"]},
-                                 skill=SID, summary=card, risk="send", dedupe="leads:" + cand["key"], auto=True)
+                                 skill=SID, summary=card(email_effect), risk="send", dedupe="leads:" + cand["key"], auto=True)
         return {"result": "queued", "approval": item["id"], "status": item["status"]}
     if cand["source"] == "ghl" and ctx["phone"]:
         due = (datetime.now(timezone.utc) + timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -191,7 +196,8 @@ def handle_one(cand):
         item = approvals.propose("ghl.write", "Text %s back (draft inside)" % who,
                                  {"op": "task", "contact_id": cand["contact_id"], "title": "Text %s back" % who, "due": due,
                                   "description": "Suggested reply (written by AIXMOS, check before sending):\n\n" + d["reply"]},
-                                 skill=SID, summary=card.replace("AIXMOS emails this from your account", "AIXMOS creates a task with this draft (texting is not connected)"),
+                                 skill=SID, summary=card("AIXMOS creates a GoHighLevel task carrying this draft, so someone "
+                                                         "texts them (texting is not connected yet)"),
                                  risk="change", dedupe="leads:" + cand["key"], auto=True)
         return {"result": "task", "approval": item["id"]}
     attention.observe("lead.reply", "Reply ready for %s (%s)" % (who, "connect your email in Mail to send it" if ctx["email"] else "no email on file"),

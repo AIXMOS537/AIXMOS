@@ -56,6 +56,15 @@ class Brand(unittest.TestCase):
         ok, probs, _ = brand.check_reply("The interior detail is $129.")
         self.assertFalse(ok)                                       # price removed from the profile -> invented
 
+    def test_no_promised_times_or_deliveries(self):
+        skills.save_profile(PROFILE)
+        for bad in ("Hi Sam, yes! We're available next Tuesday afternoon.", "I'll send over a quick overview by end of day.",
+                    "See you tomorrow at 3pm!"):
+            ok, probs, _ = brand.check_reply(bad)
+            self.assertFalse(ok, bad)
+            self.assertTrue(any("promises a time" in p for p in probs))
+        self.assertTrue(brand.check_reply("What day works best for you? Book here: https://book.example.test/shine")[0])
+
     def test_voice_brief_uses_the_owners_examples_within_budget(self):
         skills.save_profile(PROFILE)
         v = brand.voice_brief("customer sent photos of stained seats")

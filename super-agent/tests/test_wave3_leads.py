@@ -135,6 +135,15 @@ class Leads(unittest.TestCase):
         items = attention.items("open", 10)
         self.assertEqual(items[0]["level"], "important")                     # customer content never pages above important
 
+    def test_reply_never_speaks_as_the_customer_or_promises_a_slot(self):
+        self.g.add("c9", "Dana", email="dana@client.test", inbound="How do you work?")
+        self.m.replies["Dana"] = [ok("Hi Dana, I'm Dana from Shine Mobile Detailing. Book here: https://book.example.test/shine"),
+                                  ok("Hi Dana! Yes, we're available next Tuesday afternoon. Shine Mobile Detailing")]
+        self.assertIn("needs you", self.handle())
+        self.assertEqual(approvals.pending(), [])
+        self.assertIn("speaks as the customer", self.m.prompts[1])          # the rewrite was told exactly why
+        self.assertIn("promises a time", attention.items("open", 5)[0]["detail"])
+
     def test_complaints_go_to_the_owner(self):
         self.g.add("c3", "Ana", email="ana@client.test", inbound="URGENT!!! I want a refund or I call my lawyer")
         self.m.replies["Ana"] = [ok("", intent="refund", needs_owner=True, owner_reason="refund + legal threat")]

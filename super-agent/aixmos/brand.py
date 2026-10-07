@@ -55,6 +55,16 @@ def voice_brief(query="", budget=1500, p=None):
         out += add
     return out[:budget]
 
+# A reply must not commit the business to a time, a slot or a delivery the owner never offered (measured 2026-10-05:
+# a local model wrote "yes, we're available next Tuesday afternoon" and "I'll send an overview by end of day").
+_WHEN = (r"(today|tonight|tomorrow|this (morning|afternoon|evening|week|weekend)|next (week|month|"
+         r"monday|tuesday|wednesday|thursday|friday|saturday|sunday)|(on )?(monday|tuesday|wednesday|thursday|friday|"
+         r"saturday|sunday)|by (the )?end of (the )?(day|week)|within (the|an|\d+) (hour|hours|minutes|days)|"
+         r"\d{1,2}(:\d\d)?\s?(am|pm))")
+COMMITMENT = re.compile(r"(?i)\b(we('| a)?re (available|free|open)|we (can|will|'ll) (come|be there|do it|fit you in|have it)|"
+                        r"i('| wi)?ll (send|call|get back|have|email)|we('| wi)?ll (send|call|get back|email)|"
+                        r"see you|you('re| are) booked|booked (you|for))\b[^.!?\n]{0,60}\b" + _WHEN)
+
 def check_reply(text, p=None):
     """-> (ok, problems, notes). problems = the draft must be rewritten (invented claims, banned phrases).
     notes = it may go to the owner, flagged (business rules such as "prices need your approval")."""
@@ -64,6 +74,10 @@ def check_reply(text, p=None):
     for line in prohibited(p):
         if line.lower() in low:
             probs.append("uses a phrase the owner never wants: %s" % line)
+    m = COMMITMENT.search(text or "")
+    if m:
+        probs.append("promises a time or delivery nobody offered (\"%s\"): offer the booking link or say the team "
+                     "will confirm" % m.group(0)[:60])
     notes = []
     try:
         from .judgment import rule_conflicts
