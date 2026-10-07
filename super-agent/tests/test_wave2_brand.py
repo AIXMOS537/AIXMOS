@@ -65,6 +65,17 @@ class Brand(unittest.TestCase):
             self.assertTrue(any("promises a time" in p for p in probs))
         self.assertTrue(brand.check_reply("What day works best for you? Book here: https://book.example.test/shine")[0])
 
+    def test_only_verified_calendar_slots_may_be_offered(self):
+        skills.save_profile(PROFILE)
+        slots = [{"text": "Tue 13 Oct 9:00"}, {"text": "Wed 14 Oct 14:30"}]
+        ok, probs, _ = brand.check_reply("Hi Jo! We're available Tue 13 Oct 9:00 or Wednesday, 14 October at 14:30.", slots=slots)
+        self.assertTrue(ok, probs)
+        ok, probs, _ = brand.check_reply("Hi Jo! How about Thu 15 Oct 10:00?", slots=slots)
+        self.assertFalse(ok)
+        self.assertTrue(any("not a free slot" in p for p in probs))
+        ok, probs, _ = brand.check_reply("Hi Jo! How about Tue 13 Oct 9:00?")      # no calendar -> every time is invented
+        self.assertFalse(ok)
+
     def test_voice_brief_uses_the_owners_examples_within_budget(self):
         skills.save_profile(PROFILE)
         v = brand.voice_brief("customer sent photos of stained seats")

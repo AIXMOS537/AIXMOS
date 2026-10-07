@@ -65,7 +65,29 @@ COMMITMENT = re.compile(r"(?i)\b(we('| a)?re (available|free|open)|we (can|will|
                         r"i('| wi)?ll (send|call|get back|have|email)|we('| wi)?ll (send|call|get back|email)|"
                         r"see you|you('re| are) booked|booked (you|for))\b[^.!?\n]{0,60}\b" + _WHEN)
 
-def check_reply(text, p=None):
+# A concrete slot written like "Tue 13 Oct 9:00" / "Tuesday, 13 October at 9:00". Allowed only when it is one of the
+# calendar's verified free slots (availability.free_slots), never otherwise.
+SLOTLIKE = re.compile(r"(?i)\b(mon|tue|wed|thu|fri|sat|sun)[a-z]*\.?,?\s+(\d{1,2})\s+([a-z]{3})[a-z]*\.?,?\s+(?:at\s+)?(\d{1,2}:\d\d)\b")
+
+def _slot_key(m):
+    return (int(m.group(2)), m.group(3).lower(), m.group(4).lstrip("0") or "0")
+
+def slot_problems(text, slots=None):
+    """-> (problems, offered_verified). Every concrete day+time in the text must be a verified free slot."""
+    allowed = set()
+    for s in slots or []:
+        m = SLOTLIKE.search(str(s.get("text") if isinstance(s, dict) else s))
+        if m:
+            allowed.add(_slot_key(m))
+    probs, ok = [], False
+    for m in SLOTLIKE.finditer(text or ""):
+        if _slot_key(m) in allowed:
+            ok = True
+        else:
+            probs.append("offers a time that is not a free slot in your calendar (\"%s\")" % m.group(0))
+    return probs, ok
+
+def check_reply(text, p=None, slots=None):
     """-> (ok, problems, notes). problems = the draft must be rewritten (invented claims, banned phrases).
     notes = it may go to the owner, flagged (business rules such as "prices need your approval")."""
     p = p or profile()
@@ -74,8 +96,10 @@ def check_reply(text, p=None):
     for line in prohibited(p):
         if line.lower() in low:
             probs.append("uses a phrase the owner never wants: %s" % line)
+    sp, offered = slot_problems(text, slots)
+    probs += sp
     m = COMMITMENT.search(text or "")
-    if m:
+    if m and not (offered and not sp):            # offering verified free slots is fine; anything else is a promise
         probs.append("promises a time or delivery nobody offered (\"%s\"): offer the booking link or say the team "
                      "will confirm" % m.group(0)[:60])
     notes = []

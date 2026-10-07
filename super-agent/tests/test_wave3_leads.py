@@ -144,6 +144,21 @@ class Leads(unittest.TestCase):
         self.assertIn("speaks as the customer", self.m.prompts[1])          # the rewrite was told exactly why
         self.assertIn("promises a time", attention.items("open", 5)[0]["detail"])
 
+    def test_offers_only_free_slots_from_the_calendar(self):
+        from aixmos import availability
+        real = availability.free_slots
+        availability.free_slots = lambda **k: {"slots": [{"text": "Tue 13 Oct 9:00"}], "connected": True, "notes": []}
+        try:
+            self.g.add("c10", "Kai", email="kai@client.test", inbound="Can I book a detail this week?")
+            self.m.replies["Kai"] = [ok("Hi Kai! We're available Tue 13 Oct 9:00. Book here: https://book.example.test/shine. Shine Mobile Detailing", intent="booking")]
+            self.assertIn("waiting for your approval", self.handle())
+            self.assertIn("Tue 13 Oct 9:00", self.m.prompts[0])               # the model saw the real open times
+            self.g.add("c11", "Lou", email="lou@client.test", inbound="Any time Friday?")
+            self.m.replies["Lou"] = [ok("Hi Lou! Sure, Fri 16 Oct 10:00 works. Shine Mobile Detailing", intent="booking")]
+            self.assertIn("needs you", self.handle())                        # an invented slot never reaches the inbox
+        finally:
+            availability.free_slots = real
+
     def test_complaints_go_to_the_owner(self):
         self.g.add("c3", "Ana", email="ana@client.test", inbound="URGENT!!! I want a refund or I call my lawyer")
         self.m.replies["Ana"] = [ok("", intent="refund", needs_owner=True, owner_reason="refund + legal threat")]
