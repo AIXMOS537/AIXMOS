@@ -255,6 +255,20 @@ class HeadApi(unittest.TestCase):
         hist = self.get("/api/head/approvals", status="all")["items"]
         self.assertEqual([(x["id"], x["status"]) for x in hist], [(it["id"], "rejected")])
 
+    def test_edit_then_approve_and_approve_all(self):
+        got = []
+        approvals.register("test.mail", lambda p: got.append(dict(p)) or {"ok": True})
+        a = approvals.propose("test.mail", "Reply to Jo", {"to": "jo@b.co", "subject": "Hi", "body": "draft one"})
+        b = approvals.propose("test.mail", "Reply to Sam", {"to": "sam@b.co", "subject": "Hi", "body": "draft two"})
+        e = self.post("/api/head/approvals/edit", id=a["id"], fields={"body": "owner's words", "to": "evil@x.co"})
+        self.assertEqual((e["payload"]["body"], e["payload"]["to"]), ("owner's words", "jo@b.co"))   # text only, never the target
+        self.assertTrue([x for x in store.events(10) if x["kind"] == "approval.edited"])
+        res = self.post("/api/head/approvals/decide_many", ids=[a["id"], b["id"], a["id"]], approve=True)["results"]
+        self.assertEqual([r["status"] for r in res], ["executed", "executed"])
+        self.assertEqual([g["body"] for g in got], ["owner's words", "draft two"])
+        with self.assertRaises(ValueError):
+            approvals.edit(a["id"], {"body": "too late"})                  # decided items stay as they were
+
     def test_owner_actions_need_the_app_token(self):
         from aixmos import head
         it = approvals.propose("test.api", "Ping Jo", {"to": "jo@b.co"})

@@ -1886,6 +1886,38 @@ function hcPayload(p){
   if(p.to && (p.subject || p.body)) return '<div class="note">To <b>'+hesc(p.to)+'</b>'+(p.subject?' &middot; '+hesc(p.subject):'')+'</div><pre>'+hesc(p.body||'')+'</pre>';
   return '<pre>'+hesc(JSON.stringify(p, null, 1))+'</pre>';
 }
+let HC_ITEMS = {};
+const HC_EDITABLE = ['subject','body','description','text','caption'];
+function hcEditable(p){ return (p && typeof p==='object') ? HC_EDITABLE.filter(k=>typeof p[k]==='string') : []; }
+function hcEdit(id){
+  const it=HC_ITEMS[id], box=document.getElementById('hci-'+id); if(!it||!box) return;
+  const f=hcEditable(it.payload);
+  box.querySelector('[data-hc-edit]').outerHTML='<button class="btn sm" data-hc-save="'+hesc(id)+'">Save changes</button>';
+  const form=document.createElement('div');
+  form.innerHTML=f.map(k=>'<label class="f">'+hesc(k)+'</label>'+(k==='subject'?'<input class="f" data-hc-field="'+k+'">':'<textarea class="f" style="min-height:140px" data-hc-field="'+k+'"></textarea>')).join('');
+  f.forEach(k=>{ form.querySelector('[data-hc-field="'+k+'"]').value=it.payload[k]; });
+  box.insertBefore(form, box.lastElementChild);
+}
+async function hcSave(id){
+  const box=document.getElementById('hci-'+id), fields={};
+  box.querySelectorAll('[data-hc-field]').forEach(el=>fields[el.dataset.hcField]=el.value);
+  try{ await apiPost('/api/head/approvals/edit',{id, fields}); toast('Saved. Approve when ready.'); }catch(e){ alert(e.message); return; }
+  box.querySelectorAll('[data-hc-field]').forEach(el=>el.remove());   // edit closed: the inbox may refresh again
+  loadHead();
+}
+async function hcAll(){
+  const ids=Object.keys(HC_ITEMS);
+  if(!ids.length || !confirm('Approve and send all '+ids.length+'? Each one still checks opt-outs, daily caps and your rules as it goes out.')) return;
+  try{ const r=await apiPost('/api/head/approvals/decide_many',{ids, approve:true});
+    const bad=(r.results||[]).filter(x=>x.status!=='executed');
+    toast(bad.length ? (ids.length-bad.length)+' done, '+bad.length+' not sent (see Recent decisions)' : 'All '+ids.length+' done', bad.length>0);
+  }catch(e){ alert(e.message); }
+  loadHead();
+}
+document.addEventListener('click', e=>{
+  const ed=e.target.closest('[data-hc-edit]'), sv=e.target.closest('[data-hc-save]'), all=e.target.closest('#hcAll');
+  if(ed) hcEdit(ed.dataset.hcEdit); else if(sv) hcSave(sv.dataset.hcSave); else if(all) hcAll();
+});
 async function hcDecide(id, approve){
   const el=document.getElementById('hci-'+id); if(el) el.style.opacity=.5;
   try{ const r=await apiPost('/api/head/approvals/decide', {id, approve});
@@ -1907,12 +1939,20 @@ async function loadHead(){
     ['Scheduled', (d.jobs.counts||{}).pending||0], ['Spent today (auto)', '$'+Number(g.spent_today_automatic||0).toFixed(2)+' / $'+Number(g.budget||0).toFixed(2)]
   ].map(([k,v])=>'<div class="panel"><div class="note">'+hesc(k)+'</div><div class="hc-num">'+hesc(v)+'</div></div>').join('');
   const inbox = d.approvals.pending||[];
+  if(!document.querySelector('#hcInbox [data-hc-field]')){        // never wipe a draft the owner is editing
   document.getElementById('hcInbox').innerHTML = inbox.length ? inbox.map(it=>
     '<div class="hc-item" id="hci-'+hesc(it.id)+'"><div class="row"><b>'+hesc(it.title)+'</b><span class="hc-chip">'+hesc(it.skill||it.kind)+'</span>'+
     '<span class="hc-chip '+(it.risk==='spend'?'bad':'warn')+'">'+hesc(it.risk)+'</span><span class="note" style="margin-left:auto">'+hesc(hcWhen(it.created))+'</span></div>'+
     (it.summary?'<div class="note">'+hesc(it.summary)+'</div>':'')+hcPayload(it.payload)+
-    '<div class="row"><button class="btn primary sm" data-hc-ok="'+hesc(it.id)+'">Approve &amp; send</button><button class="btn sm" data-hc-no="'+hesc(it.id)+'">Reject</button></div></div>'
+    '<div class="row"><button class="btn primary sm" data-hc-ok="'+hesc(it.id)+'">Approve &amp; send</button>'+
+    (hcEditable(it.payload).length?'<button class="btn sm" data-hc-edit="'+hesc(it.id)+'">Edit</button>':'')+
+    '<button class="btn sm" data-hc-no="'+hesc(it.id)+'">Reject</button></div></div>'
   ).join('') : '<div class="note">Nothing waiting. When a skill wants to message a customer, it shows up here first.</div>';
+  HC_ITEMS = Object.fromEntries(inbox.map(it=>[it.id, it]));
+  if(inbox.length > 1) document.getElementById('hcInbox').insertAdjacentHTML('afterbegin',
+    '<div class="row" style="margin-bottom:8px"><button class="btn primary sm" id="hcAll">Approve all '+inbox.length+'</button>'+
+    '<span class="note">Each one still runs its own checks (opt-outs, caps, your rules) when it goes out.</span></div>');
+  }
   document.getElementById('hcRails').innerHTML =
     'Quiet hours for texts: <b>'+hesc((g.quiet_hours||[]).map(h=>String(h).padStart(2,'0')+':00').join(' to '))+'</b>'+(g.quiet_now?' <span class="hc-chip warn">quiet now</span>':'')+'<br>'+
     'Daily caps: email '+hesc((g.caps||{}).send_cap_email)+', texts '+hesc((g.caps||{}).send_cap_sms)+', per person '+hesc((g.caps||{}).send_cap_per_contact)+'<br>'+

@@ -44,7 +44,8 @@ import hmac, re, secrets, time
 from . import settings, store, guard, approvals, scheduler, skillkit, mandate, attention, briefing, judgment
 
 UI_TOKEN = secrets.token_urlsafe(24)      # new every launch; injected into the app page by the server
-OWNER_ONLY = {"/api/head/approvals/decide", "/api/head/approvals/retry", "/api/head/autopilot", "/api/head/tools/policy",
+OWNER_ONLY = {"/api/head/approvals/decide", "/api/head/approvals/retry", "/api/head/approvals/edit",
+              "/api/head/approvals/decide_many", "/api/head/autopilot", "/api/head/tools/policy",
               "/api/head/models/policy", "/api/head/memory/add", "/api/head/memory/forget", "/api/head/memory/promote",
               "/api/head/mandates/draft", "/api/head/mandates/activate", "/api/head/mandates/revoke",
               "/api/head/lock", "/api/head/unlock", "/api/head/attention/ack",
@@ -147,6 +148,12 @@ def route_post(h, p):
         h._json(approvals.decide(str(b.get("id") or ""), bool(b.get("approve")), by="owner", note=b.get("note") or ""))
     elif p == "/api/head/approvals/retry":
         h._json(approvals.retry(str(h._body().get("id") or "")))
+    elif p == "/api/head/approvals/edit":
+        b = h._body()
+        h._json(approvals.edit(str(b.get("id") or ""), b.get("fields") or {}, by="owner"))
+    elif p == "/api/head/approvals/decide_many":
+        b = h._body()
+        h._json({"results": approvals.decide_many(b.get("ids") or [], bool(b.get("approve")), by="owner", note=b.get("note") or "")})
     elif p == "/api/head/optout":
         b = h._body()
         h._json({"contact": guard.opt_out(b.get("contact"), reason=b.get("reason") or "", source="owner")})

@@ -7,6 +7,9 @@ import socket
 import subprocess
 import tempfile
 import time
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from aixmos import VERSION  # noqa: E402
 
 
 def main():
@@ -34,7 +37,7 @@ def main():
         try:
             run(setup)
             state = json.loads(run([py, cli, 'status', '--port', port]))
-            assert state['version'] == '2.1.1'
+            assert state['version'] == VERSION
             messages = [
                 {'jsonrpc': '2.0', 'id': 1, 'method': 'initialize', 'params': {'protocolVersion': '2025-11-25'}},
                 {'jsonrpc': '2.0', 'id': 2, 'method': 'tools/call', 'params': {'name': 'write_file', 'arguments': {'path': 'proof.txt', 'content': 'installed proof'}}},
@@ -54,7 +57,7 @@ def main():
             time.sleep(.5)
             run(setup)
             assert (dest / 'memory/workspace/proof.txt').read_text() == 'installed proof'
-            assert json.loads(run([py, cli, 'status', '--port', port]))['version'] == '2.1.1'
+            assert json.loads(run([py, cli, 'status', '--port', port]))['version'] == VERSION
             run([py, cli, 'stop', '--port', port])
             time.sleep(.5)
             print('PASS: fresh install, bundled Python, health, stdio write/read, pairing, CMD launcher, stop, upgrade, memory preservation')

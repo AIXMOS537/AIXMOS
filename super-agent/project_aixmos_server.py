@@ -33,6 +33,7 @@ sys.path.insert(1, os.path.join(DIR, "vendor"))   # pure-python deps (requests) 
 import context_tools  # safe live-context layer: time / location / weather / system stats
 from aixmos import settings, media, jobs, llm, intents, imagegen, videogen, videoedit, email_tools
 from aixmos import knowledge, skills, crm, carousel, agent, surfaces, research, providers
+from aixmos import VERSION
 from aixmos import channels, ghl  # noqa: F401  (register the inbox executors email.send / ghl.write at start)
 
 MEMDIR   = settings.MEMDIR          # honours AIXMOS_MEMDIR, same folder every module uses
@@ -474,7 +475,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if p == "/api/health":
                 from aixmos.local_cli import identity
-                self._json({"app": "AIXMOS", "version": "2.1.1", "installation": identity(),
+                self._json({"app": "AIXMOS", "version": VERSION, "installation": identity(),
                             "pid": os.getpid(), "running": True})
             elif p in ("/", "/index.html"):
                 self._index()

@@ -11,7 +11,10 @@ import shutil
 import struct
 import tempfile
 import zipfile
+import sys
 import build_installer as build
+sys.path.insert(0, str(Path(build.ROOT)))
+from aixmos import VERSION  # noqa: E402
 
 
 def main():
@@ -63,7 +66,7 @@ def main():
             z.write(root / 'installer/aixmos.ico', 'aixmos.ico')
         build.secret_gate(payload)
         stub = build.build_stub(str(root / 'installer/aixmos.ico'))
-        exe = out / 'AIXMOS-Local-Agent-2.1.1-Setup.exe'
+        exe = out / ('AIXMOS-Local-Agent-%s-Setup.exe' % VERSION)
         with exe.open('wb') as target:
             for source in (Path(stub), payload):
                 with source.open('rb') as f:
