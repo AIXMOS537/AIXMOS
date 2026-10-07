@@ -500,6 +500,8 @@ def call_tool(name, args, ctx):
     s, args = _spec(t), (args or {})
     mode, t0, outcome = s.mode(), time.time(), "ok"
     try:
+        if name in (ctx.get("blocked_tools") or ()):
+            raise PermissionError("%s is not available from %s" % (name, ctx.get("channel") or "this channel"))
         if mode == "BLOCKED":
             raise PermissionError("%s is blocked in your tool settings (Command Center -> Permissions)" % name)
         _needs(s.level, ctx)
@@ -584,7 +586,10 @@ def pick_model():
     m = providers.pick_model(p, pref)
     return m if p.id == "ollama" else "%s/%s" % (p.id, m)
 
-def run(goal, autonomy=None, extra_roots=None, model=None, max_steps=None, context=None, on_done=None):
+def run(goal, autonomy=None, extra_roots=None, model=None, max_steps=None, context=None, on_done=None,
+        tainted=False, blocked_tools=(), channel="desktop"):
+    """tainted=True: the request carries outside content (a forwarded file, a lead's words), so risky tools need a yes
+    from the start. blocked_tools: tools this channel may never use (e.g. code from the phone)."""
     goal = (goal or "").strip()
     if not goal:
         raise ValueError("goal is required")
@@ -593,7 +598,7 @@ def run(goal, autonomy=None, extra_roots=None, model=None, max_steps=None, conte
     os.makedirs(WORKSPACE, exist_ok=True)
     mdl = model or pick_model()
     ctx = {"autonomy": autonomy, "roots": roots(extra_roots), "artifacts": [], "drafts": [], "final": None, "event": threading.Event(), "job": None,
-           "tainted": False}
+           "tainted": bool(tainted), "blocked_tools": set(blocked_tools or ()), "channel": channel}
 
     def loop(progress):
         while ctx["job"] is None:          # jobs.create starts the thread before run() can store the handle
@@ -614,7 +619,7 @@ def run(goal, autonomy=None, extra_roots=None, model=None, max_steps=None, conte
         msgs = [{"role": "system", "content": sysmsg}]
         if context: msgs.append({"role": "user", "content": "Context from the conversation:\n" + str(context)[:4000]})
         msgs.append({"role": "user", "content": "GOAL: " + goal})
-        tools = tool_schemas(autonomy)
+        tools = [t for t in tool_schemas(autonomy) if t["function"]["name"] not in ctx["blocked_tools"]]
         idle_text = 0
         for step in range(1, max_steps + 1):
             if job["meta"].get("cancel"):

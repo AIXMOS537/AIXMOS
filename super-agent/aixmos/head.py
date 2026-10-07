@@ -42,7 +42,8 @@ UI_TOKEN = secrets.token_urlsafe(24)      # new every launch; injected into the 
 OWNER_ONLY = {"/api/head/approvals/decide", "/api/head/approvals/retry", "/api/head/autopilot", "/api/head/tools/policy",
               "/api/head/models/policy", "/api/head/memory/add", "/api/head/memory/forget", "/api/head/memory/promote",
               "/api/head/mandates/draft", "/api/head/mandates/activate", "/api/head/mandates/revoke",
-              "/api/head/lock", "/api/head/unlock", "/api/head/attention/ack"}
+              "/api/head/lock", "/api/head/unlock", "/api/head/attention/ack",
+              "/api/head/telegram/pair", "/api/head/telegram/revoke"}
 
 def ui_ok(h):
     hdrs = getattr(h, "headers", None)
@@ -79,6 +80,9 @@ def route_get(h, p, g):
         q = g("q", "")
         h._json({"items": memory_store.relevant(q, limit=100) if q else memory_store.recall("", limit=200),
                  "stats": memory_store.stats()})
+    elif p == "/api/head/telegram":
+        from . import telegram
+        h._json(telegram.status())
     elif p == "/api/head/machine":
         from . import resources, providers
         snap = resources.snapshot()
@@ -196,6 +200,16 @@ def route_post(h, p):
         rid = int(h._body().get("id") or 0)
         memory_store.promote(rid, "customer"); store.audit("memory.promote", rid)
         h._json({"confirmed": rid})
+    elif p == "/api/head/telegram/pair":
+        from . import telegram
+        if not telegram.configured():
+            raise ValueError("add the bot token first (Integrations -> Telegram)")
+        if telegram.owner():
+            raise ValueError("a phone is already paired: disconnect it first")
+        h._json(telegram.start_pairing())
+    elif p == "/api/head/telegram/revoke":
+        from . import telegram
+        h._json(telegram.revoke(by="owner:desktop"))
     elif p == "/api/head/skills/reload":
         h._json({"skills": skillkit.load(force=True)})
     elif p == "/api/head/mandates/understand":

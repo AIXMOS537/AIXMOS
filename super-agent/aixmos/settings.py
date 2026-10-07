@@ -45,6 +45,9 @@ PROVIDERS = {
                       "defaults": {}, "help": "console.cloud.google.com -> enable Custom Search API -> key; programmablesearchengine.google.com -> engine that searches the entire web -> cx (Search engine ID). Without it, research falls back to DuckDuckGo."},
     "serpapi":       {"label": "SerpAPI (Google results)", "fields": ["api_key"], "caps": ["search"],
                       "defaults": {}, "help": "serpapi.com/manage-api-key"},
+    "telegram":   {"label": "Telegram (your phone)", "fields": ["api_key"], "caps": ["remote"], "defaults": {},
+                   "help": "In Telegram open @BotFather, send /newbot, pick a name, and paste the token it gives you. Use a NEW "
+                           "bot just for this AIXMOS. Then Command Center -> Telegram -> Pair my phone."},
     "ghl":        {"label": "GoHighLevel (CRM)", "fields": ["api_key", "location_id"], "caps": ["crm"], "defaults": {},
                    "help": "In your sub-account: Settings -> Private Integrations -> create one with read on contacts, "
                            "conversations, opportunities, calendars; write on contacts (notes, tasks, tags). Paste the token "
@@ -92,6 +95,9 @@ DEFAULT_PREFS = {
     "spend_daily_usd": 2.0,
     # approvals.py: per-skill autopilot, e.g. {"followup": ["email.send"]}. Empty = every send waits for the owner.
     "autopilot": {},
+    # telegram.py: the owner's phone. Code tools stay off remotely unless switched on here.
+    "telegram_autonomy": "builder", "telegram_allow_code": False, "telegram_card_hours": 24,
+    "telegram_show_drafts": True, "telegram_rate_per_minute": 20,
     # skills/leads: watch for leads waiting for a reply every 30 min (drafts only; nothing sends without approval)
     "leads_watch": True, "leads_lookback_days": 3, "leads_followup_days": 2, "leads_max_per_run": 10,
     # skillkit.persona(): characters of a built-in skill's guide given to the model (most relevant sections first)

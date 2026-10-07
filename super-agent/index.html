@@ -839,6 +839,11 @@
             <div class="list" id="hcMem" style="max-height:320px;overflow:auto"></div>
           </div>
         </div>
+        <div class="panel" id="hcTgPanel" style="margin-top:14px"><h2>Telegram <span class="sub">run the business from your phone</span></h2>
+          <div class="note" id="hcTg">Loading...</div>
+          <div class="row" style="margin-top:8px"><button class="btn sm primary" id="hcTgPair">Pair my phone</button><button class="btn sm danger" id="hcTgRevoke">Disconnect phone</button></div>
+          <div class="hc-num" id="hcTgCode" style="margin-top:8px"></div>
+        </div>
         <div class="panel" id="hcToolsPanel" style="margin-top:14px"><h2>Permissions <span class="sub">what each tool may do without asking</span></h2>
           <div class="note">Auto runs it. Ask once asks the first time in each run. Always ask asks every time (emails wait in the inbox above). Blocked never runs.</div>
           <div class="list" id="hcTools"></div>
@@ -1939,7 +1944,30 @@ const HC_MODE = {AUTO:'auto', SESSION:'ask once', ALWAYS:'always ask', BLOCKED:'
 const HC_KIND = {USER_STATEMENT:'you said', VERIFIED_FACT:'confirmed', PREFERENCE:'preference', PROCEDURE:'how we do it',
                  DECISION:'decision', MODEL_SUMMARY:'agent note', INFERENCE:'agent guess', SOURCE_DATA:'imported', EXTRACTED_FACT:'extracted'};
 function hcBusy(id){ const p=document.getElementById(id); return p && p.contains(document.activeElement) && document.activeElement.tagName!=='BUTTON'; }
+async function loadTelegram(){
+  try{
+    const t=await apiGet('/api/head/telegram'), el=document.getElementById('hcTg');
+    el.innerHTML = !t.configured ? 'Step 1: in Telegram open <b>@BotFather</b>, send <b>/newbot</b>, then paste the token in <b>Integrations &rarr; Telegram</b>. Use a new bot just for this AIXMOS.'
+      : t.owner ? 'Paired with <b>'+hesc(t.owner.name||t.owner.username||'your phone')+'</b>'+(t.bot?' through @'+hesc(t.bot):'')+'. Talk to it in plain words; approvals arrive as cards with buttons.'+(t.locked?' <span class="hc-chip bad">locked</span>':'')
+      : 'Bot ready'+(t.bot?': <b>@'+hesc(t.bot)+'</b>':'')+'. Press <b>Pair my phone</b>, then send the code to the bot from your own Telegram.';
+    if(t.last_error) el.innerHTML += '<div class="note" style="color:var(--warn)">'+hesc(t.last_error)+'</div>';
+    document.getElementById('hcTgPair').style.display = t.configured && !t.owner ? '' : 'none';
+    document.getElementById('hcTgRevoke').style.display = t.owner ? '' : 'none';
+    if(t.owner) document.getElementById('hcTgCode').textContent='';
+  }catch(e){}
+}
+document.getElementById('hcTgPair').addEventListener('click', async ()=>{
+  try{ const r=await apiPost('/api/head/telegram/pair',{});
+    document.getElementById('hcTgCode').textContent='Send this code to '+(r.bot?'@'+r.bot:'your bot')+': '+r.code+'  (10 minutes)';
+  }catch(e){ alert(e.message); }
+});
+document.getElementById('hcTgRevoke').addEventListener('click', async ()=>{
+  if(!confirm('Disconnect your phone? The bot stops taking orders until you pair again.')) return;
+  try{ await apiPost('/api/head/telegram/revoke',{}); }catch(e){ alert(e.message); }
+  loadTelegram();
+});
 async function loadHeadSetup(){
+  loadTelegram();
   if(!hcBusy('hcModelsPanel')) try{
     const m=await apiGet('/api/head/models'), pol=m.policy||{};
     document.getElementById('hcModels').innerHTML=(m.providers||[]).map(p=>{

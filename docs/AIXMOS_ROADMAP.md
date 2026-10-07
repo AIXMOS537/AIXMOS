@@ -42,13 +42,24 @@ Spec: `MASTER-PROMPT-AGENT-RUNTIME-2026-10-04` (owner, kept outside this public 
 - Verified live 2026-10-05 on the test sub-account with `qwen3:4b-instruct` (about 15 s per lead); nothing sent.
 - GHL writes are confirmed by reading them back (execution state SUCCESSFUL).
 
+**Wave 4: Telegram owner command center** (see [AIXMOS_TELEGRAM.md](AIXMOS_TELEGRAM.md))
+- The owner's phone drives the same agent, inbox and permissions. It covers:
+  - pairing with a one-time code;
+  - approval cards bound to the exact action plus an expiry;
+  - voice transcribed locally, files treated as untrusted;
+  - /lock (unlock only on the computer);
+  - code tools off remotely;
+  - masked addresses;
+  - restart and duplicate-update safe.
+- 12 tests cover the §31.21 list. A live bot is still owed: it needs the owner's BotFather token.
+
 ## Next
 
 | Wave | Work | Needs from the owner |
 |---|---|---|
 | 3 | "Approve all" for a batch of lead replies in the Command Center; per-lead edit before approve. | |
 | 3 | More GHL writes through the inbox (pipeline stage moves, appointments). GHL message sending only after A2P/10DLC and an owner decision. | Owner decision on texting |
-| 4 | Telegram owner command center: own bot per install, owner pairing, approvals with buttons bound to an action hash, LOCK AIXMOS. Same orchestrator, not a separate bot. | Owner creates the bot |
+| 4 | Telegram live check with the owner's bot; morning briefing pushed to the phone at 07:30. | Owner creates the bot (BotFather) |
 | 4 | Calendar (Google / Cal.com), SMS + missed-call text-back. | Accounts, Twilio + 10DLC |
 | 5 | Universal installer / bootstrapper: system profile, hardware tiers, model recommendations, 8-step onboarding. | |
 

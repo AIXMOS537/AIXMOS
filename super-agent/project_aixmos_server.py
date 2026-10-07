@@ -665,6 +665,8 @@ if __name__ == "__main__":
     threading.Thread(target=surfaces.boot_index, daemon=True).start()
     from aixmos import head
     threading.Thread(target=head.boot, daemon=True).start()     # built-in skills + their timers + the scheduler
+    from aixmos import telegram
+    telegram.start()          # the owner's phone door; idles until a bot token is saved and a phone is paired
     n = len(load_mem())
     print("=" * 56)
     print("  PROJECT AIXMOS  //  JARVIS super agent online")
