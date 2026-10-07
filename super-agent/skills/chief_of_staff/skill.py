@@ -15,6 +15,10 @@ SID = "chief_of_staff"
 def sweep(payload, job):
     return attention.sweep()
 
+def inbox(payload, job):
+    from aixmos import inboxwatch
+    return inboxwatch.check()
+
 def morning(payload, job):
     b = briefing.morning()
     store.state_set("briefing", "latest", b)
@@ -98,8 +102,9 @@ SKILL = {
     "tool_meta": {"chief_of_staff_dossier": {"tainting": True, "connector": "ghl"},
                   "chief_of_staff_brief": {"tainting": True, "connector": "crm"},
                   "chief_of_staff_attention": {"tainting": True, "connector": "crm"}},
-    "actions": {"sweep": sweep, "morning": morning},
-    "triggers": [{"action": "sweep", "every_minutes": 5}, {"action": "morning", "daily": "07:30"}],
+    "actions": {"sweep": sweep, "morning": morning, "inbox": inbox},
+    "triggers": [{"action": "sweep", "every_minutes": 5}, {"action": "morning", "daily": "07:30"},
+                 {"action": "inbox", "every_minutes": 10}],
     "status": status,
     "rules": [
         "Report only what the record shows. Never say something was done unless an audit event or tool result proves it.",

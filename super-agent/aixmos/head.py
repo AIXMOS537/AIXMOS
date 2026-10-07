@@ -24,6 +24,11 @@ GET  /api/head/attention?status=   attention items (default open) + digest of th
 GET  /api/head/brief?kind=         morning (default) or evening, built from evidence only
 GET  /api/head/outcome?id=         one action's execution state: requested/authorized/verified/executed/successful
 GET  /api/head/dossier?q=&pick=    "what's happening with X": one person across CRM, GHL, inbox and audit
+GET  /api/head/calendar            calendar sources (hosts only, never the secret URL), hours, inbox-watch status
+GET  /api/head/calendar/free?days=&minutes=   free times from the real calendar
+POST /api/head/calendar/feeds/add {url}   POST /api/head/calendar/feeds/remove {name}
+POST /api/head/calendar/settings  {business_hours, min_notice_hours, ghl_calendar_id}
+POST /api/head/inbox/check         read connected inboxes now (read-only) -> new attention items
 POST /api/head/mandates/understand {text}   plain words -> proposed plan + questions (saves nothing)
 POST /api/head/mandates/draft      {title, until, will: [kinds], ask, alert, note}   -> draft + plan (grants nothing)
 POST /api/head/mandates/activate   {id}       POST /api/head/mandates/revoke {id, why}
@@ -35,7 +40,7 @@ Everything here is local (the server binds 127.0.0.1 and _guard refuses cross-si
 (approve, autopilot, permissions, privacy, memory, mandates, lock/unlock) also need the per-launch UI token that only
 the app page carries, so a script or an agent tool calling the API cannot approve its own work or grant itself a mandate.
 """
-import hmac, secrets, time
+import hmac, re, secrets, time
 from . import settings, store, guard, approvals, scheduler, skillkit, mandate, attention, briefing, judgment
 
 UI_TOKEN = secrets.token_urlsafe(24)      # new every launch; injected into the app page by the server
@@ -44,7 +49,8 @@ OWNER_ONLY = {"/api/head/approvals/decide", "/api/head/approvals/retry", "/api/h
               "/api/head/models/policy", "/api/head/memory/add", "/api/head/memory/forget", "/api/head/memory/promote",
               "/api/head/mandates/draft", "/api/head/mandates/activate", "/api/head/mandates/revoke",
               "/api/head/lock", "/api/head/unlock", "/api/head/attention/ack",
-              "/api/head/telegram/pair", "/api/head/telegram/revoke"}
+              "/api/head/telegram/pair", "/api/head/telegram/revoke",
+              "/api/head/calendar/feeds/add", "/api/head/calendar/feeds/remove", "/api/head/calendar/settings"}
 
 def ui_ok(h):
     hdrs = getattr(h, "headers", None)
@@ -103,6 +109,15 @@ def route_get(h, p, g):
         st = g("status", "open")
         h._json({"items": attention.items(None if st in ("all", "") else st, int(g("limit", 100))),
                  "digest": attention.digest(time.time() - 86400), "outbox": attention.outbox()})
+    elif p == "/api/head/calendar":
+        from . import availability
+        h._json({**availability.status(), "feeds": availability.feeds(),
+                 "min_notice_hours": settings.pref("calendar_min_notice_hours"),
+                 "ghl_calendar_id": settings.pref("calendar_ghl_id"),
+                 "inbox_watch": store.state_get("inboxwatch", "last")})
+    elif p == "/api/head/calendar/free":
+        from . import availability
+        h._json(availability.free_slots(days=int(g("days", 7)), minutes=int(g("minutes", 30))))
     elif p == "/api/head/dossier":
         from . import dossier
         h._json(dossier.build(g("q", ""), pick=g("pick") or None))
@@ -219,6 +234,38 @@ def route_post(h, p):
         h._json(telegram.revoke(by="owner:desktop"))
     elif p == "/api/head/skills/reload":
         h._json({"skills": skillkit.load(force=True)})
+    elif p == "/api/head/calendar/feeds/add":
+        from . import availability
+        h._json({"name": availability.add_feed(h._body().get("url")), "feeds": availability.feeds()})
+    elif p == "/api/head/calendar/feeds/remove":
+        from . import availability
+        availability.remove_feed(str(h._body().get("name") or ""))
+        h._json({"feeds": availability.feeds()})
+    elif p == "/api/head/calendar/settings":
+        from . import availability       # noqa: F401  registers the calendar prefs, or settings.update ignores them
+        b, upd = h._body(), {}
+        bh = b.get("business_hours")
+        if isinstance(bh, dict):
+            days = sorted({int(x) for x in bh.get("days", []) if str(x).isdigit() and 0 <= int(x) <= 6})
+            for k in ("start", "end"):
+                if not re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d", str(bh.get(k) or "")):
+                    raise ValueError("business hours must look like 09:00")
+            if bh["start"] >= bh["end"]:
+                raise ValueError("business hours must end after they start")
+            upd["business_hours"] = {"days": days, "start": bh["start"], "end": bh["end"]}
+        if "min_notice_hours" in b:
+            upd["calendar_min_notice_hours"] = max(0.0, min(168.0, float(b["min_notice_hours"])))
+        if "ghl_calendar_id" in b:
+            cid = str(b["ghl_calendar_id"] or "").strip()
+            if cid and not re.fullmatch(r"[A-Za-z0-9_-]{4,64}", cid):
+                raise ValueError("that doesn't look like a GoHighLevel calendar ID")
+            upd["calendar_ghl_id"] = cid
+        settings.update(prefs=upd)
+        store.audit("calendar.settings", None, {k: v for k, v in upd.items()})
+        h._json({"saved": sorted(upd)})
+    elif p == "/api/head/inbox/check":
+        from . import inboxwatch
+        h._json(inboxwatch.check())
     elif p == "/api/head/mandates/understand":
         from . import delegate
         h._json(delegate.understand(str(h._body().get("text") or "")))

@@ -70,7 +70,9 @@ New files only, plus two small hooks, so it never collides with the builder's un
 | `super-agent/aixmos/head.py` (routes) | `GET /api/head/mandates·attention·brief`, `POST /api/head/mandates/draft·activate·revoke`, `/lock`, `/unlock`, `/attention/ack`, `/judge` |
 | `super-agent/aixmos/outcomes.py` (R2) | The five states, kept apart: REQUESTED → AUTHORIZED → VERIFIED → EXECUTED → SUCCESSFUL, plus BLOCKED / FAILED / NOT CONFIRMED. Prechecks run just before execution. If an automatic approval (autopilot or mandate) breaks the business rules, the item goes back to the owner's inbox instead of sending or failing. Postcondition verifiers decide SUCCESSFUL. Email is only ever "accepted by your mail provider": delivery and bounces aren't visible. `GET /api/head/outcome?id=`. |
 | `super-agent/aixmos/dossier.py` (R3), `delegate.py` (R4) | See §6: "What's happening with X?" and plain words → draft away-mandate. |
-| `super-agent/tests/test_right_hand.py` | 41 tests. On top of the builder's GHL + brand work (`a4641cd`), the full suite is 172 tests, 0 failures (3 licence tests skip because `cryptography` isn't installed). |
+| `super-agent/aixmos/availability.py` (R5), `skills/calendar` | Read-only calendar. The owner's private iCal feeds (URL kept in secret_store, never shown or audited) plus, optionally, GoHighLevel's bookable slots (documented `free-slots`, not yet checked live: the test sub-account has no calendar). It handles repeats (DAILY/WEEKLY BYDAY/MONTHLY/YEARLY, COUNT, UNTIL, EXDATE, moved instances), time zones (falls back to local and says so), and all-day = busy unless marked free. `free_slots()` stays inside business hours with minimum notice, spread out; any pattern it can't read becomes a caution, never a silent gap. The morning briefing shows the day's events; the dossier shows meetings with that person. Checked against Google's real public holiday feed: 317/317 events read. |
+| `super-agent/aixmos/inboxwatch.py` (R6) | Every 10 minutes it reads connected inboxes READ-ONLY (IMAP readonly + PEEK). New mail becomes attention items with source `external:email`: replies from people AIXMOS wrote to (important), known contacts (routine, or important on complaint words), strangers and automated mail (background, never an away-alert), bounces (important + the send's outcome marked "mismatch"), and STOP replies (sender opted out). The first look at an account is a baseline; nothing old floods in. |
+| `super-agent/tests/test_right_hand.py`, `test_right_hand_calendar.py` | 41 + 14 tests. On main `10b6d28` + this work the full suite is 208 tests, 0 failures (3 licence tests skip because `cryptography` isn't installed). |
 
 New tables (created by each module on first use; fold into `store.SCHEMA` on merge): `mandates`, `attention`. New
 prefs (registered at import; fold into `settings.DEFAULT_PREFS` on merge): `business_rules`, `attention_rules`,
@@ -123,7 +125,9 @@ Lanes keep ONE writer per file. B = builder session (`wave0/head-agent-core`); R
   Deterministic: the end time must be stated; only real, delegable actions are listed; money, pricing, contracts and
   publishing come back as "still yours"; anything unclear becomes a question and nothing is saved. The owner still
   taps activate. `POST /api/head/mandates/understand`, agent tool `chief_of_staff_delegate`.
-- Calendar + Gmail connectors; contract generation from owner-approved templates only (never delegable).
+- DONE (R5/R6): calendar availability (read-only) + inbox watching. Next: booking an appointment as an approved
+  action (calendar write behind the inbox), and leads offering only `free_slots()` times.
+- Contract generation from owner-approved templates only (never delegable).
 - Improvement loop: weekly "what failed and what I'd change", proposed as drafts and never self-applied.
 
 ## 7. Owner decisions that block or shape the next steps

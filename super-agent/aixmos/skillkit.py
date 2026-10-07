@@ -40,6 +40,10 @@ def _model_ok():
     from . import llm
     return llm.available()
 
+def _calendar_ok():
+    from . import availability
+    return availability.connected()
+
 def _ghl_ok():
     from . import ghl
     return ghl.connected()
@@ -52,7 +56,8 @@ CONNECTORS = {
     "local_model": ("Local AI model (Ollama)", _model_ok, "Install Ollama and a model (Settings > AI engine)."),
     "email":       ("A connected email account", _email_ok, "Mail > Connect account (Gmail, Outlook or any SMTP)."),
     "booking_link":("Your booking link", lambda: _profile("booking_link"), "Business profile > booking link (Calendly, Cal.com, Google)."),
-    "calendar":    ("Calendar sync (Google / Cal.com)", lambda: False, "Coming in Wave 1."),
+    "calendar":    ("Your calendar (read-only)", _calendar_ok,
+                    "Command Center > Calendar: paste your calendar's private iCal address (Google, Outlook, Apple)."),
     "sms":         ("Business texting number", lambda: False, "Coming in Wave 1 (Twilio, with US 10DLC registration)."),
     "payments":    ("Stripe account", lambda: False, "Coming in Wave 2."),
     "crm_ghl":     ("GoHighLevel sub-account", _ghl_ok,

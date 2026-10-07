@@ -162,6 +162,15 @@ def build(query, pick=None, now=None, quote=True):
     S["opted_out"] = next((guard.blocked(c) for c in contacts if guard.blocked(c)), None)
     words = _words(p["name"]) or _words(query)
     S["attention"] = [i["title"] for i in attention.items("open", 200) if _hit(words, i["title"])][:5]
+    S["calendar"] = []
+    try:
+        from . import availability
+        if availability.connected():
+            for c in contacts:
+                if c.startswith("mailto:"):
+                    S["calendar"] += availability.events_with(c.split(":", 1)[1])
+    except Exception as e:
+        notes.append("your calendar couldn't be read (%s)." % type(e).__name__)
     return {"status": "ok", "person": {k: p[k] for k in ("key", "name", "company", "contacts", "label")},
             "sections": S, "notes": notes, "text": render(p, S, notes, quote), "quoted": quote}
 
@@ -195,6 +204,8 @@ def render(p, S, notes, quote=True):
             L.extend("Open GHL task: %s" % t for t in tasks)
         elif tasks:
             L.append("Open GHL tasks: %d" % len(tasks))
+    for e in S.get("calendar") or []:
+        L.append("Calendar: %s %s." % (e["start"], e["title"] or "meeting"))
     for a in S["appointments"]:
         L.append("Appointment: %s%s (%s)." % (a["when"], (" - " + a["service"]) if a.get("service") else "", a["status"]))
     for s in S["sequences"]:

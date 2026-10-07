@@ -87,6 +87,17 @@ def after(item, result):
     store.audit("outcome." + post, item["id"], {"kind": item["kind"]})
     return post
 
+def mark(aid, post, detail=""):
+    """Later evidence about an executed action (e.g. a bounce notice): replaces the post state, never upgrades it to
+    'confirmed' (only a verifier can do that)."""
+    from . import approvals
+    item = approvals.get(aid)
+    if not item or post == "confirmed":
+        return None
+    _save(aid, item["kind"], post=post, post_detail=str(detail)[:500], post_ts=time.time())
+    store.audit("outcome." + post, aid, {"kind": item["kind"], "why": str(detail)[:200]})
+    return post
+
 def state(aid):
     from . import approvals
     item = approvals.get(aid)
