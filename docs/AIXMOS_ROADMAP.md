@@ -53,11 +53,13 @@ Spec: `MASTER-PROMPT-AGENT-RUNTIME-2026-10-04` (owner, kept outside this public 
   - restart and duplicate-update safe.
 - 12 tests cover the §31.21 list. A live bot is still owed: it needs the owner's BotFather token.
 
+**Inbox:** edit a draft's text before approving it (recipient and target never change; an old Telegram card for the
+edited item is refused), and "Approve all" for a batch, where each item still runs its own checks.
+
 ## Next
 
 | Wave | Work | Needs from the owner |
 |---|---|---|
-| 3 | "Approve all" for a batch of lead replies in the Command Center; per-lead edit before approve. | |
 | 3 | More GHL writes through the inbox (pipeline stage moves, appointments). GHL message sending only after A2P/10DLC and an owner decision. | Owner decision on texting |
 | 4 | Telegram live check with the owner's bot; morning briefing pushed to the phone at 07:30. | Owner creates the bot (BotFather) |
 | 4 | Calendar (Google / Cal.com), SMS + missed-call text-back. | Accounts, Twilio + 10DLC |

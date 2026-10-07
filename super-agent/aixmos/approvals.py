@@ -137,5 +137,41 @@ def retry(aid, by="owner"):
     store.audit("approval.retry", aid, {"by": by})
     return get(aid)
 
+EDITABLE = ("subject", "body", "description", "text", "caption", "title")
+
+def edit(aid, fields, by="owner"):
+    """The owner rewrites a pending item's text before approving it. Only text fields, only while pending; the
+    recipient, the target record and the action stay as proposed. Any card already sent for the old text (Telegram)
+    no longer matches and is refused."""
+    item = get(aid)
+    if not item:
+        raise KeyError("no such approval")
+    if item["status"] != "pending":
+        raise ValueError("only a waiting item can be edited (this one is %s)" % item["status"])
+    p = dict(item["payload"] or {})
+    changed = [k for k, v in (fields or {}).items() if k in EDITABLE and k in p and isinstance(v, str) and v != p[k]]
+    if not changed:
+        return item
+    for k in changed:
+        p[k] = fields[k][:20000]
+    with store.tx() as c:
+        n = c.execute("UPDATE approvals SET payload=? WHERE id=? AND status='pending'",
+                      (json.dumps(p, ensure_ascii=False, default=str), aid)).rowcount
+    if not n:
+        raise ValueError("it was decided while you were editing")
+    store.audit("approval.edited", aid, {"by": by, "fields": changed})
+    return get(aid)
+
+def decide_many(ids, approve, by="owner", note=""):
+    """Approve or reject several items in one go; each runs (or not) exactly as if decided alone."""
+    out = []
+    for aid in list(dict.fromkeys(str(i) for i in ids or []))[:100]:
+        try:
+            r = decide(aid, approve, by=by, note=note)
+            out.append({"id": aid, "status": r["status"], "error": r.get("error")})
+        except (KeyError, PermissionError) as e:
+            out.append({"id": aid, "status": "refused", "error": str(e)})
+    return out
+
 def counts():
     return {r["status"]: r["n"] for r in store.q("SELECT status, COUNT(*) AS n FROM approvals GROUP BY status")}
