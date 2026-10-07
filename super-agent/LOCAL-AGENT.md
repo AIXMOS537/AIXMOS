@@ -1,6 +1,30 @@
-# AIXMOS Local Agent 2.1.1
+# AIXMOS Local Agent 2.2.0
 
-2.1.1 removes every business-network feature: no network roles, operator certification, playbooks, prices,
+## What's new in 2.2.0: the head agent
+
+One AIXMOS that does the work, not a set of prompts to copy:
+
+- **Command Center**: every action that talks to a customer, changes your CRM or costs money waits here. You can
+  edit it, approve it, approve all of them, or reject it. Opt-outs, quiet hours, daily caps and a daily spend
+  budget apply at the moment of sending.
+- **Lead handler**: "handle my new leads" finds who is waiting for an answer (GoHighLevel or the built-in CRM),
+  reads their history and drafts each reply in your voice from your Brand Profile only. Every draft is checked:
+  no invented prices, guarantees or time slots, and no links that are not yours. Complaints, refunds and custom
+  prices come straight to you.
+- **GoHighLevel**: reads contacts, conversations, pipelines and calendars. It adds notes, tasks and tags only
+  after you approve, and confirms each change by reading it back. It never sends messages through GoHighLevel.
+- **Telegram**: run the business from your phone with your own bot. You get approval cards with buttons, voice
+  notes, files, and /lock.
+- **Models**: works with Ollama or LM Studio and switches to the other if one goes down. Claude and OpenAI are
+  used only if you allow cloud models. The default model is `qwen3:4b-instruct` (Apache-2.0).
+- **Permissions**: every tool has a risk level and a mode (auto / ask once / always ask / blocked) that you
+  control. Web pages, CRM records and files are treated as data, never as orders.
+- **Memory with sources, away mode, briefings**:
+  - the agent writes notes and you confirm facts;
+  - away mode runs while you are away and LOCK stops everything;
+  - morning and end-of-day briefings are built only from what actually happened.
+
+2.1.1 removed every business-network feature: no network roles, operator certification, playbooks, prices,
 console or private-repository setup. Installs from 2.1.0 or earlier are cleaned on upgrade.
 
 A per-user local application with tools that Claude Code, Claude Desktop and
@@ -11,7 +35,7 @@ providers: local execution does not mean cloud reasoning is offline.
 
 ## Windows installation
 
-Run `AIXMOS-Local-Agent-2.1.1-Setup.exe`. The installer is unsigned. It installs
+Run `AIXMOS-Local-Agent-2.2.0-Setup.exe`. The installer is unsigned. It installs
 under `%LOCALAPPDATA%\AIXMOS` without requiring a system Python installation.
 Choose Entrepreneur for a general client installation. Start AIXMOS opens the
 local browser interface. Installation can optionally download Ollama and a model.
@@ -19,7 +43,7 @@ local browser interface. Installation can optionally download Ollama and a model
 For a tools-only setup, from a terminal:
 
 ```powershell
-.\AIXMOS-Local-Agent-2.1.1-Setup.exe --role builder --no-ollama --no-model --no-autostart
+.\AIXMOS-Local-Agent-2.2.0-Setup.exe --role builder --no-ollama --no-model --no-autostart
 ```
 
 The client package contains application code, Python, media dependencies and
