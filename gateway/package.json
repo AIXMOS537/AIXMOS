@@ -9,6 +9,6 @@
     "usage": "echo 'Open https://YOUR.workers.dev/usage with your admin secret header'"
   },
   "devDependencies": {
-    "vitest": "^3.0.0"
+    "vitest": "^4.1.11"
   }
 }
