@@ -39,13 +39,18 @@ def build(kind, since, now, health=True):
     failed = _events(["approval.failed", "job.failed", "send.blocked", "guard.spend_blocked"], since, now)
     handled, by_owner = _handled(since, now)
     held = _events(["approval.held"], since, now)
+    attention._ensure()
+    mail = store.q("SELECT id, kind FROM attention WHERE source='external:email' AND first_ts>=? AND first_ts<? "
+                   "AND kind IN ('lead.reply','customer.message','send.bounced')", (since, now))
     s["happened"] = {"new_leads": len(new_leads), "replies": len(replies), "messages_sent": len(sent),
                      "handled_by_aixmos": len(handled), "approved_by_you": len(by_owner), "problems": len(failed),
-                     "held_for_rules": len(held), "results": outcomes.summary(since, now)}
+                     "held_for_rules": len(held), "results": outcomes.summary(since, now),
+                     "customer_emails": sum(1 for r in mail if r["kind"] != "send.bounced"),
+                     "bounces": sum(1 for r in mail if r["kind"] == "send.bounced")}
     ev["happened"] = {"new_leads": [l["id"] for l in new_leads], "replies": [e["id"] for e in replies],
                       "messages_sent": [e["id"] for e in sent], "handled_by_aixmos": [r["id"] for r in handled],
                       "approved_by_you": [r["id"] for r in by_owner], "problems": [e["id"] for e in failed],
-                      "held_for_rules": [e["ref"] for e in held]}
+                      "held_for_rules": [e["ref"] for e in held], "customer_emails": [r["id"] for r in mail]}
     # TODAY / NEXT: what is scheduled
     day = _today_iso(now if kind == "morning" else now + 86400)
     appts = [a for a in d["appointments"] if a.get("status") == "booked" and str(a.get("when", "")).startswith(day)]
@@ -57,6 +62,13 @@ def build(kind, since, now, health=True):
     s["schedule"] = {"day": day, "appointments": [{"when": a["when"], "name": a.get("name") or a.get("contact"),
                                                    "service": a.get("service")} for a in appts],
                      "appointments_time_unclear": len(undated), "follow_ups_due": len(due), "scheduled_work": len(jobs)}
+    try:
+        from . import availability
+        if availability.connected():
+            ag = availability.agenda(datetime.strptime(day, "%Y-%m-%d"))
+            s["schedule"]["calendar"], s["schedule"]["calendar_notes"] = ag["events"], ag["notes"]
+    except Exception as e:                             # an unreadable calendar is reported, never guessed around
+        s["schedule"]["calendar_notes"] = ["your calendar couldn't be read (%s)" % type(e).__name__]
     ev["schedule"] = {"appointments": [a["id"] for a in appts], "follow_ups_due": [x["seq"] for x in due],
                       "scheduled_work": [j["id"] for j in jobs]}
     # NEEDS YOU
@@ -106,6 +118,10 @@ def render(kind, s, now):
              (h["messages_sent"], "message accepted by your mail provider", "messages accepted by your mail provider"), (h["approved_by_you"], "action you approved", "actions you approved")]
     got = ["  %s" % _n(v, a, b) for v, a, b in lines if v]
     L += got or ["  Nothing new recorded."]
+    if h.get("customer_emails"):
+        L.append("  %s from customers" % _n(h["customer_emails"], "email", "emails"))
+    if h.get("bounces"):
+        L.append("  %s bounced (wrong or dead address)" % _n(h["bounces"], "email", "emails"))
     if h["problems"]:
         L.append("  %s (see Activity)" % _n(h["problems"], "problem", "problems"))
     if h["results"]["successful"]:
@@ -119,6 +135,8 @@ def render(kind, s, now):
     L += ["", ("TODAY (%s):" if kind == "morning" else "TOMORROW (%s):") % sc["day"]]
     plan = ["  %s %s%s" % (a["when"][11:16] or a["when"], a["name"] or "appointment", (" - " + a["service"]) if a.get("service") else "")
             for a in sc["appointments"]]
+    plan += ["  %s %s (calendar)" % (e["start"], e["title"] or "busy") for e in sc.get("calendar") or []]
+    plan += ["  Note: " + n for n in sc.get("calendar_notes") or []]
     if sc["follow_ups_due"]:
         plan.append("  %s due" % _n(sc["follow_ups_due"], "follow-up", "follow-ups"))
     if sc["appointments_time_unclear"]:

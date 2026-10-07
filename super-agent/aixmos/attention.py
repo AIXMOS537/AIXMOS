@@ -38,6 +38,8 @@ KIND_LEVELS = {
     "spend.blocked": "important", "lead.reply": "important", "lead.new": "routine",
     "customer.message": "routine", "send.blocked": "routine", "brief.ready": "routine",
     "security.alert": "urgent", "system.outage": "urgent",
+    "email.unknown": "background", "email.automated": "background", "send.bounced": "important",
+    "contact.opted_out": "routine",
 }
 KIND_CATEGORY = {"security.alert": "security", "system.outage": "outage", "system.error": "outage",
                  "lead.reply": "opportunity"}
