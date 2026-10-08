@@ -1,0 +1,22 @@
+{
+  "safe_mode": true,
+  "allow_send": false,
+  "auto_send_assistant": false,
+  "auto_field": true,
+  "poll_ms": 5000,
+  "llm": {
+    "litellm_url": "http://127.0.0.1:4000",
+    "ollama_url": "http://127.0.0.1:11434",
+    "ollama_model": "llama3.2:3b",
+    "max_tokens": 180
+  },
+  "t1_allowlist": [],
+  "t3_senders": [],
+  "owner_handles": [],
+  "rate": {
+    "drafts_per_hour": 40,
+    "sends_per_hour": 20,
+    "per_sender_per_hour": 10,
+    "per_sender_sends_per_hour": 4
+  }
+}

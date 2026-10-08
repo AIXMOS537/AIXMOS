@@ -1,0 +1,49 @@
+{
+  "_comment": "Copy to config/business-profile.json and edit. This is what every agent is told about your business. Nothing here ships with the pack \u2014 it is yours.",
+  "business_name": "Riverside Auto Rentals",
+  "what_we_do": "weekly vehicle rentals for rideshare drivers",
+  "owner_label": "OWNER",
+  "lines": [
+    {
+      "name": "Weekly rentals",
+      "detail": "gig drivers, weekly billing",
+      "tone": "direct and practical"
+    },
+    {
+      "name": "Detailing",
+      "detail": "add-on service",
+      "tone": "friendly"
+    }
+  ],
+  "_rate_card_comment": "The ONLY prices the agents may quote. lib/claims.js REFUSES any price or percentage in a draft that is not here \u2014 including at dry-run. Leave it empty and the agents cannot quote at all; they will say they'll check and come back, which is the safe default.",
+  "rate_card": [
+    {
+      "item": "Weekly rental \u2014 sedan",
+      "price": "$325"
+    },
+    {
+      "item": "Weekly rental \u2014 SUV",
+      "price": "$425"
+    },
+    {
+      "item": "Detail add-on",
+      "price": "$125"
+    },
+    {
+      "item": "Returning-customer discount",
+      "price": "10%"
+    }
+  ],
+  "_industry_pack_comment": "Optional. A FORGE pack name (auto_detail, med_spa, real_estate, credit_funding, \u2026). Switches on that vertical's claim rules \u2014 e.g. med_spa blocks cure/permanence claims and named treatments, real_estate blocks fair-housing coded language.",
+  "industry_pack": "transportation",
+  "escalate_to_owner": [
+    "insurance claims",
+    "an unhappy customer",
+    "anything legal",
+    "refunds over $200"
+  ],
+  "notes": [
+    "We never quote a price that is not on the current rate card.",
+    "Deposits are always confirmed by a human before pickup."
+  ]
+}

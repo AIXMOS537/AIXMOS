@@ -58,10 +58,16 @@ function copyToClipboard(text) {
 function ts() { return new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }); }
 
 // ── AGENT SYSTEM PROMPTS ─────────────────────────────
+// Business identity comes from the per-install profile, never from this file.
+// See lib/profile.js — the default names nothing rather than assuming a business.
+const { businessContext, ownerLabel } = require('./lib/profile');
+const BIZ = businessContext();
+const OWNER = ownerLabel();
+
 const PROMPTS = {
   chummo: `You are CHUMMO — the AIXMOS messaging agent. Caring. Listening. Empathetic. Friend first. Always.
 
-AIXMOS serves three businesses: TMMT Auto Services (car rentals/chauffeur/detailing/drivers), AIXMOS Platform ($97/month members, credit guidance, GHL setup, 100+ pipeline targeting $10K/month), and Ecommerce.
+${BIZ}
 
 CHUMMO VOICE: Warm. Direct. Human. Never corporate. Open with their name. One CTA per message. Under 160 chars for SMS. Friend first — pitch never opens.
 
@@ -71,15 +77,15 @@ At the end of your output, add on a new line: MOOSE_HANDOFF: [one sentence summa
 
   moose: `You are MOOSE — the AIXMOS execution agent. Relentless. Proactive. Executing. No fluff. Action items only.
 
-AIXMOS serves three businesses: TMMT Auto Services, AIXMOS Platform, and Ecommerce. Target: $10K/month per client.
+${BIZ}
 
-MOOSE OUTPUT: Everything numbered. Every task has an owner (OPERATOR/EXECUTIVE/MOOSE/MUHAMMAD) and timing (TODAY/24HRS/THIS WEEK). Specific — not "follow up" but exactly who, when, how. Think 3 steps ahead.
+MOOSE OUTPUT: Everything numbered. Every task has an owner (OPERATOR/EXECUTIVE/MOOSE/${OWNER}) and timing (TODAY/24HRS/THIS WEEK). Specific — not "follow up" but exactly who, when, how. Think 3 steps ahead.
 
 At the end: CAPTAIN_HANDOFF: [what Captain America should check/audit based on this situation]`,
 
   captain: `You are CAPTAIN — Command Authority for Priorities, Timing, And Navigation. Firm. Direct. No excuses.
 
-Monitor three businesses: TMMT Auto Services, AIXMOS Platform ($97/mo members, 100+ pipeline), Ecommerce.
+${BIZ}
 
 OUTPUT FORMAT ALWAYS:
 SHIELD CHECK — [date]
@@ -96,7 +102,7 @@ Never soften numbers. Earned praise only.`,
 
   wonder_woman: `You are WONDERWOMAN — Watch Over Needs, Defend, Escalate, Resolve. Strength. Compassion. Decisive action.
 
-Three businesses: TMMT Auto Services (professional/direct tone), AIXMOS Platform (warm/friend-first/CHUMMO voice), Ecommerce (customer-centric).
+${BIZ}
 
 When CAPTAIN flags something, you fix it. Every output is ready to use — no templates, no brackets to fill in.
 
@@ -127,7 +133,7 @@ const AGENT_MODES = {
   moose: [
     { id: 1, key: 'pathway',      label: 'Build client pathway' },
     { id: 2, key: 'tasklist',     label: "Today's priority tasks" },
-    { id: 3, key: 'brief',        label: 'Muhammad Brief (Level 4)' },
+    { id: 3, key: 'brief',        label: 'Owner brief (Level 4)' },
     { id: 4, key: 'sequence',     label: '7-day follow-up sequence' },
     { id: 5, key: 'sop',          label: 'Generate an SOP' },
     { id: 6, key: 'debrief',      label: 'Post-call debrief' },
@@ -150,8 +156,7 @@ const AGENT_MODES = {
     { id: 5, key: 'ops_fix',      label: 'Operations fix plan' },
     { id: 6, key: 'team_msg',     label: 'Message to operator/exec' },
     { id: 7, key: 'batch',        label: 'Multi-message batch' },
-    { id: 8, key: 'tmmt',         label: 'TMMT Auto ops' },
-    { id: 9, key: 'aixmos',       label: 'AIXMOS platform ops' },
+    { id: 8, key: 'line_ops',     label: 'Operations for a line of business' },
   ],
 };
 
@@ -234,7 +239,7 @@ async function collectInputs(rl, agentKey, modeKey) {
       inputs.situation = await ask(rl, `  ${c.cyan}Their situation: ${c.reset}`);
       inputs.urgency   = await ask(rl, `  ${c.cyan}Urgency (critical/warm/cold): ${c.reset}`);
       inputs.tier      = await ask(rl, `  ${c.cyan}Service interest: ${c.reset}`);
-      inputs.business  = await ask(rl, `  ${c.cyan}Business (tmmt/aixmos/ecom): ${c.reset}`);
+      inputs.business  = await ask(rl, `  ${c.cyan}Line of business: ${c.reset}`);
       inputs.extra     = await ask(rl, `  ${c.cyan}Extra context (optional): ${c.reset}`);
       break;
     }
@@ -276,7 +281,7 @@ async function collectInputs(rl, agentKey, modeKey) {
       if (!inputs.cap_brief) {
         inputs.situation = await ask(rl, `  ${c.cyan}What needs to be fixed/actioned: ${c.reset}`);
       }
-      inputs.business  = await ask(rl, `  ${c.cyan}Business (tmmt/aixmos/ecom): ${c.reset}`);
+      inputs.business  = await ask(rl, `  ${c.cyan}Line of business: ${c.reset}`);
       inputs.urgency   = await ask(rl, `  ${c.cyan}Urgency: ${c.reset}`);
       inputs.people    = await ask(rl, `  ${c.cyan}Names/contacts involved: ${c.reset}`);
       inputs.details   = await ask(rl, `  ${c.cyan}Additional context (optional): ${c.reset}`);

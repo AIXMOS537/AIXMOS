@@ -11,14 +11,60 @@
  *   rick wake        — print Rick's prime brief (reload context)
  */
 
+// ── OWNER TIER. NOT PART OF THE DISTRIBUTED PACK. ───────────────────────────────────
+// RICK is the owner's own control surface: it hardcodes a specific Slack channel, three
+// specific Vercel deployments and a `blast` that messages THAT owner's operators. It is
+// the only file in this repo carrying those identifiers.
+//
+// The installers mirror the whole tree, so without this guard a copy of RICK lands on
+// every machine the pack is installed on. On a stranger's laptop it cannot work (no
+// credentials) and should not try (it would hit someone else's production from their
+// machine). The installers now exclude this file as well; the guard is the backstop for
+// a hand-copied tree.
+//
+// To run it on the owner's own machine: export AIXMOS_OWNER_TIER=1
+if (process.env.AIXMOS_OWNER_TIER !== "1") {
+  console.error(
+    "RICK is owner-tier and is not part of the AIXMOS pack.\n" +
+    "It targets one specific operation's Slack, Vercel projects and operator list.\n" +
+    "If this is the owner's machine: export AIXMOS_OWNER_TIER=1"
+  );
+  process.exit(2);
+}
+
 const { execSync, execFileSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 const https = require("https");
 
+function loadEnvFile(filePath) {
+  if (!fs.existsSync(filePath)) return;
+  for (const line of fs.readFileSync(filePath, "utf8").split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const eq = trimmed.indexOf("=");
+    if (eq < 1) continue;
+    const key = trimmed.slice(0, eq);
+    let val = trimmed.slice(eq + 1);
+    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+      val = val.slice(1, -1);
+    }
+    if (!process.env[key]) process.env[key] = val;
+  }
+}
+
+loadEnvFile(path.join(process.env.HOME || "", ".config/tmmt/evals-supabase.env"));
+
 const ANON_KEY =
-  process.env.SUPABASE_ANON_KEY;
-const SUPABASE_URL = "https://uapxakmlwnpfsftfeezx.supabase.co";
+  process.env.SUPABASE_ANON_KEY ||
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  process.env.SUPABASE_PUBLISHABLE_KEY ||
+  "";
+const SUPABASE_URL = (
+  process.env.SUPABASE_URL ||
+  process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  ""
+).replace(/\/$/, "");
 const SLACK_OPS = "C0B8ZD1D11N";
 const PORTAL = "https://tmmt-command-center.vercel.app/operator/training";
 

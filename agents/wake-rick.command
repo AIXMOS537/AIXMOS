@@ -25,21 +25,39 @@ fi
 
 echo "  ✓ Prime brief loaded ($(wc -l < "$BRIEF") lines)"
 
+SUPABASE_ENV="$HOME/.config/tmmt/evals-supabase.env"
+if [ -f "$SUPABASE_ENV" ]; then
+  set -a
+  # shellcheck disable=SC1090
+  . "$SUPABASE_ENV"
+  set +a
+fi
+SUPABASE_URL="${SUPABASE_URL:-}"
+SUPABASE_KEY="${SUPABASE_ANON_KEY:-${NEXT_PUBLIC_SUPABASE_ANON_KEY:-${SUPABASE_PUBLISHABLE_KEY:-}}}"
+
 # Quick health ping
 echo "  › Checking Supabase..."
-STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-  "https://uapxakmlwnpfsftfeezx.supabase.co/rest/v1/" \
-  -H "apikey: ${SUPABASE_ANON_KEY:?set SUPABASE_ANON_KEY}" 2>/dev/null)
-[ "$STATUS" = "200" ] && echo "  ✓ Supabase LIVE" || echo "  ! Supabase → $STATUS"
+if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_KEY" ]; then
+  STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+    "${SUPABASE_URL%/}/rest/v1/" \
+    -H "apikey: $SUPABASE_KEY" 2>/dev/null)
+  [ "$STATUS" = "200" ] && echo "  ✓ Supabase LIVE" || echo "  ! Supabase → $STATUS"
+else
+  echo "  ! Supabase env missing ($SUPABASE_ENV)"
+fi
 
 # Operator training status
 echo "  › Checking operator progress..."
-PROGRESS=$(curl -s \
-  "https://uapxakmlwnpfsftfeezx.supabase.co/rest/v1/operator_training_progress?select=count" \
-  -H "apikey: ${SUPABASE_ANON_KEY:?set SUPABASE_ANON_KEY}" \
-  -H "Prefer: count=exact" \
-  -I 2>/dev/null | grep -i "content-range" | awk -F/ '{print $2}' | tr -d '\r')
-echo "  › Operator module completions: ${PROGRESS:-0}"
+if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_KEY" ]; then
+  PROGRESS=$(curl -s \
+    "${SUPABASE_URL%/}/rest/v1/operator_training_progress?select=count" \
+    -H "apikey: $SUPABASE_KEY" \
+    -H "Prefer: count=exact" \
+    -I 2>/dev/null | grep -i "content-range" | awk -F/ '{print $2}' | tr -d '\r')
+  echo "  › Operator module completions: ${PROGRESS:-0}"
+else
+  echo "  › Operator module completions: skipped (no key)"
+fi
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

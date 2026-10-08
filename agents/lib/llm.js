@@ -10,8 +10,9 @@
  *                                          Preferred for routine agent traffic = ~$0.
  *
  * Tunables:
- *   AIXMOS_MODEL           Claude model id  (default claude-sonnet-4-6)
- *   OLLAMA_MODEL           Ollama model tag (default llama3.1:8b)
+ *   AIXMOS_MODEL           Claude model id  (default claude-opus-5)
+ *   OLLAMA_MODEL           Ollama model tag — NO default that assumes an install;
+ *                          set it to a tag `ollama list` actually shows on THIS box.
  *   OLLAMA_HOST            Ollama base URL  (default http://localhost:11434)
  *   AIXMOS_GATEWAY_URL     Gateway base URL (e.g. https://aixmos-gateway.<acct>.workers.dev)
  *   AIXMOS_GATEWAY_SECRET  Per-role secret; keep in ~/.config/tmmt/*.env, NEVER in the repo
@@ -23,8 +24,14 @@ const { loadAixmosEnv } = require('./env');
 let Anthropic;
 try { Anthropic = require('@anthropic-ai/sdk'); } catch { /* optional in offline-only mode */ }
 
-const DEFAULT_CLAUDE_MODEL = () => process.env.AIXMOS_MODEL || 'claude-sonnet-4-6';
-const DEFAULT_OLLAMA_MODEL = () => process.env.OLLAMA_MODEL || 'llama3.1:8b';
+const DEFAULT_CLAUDE_MODEL = () => process.env.AIXMOS_MODEL || 'claude-opus-5';
+// Was 'llama3.1:8b' — a tag installed on NEITHER the M1 nor BRAINIAC, so the local
+// lane failed silently the moment anyone selected it. A free lane pointed at a model
+// that does not exist is worse than no free lane: it looks configured and returns nothing.
+const DEFAULT_OLLAMA_MODEL = () => process.env.OLLAMA_MODEL || 'qwen3:14b';
+// Floor for local generation. Below ~2000 a reasoning model can burn the entire
+// budget on hidden thinking and return nothing. Raise for long-form local work.
+const MIN_LOCAL_PREDICT = parseInt(process.env.OLLAMA_MIN_PREDICT, 10) || 2000;
 const OLLAMA_HOST = () => (process.env.OLLAMA_HOST || 'http://localhost:11434').replace(/\/$/, '');
 const GATEWAY_URL = () => (process.env.AIXMOS_GATEWAY_URL || '').replace(/\/$/, '');
 const GATEWAY_TIER = () => process.env.AIXMOS_GATEWAY_TIER || 'free';
@@ -60,7 +67,16 @@ async function callOllama({ system, prompt, maxTokens, model }) {
       { role: 'user', content: prompt },
     ],
     stream: false,
-    options: { num_predict: maxTokens || 2000 },
+    // A REASONING model (qwen3, deepseek-r1, gpt-oss) spends num_predict inside
+    // <think> BEFORE it writes a visible word. Give it a small budget and it runs
+    // out mid-thought and returns 200 OK with content: "" — no error, no warning.
+    // Measured 2026-09-19, qwen3:14b, same prompt x4: num_predict 600 -> 2/4 EMPTY;
+    // num_predict 2500 -> 0/4. So floor the budget rather than trusting the caller.
+    // (num_ctx is set too, but it was NOT the cause — the budget was.)
+    options: {
+      num_predict: Math.max(maxTokens || 2000, MIN_LOCAL_PREDICT),
+      num_ctx: parseInt(process.env.OLLAMA_NUM_CTX, 10) || 16384,
+    },
   };
   let res;
   try {
@@ -77,7 +93,18 @@ async function callOllama({ system, prompt, maxTokens, model }) {
     throw new Error(`Ollama ${res.status}: ${detail.slice(0, 300)}`);
   }
   const data = await res.json();
-  return (data.message && data.message.content) || data.response || '';
+  const text = (data.message && data.message.content) || data.response || '';
+  // An empty completion is a FAILURE, not a result. Returning '' here let an agent
+  // report success while producing nothing — the caller cannot tell the difference
+  // between "the model had nothing to say" and "the lane is broken". Fail loud.
+  if (!text.trim()) {
+    throw new Error(
+      `Ollama returned an EMPTY completion (model=${body.model}, num_predict=${body.options.num_predict}, `
+      + `done_reason=${data.done_reason || 'unknown'}). A reasoning model likely spent the whole `
+      + `budget inside <think>. Raise maxTokens/OLLAMA_MIN_PREDICT, or use a non-reasoning model.`
+    );
+  }
+  return text;
 }
 
 async function callGateway({ system, prompt, maxTokens, tier }) {

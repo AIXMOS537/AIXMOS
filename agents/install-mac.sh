@@ -54,6 +54,7 @@ mkdir -p "$INSTALL_DIR"
 # rsync mirror, preserve state file
 if command -v rsync >/dev/null 2>&1; then
   rsync -a --delete \
+    --exclude 'agents/rick.js' \
     --exclude 'aixmos-state.json' \
     --exclude '.DS_Store' \
     --exclude '.Spotlight-V100' \
@@ -62,6 +63,9 @@ if command -v rsync >/dev/null 2>&1; then
     "$SCRIPT_DIR/" "$INSTALL_DIR/"
 else
   cp -R "$SCRIPT_DIR/." "$INSTALL_DIR/"
+  # The rsync path excludes the owner-tier agent; this fallback must match it, or a
+  # machine without rsync gets a copy the rsync path deliberately withholds.
+  rm -f "$INSTALL_DIR/agents/rick.js"
 fi
 echo -e "  ${GREEN}✓ Tree mirrored. State file preserved.${RESET}"
 echo ""

@@ -2,20 +2,42 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>Label</key><string>com.tmmt.imessage-relay</string>
+  <key>Label</key>
+  <string>com.tmmt.imessage-relay</string>
+  <key>Disabled</key>
+  <false/>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
   <key>ProgramArguments</key>
   <array>
-    <string>__NODE__</string>
-    <string>__HOME__/imessage-relay/relay.js</string>
+    <string>/usr/local/bin/node</string>
+    <string>/Users/projectaixmos01/projects/AIXMOS-AGENTS/imessage-relay/assistant.js</string>
+    <string>--live</string>
   </array>
   <key>EnvironmentVariables</key>
   <dict>
-    <key>RELAY_SECRET</key><string>3cb6565e9206a9ba56792cd6c84f1badc94a</string>
-    <key>RELAY_PORT</key><string>8787</string>
+    <key>HOME</key>
+    <string>/Users/projectaixmos01</string>
+    <key>PATH</key>
+    <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin</string>
+    <key>IMESSAGE_AUTO_ASSISTANT</key>
+    <string>0</string>
+    <key>IMESSAGE_ALLOW_SEND</key>
+    <string>0</string>
+    <key>IMESSAGE_KILL</key>
+    <string>0</string>
+    <key>RELAY_BIND</key>
+    <string>127.0.0.1</string>
+    <key>RELAY_PORT</key>
+    <string>8790</string>
   </dict>
-  <key>RunAtLoad</key><true/>
-  <key>KeepAlive</key><true/>
-  <key>StandardOutPath</key><string>/tmp/imessage-relay.log</string>
-  <key>StandardErrorPath</key><string>/tmp/imessage-relay.err</string>
+  <key>StandardOutPath</key>
+  <string>/tmp/imessage-relay.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/imessage-relay.err</string>
+  <key>Comment</key>
+  <string>Inbound read + draft. Send OFF by default (IMESSAGE_ALLOW_SEND/IMESSAGE_AUTO_ASSISTANT=0); enabling send is a reviewed activation. Needs Full Disk Access on /usr/local/bin/node — not Cursor. T2/T3 never send.</string>
 </dict>
 </plist>
