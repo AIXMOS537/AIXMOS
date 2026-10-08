@@ -64,12 +64,22 @@ def _read_file():
 def _write_file(d):
     os.makedirs(settings.MEMDIR, exist_ok=True)
     p = _file(); tmp = p + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(d, f, indent=1)
+    if backend() == "file-0600":
+        # create the temp file 0600 so the plain-text values are never readable by others, not even briefly
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(d, f, indent=1)
+    else:
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(d, f, indent=1)
     os.replace(tmp, p)
     if backend() == "file-0600":
         try:
-            os.chmod(p, 0o600)
+            os.chmod(p, 0o600)  # an older file may predate the 0600 rule
         except OSError:
             pass
 

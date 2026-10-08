@@ -292,16 +292,25 @@ class HeadApi(unittest.TestCase):
 
 
 class Secrets(unittest.TestCase):
-    """Provider keys live in the OS keystore (DPAPI / Keychain), never in settings.json; old plain-text keys move."""
+    """Provider keys live in the OS keystore (DPAPI / Keychain), never in settings.json; old plain-text keys move.
+    With no OS keystore (backend "file-0600") the one place a key may sit is secrets.local.json, owner-only."""
     FAKE = "rk-wave0-test-value-" + "Q7x9" * 6
 
     def _disk(self):
+        """Every JSON file in memory/ except the file-0600 store itself, which is checked by _assert_store_private."""
+        from aixmos import secret_store
+        store = os.path.basename(secret_store._file()) if secret_store.backend() == "file-0600" else None
         out = ""
         for name in os.listdir(settings.MEMDIR):
-            if name.endswith(".json"):
+            if name.endswith(".json") and name != store:
                 with open(os.path.join(settings.MEMDIR, name), "r", encoding="utf-8", errors="replace") as f:
                     out += f.read()
         return out
+
+    def _assert_store_private(self):
+        from aixmos import secret_store
+        if secret_store.backend() == "file-0600":
+            self.assertEqual(os.stat(secret_store._file()).st_mode & 0o777, 0o600)
 
     def test_key_saved_through_settings_is_never_plain_text_on_disk(self):
         from aixmos import secret_store
@@ -309,6 +318,7 @@ class Secrets(unittest.TestCase):
         self.assertEqual(settings.get("replicate", "api_key"), self.FAKE)
         self.assertTrue(settings.configured("replicate"))
         self.assertNotIn(self.FAKE, self._disk())
+        self._assert_store_private()
         self.assertEqual(settings.public_view()["providers"]["replicate"]["fields"]["api_key"][-4:], self.FAKE[-4:])
         settings.update(providers={"replicate": {"api_key": "__clear__"}})
         self.assertFalse(settings.configured("replicate"))
@@ -324,6 +334,7 @@ class Secrets(unittest.TestCase):
         settings._migrated = False
         self.assertEqual(settings.get("luma", "api_key"), self.FAKE)
         self.assertNotIn(self.FAKE, self._disk())
+        self._assert_store_private()
         with open(settings.FILE, "r", encoding="utf-8") as f:
             self.assertEqual(_json.load(f)["providers"]["luma"]["api_key"], settings.SECRET_MARK)
         settings.update(providers={"luma": {"api_key": "__clear__"}})
